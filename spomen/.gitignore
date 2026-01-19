@@ -1,0 +1,9 @@
+# Data directory
+data/
+
+# Environment file with secrets
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
