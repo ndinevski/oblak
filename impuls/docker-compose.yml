@@ -1,0 +1,49 @@
+services:
+  # Production mode - with Firecracker VM isolation
+  impuls:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: impuls
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist function data
+      - impuls-data:/var/lib/impuls
+      # Cache downloaded images
+      - impuls-images:/var/lib/impuls/images
+    environment:
+      - DATA_DIR=/var/lib/impuls
+    restart: unless-stopped
+    # Required for Firecracker
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    # Network capabilities for TAP devices
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    # Security options
+    security_opt:
+      - seccomp:unconfined
+
+  # Development mode - no Firecracker, uses local Node.js
+  impuls-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: impuls-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - impuls-data:/var/lib/impuls
+    environment:
+      - DATA_DIR=/var/lib/impuls
+      - IMPULS_LOCAL_MODE=true
+    restart: unless-stopped
+    profiles:
+      - dev
+
+volumes:
+  impuls-data:
+  impuls-images:

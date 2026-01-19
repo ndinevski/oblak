@@ -1,0 +1,12 @@
+{
+  "name": "impuls-nodejs-runtime",
+  "version": "1.0.0",
+  "description": "Impuls serverless function runtime for Node.js",
+  "main": "runtime.js",
+  "scripts": {
+    "start": "node runtime.js",
+    "test": "node test.js"
+  },
+  "author": "Oblak",
+  "license": "MIT"
+}

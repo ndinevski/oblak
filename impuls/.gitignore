@@ -1,0 +1,34 @@
+# Binaries
+build/
+*.exe
+
+# Images (downloaded separately)
+images/*.ext4
+images/vmlinux
+
+# Data directories
+/var/lib/impuls/
+
+# Go
+*.test
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+/tmp/
+*.tmp
+
+# Firecracker sockets
+*.sock
