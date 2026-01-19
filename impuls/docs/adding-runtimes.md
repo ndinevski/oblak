@@ -2,13 +2,25 @@
 
 This guide explains how to add support for additional programming languages to Impuls.
 
+## Currently Supported Runtimes
+
+| Runtime | Language | Version |
+|---------|----------|---------|
+| `nodejs20` | Node.js | 20.x |
+| `nodejs18` | Node.js | 18.x |
+| `python312` | Python | 3.12.x |
+| `python311` | Python | 3.11.x |
+| `dotnet8` | C# / .NET | 8.0 |
+| `dotnet7` | C# / .NET | 7.0 |
+
 ## Runtime Structure
 
 Each runtime consists of:
 
 1. **Runtime files** in `runtimes/{language}/`
 2. **Runtime constant** in `internal/models/function.go`
-3. **Rootfs with language support** in `images/`
+3. **Local executor** in `internal/function/executor_{language}.go`
+4. **Rootfs with language support** in `images/`
 
 ## Directory Structure
 
@@ -19,11 +31,13 @@ runtimes/
 │   ├── package.json     # Dependencies
 │   └── bootstrap.sh     # Startup script for VM
 ├── python/
-│   ├── runtime.py       # Python equivalent
-│   └── bootstrap.sh
-└── go/
-    ├── runtime.go       # Go equivalent
-    └── bootstrap.sh
+│   ├── runtime.py       # Python HTTP server
+│   ├── requirements.txt # Dependencies
+│   └── bootstrap.sh     # Startup script for VM
+└── dotnet/
+    ├── Program.cs       # .NET HTTP server
+    ├── ImpulsRuntime.csproj
+    └── bootstrap.sh     # Startup script for VM
 ```
 
 ## Step 1: Add Runtime Constant
@@ -32,27 +46,52 @@ Edit `internal/models/function.go`:
 
 ```go
 const (
-    RuntimeNodeJS20 Runtime = "nodejs20"
-    RuntimeNodeJS18 Runtime = "nodejs18"
-    RuntimePython39 Runtime = "python39"  // Add new runtime
+    RuntimeNodeJS20  Runtime = "nodejs20"
+    RuntimeNodeJS18  Runtime = "nodejs18"
+    RuntimePython312 Runtime = "python312"
     RuntimePython311 Runtime = "python311"
+    RuntimeDotNet8   Runtime = "dotnet8"
+    RuntimeDotNet7   Runtime = "dotnet7"
+    RuntimeNewLang   Runtime = "newlang"  // Add new runtime
 )
 
 func isValidRuntime(r Runtime) bool {
     switch r {
-    case RuntimeNodeJS20, RuntimeNodeJS18, RuntimePython39, RuntimePython311:
+    case RuntimeNodeJS20, RuntimeNodeJS18,
+        RuntimePython312, RuntimePython311,
+        RuntimeDotNet8, RuntimeDotNet7,
+        RuntimeNewLang:
         return true
     default:
         return false
+    }
+}
+
+// Update GetRuntimeLanguage to return the base language
+func GetRuntimeLanguage(r Runtime) string {
+    switch r {
+    case RuntimeNodeJS20, RuntimeNodeJS18:
+        return "nodejs"
+    case RuntimePython312, RuntimePython311:
+        return "python"
+    case RuntimeDotNet8, RuntimeDotNet7:
+        return "dotnet"
+    case RuntimeNewLang:
+        return "newlang"
+    default:
+        return ""
     }
 }
 ```
 
 ## Step 2: Create Runtime Files
 
-### Python Example
+### Example: Python Runtime
 
-Create `runtimes/python/runtime.py`:
+The Python runtime (`runtimes/python/runtime.py`) is an HTTP server that:
+1. Listens for invocation requests on `/invoke`
+2. Dynamically loads and executes function code
+3. Returns the result as JSON
 
 ```python
 #!/usr/bin/env python3
@@ -62,15 +101,12 @@ Impuls Function Runtime - Python
 
 import json
 import http.server
-import socketserver
-import traceback
 import sys
-import time
-from io import StringIO
+import traceback
 
 PORT = int(os.environ.get('RUNTIME_PORT', 8080))
 
-class InvocationHandler(http.server.BaseHTTPRequestHandler):
+class RuntimeHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/invoke':
             self.handle_invoke()
@@ -89,8 +125,6 @@ class InvocationHandler(http.server.BaseHTTPRequestHandler):
             }).encode())
         else:
             self.send_error(404)
-    
-    def handle_invoke(self):
         start_time = time.time()
         
         # Read request body

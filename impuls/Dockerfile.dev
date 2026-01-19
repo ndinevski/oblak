@@ -1,5 +1,5 @@
 # Development Dockerfile - runs without Firecracker
-# Uses local Node.js for function execution
+# Uses local Node.js, Python, and .NET for function execution
 
 # Build stage
 FROM golang:1.21-alpine AS builder
@@ -13,10 +13,25 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /impuls-server ./cmd/impuls-server
 
+# .NET SDK stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS dotnet-base
+
 # Runtime stage
 FROM node:20-alpine
 
-RUN apk add --no-cache ca-certificates curl bash
+RUN apk add --no-cache \
+    ca-certificates \
+    curl \
+    bash \
+    python3 \
+    py3-pip \
+    icu-libs \
+    libgcc \
+    libstdc++
+
+# Copy .NET SDK from dotnet-base
+COPY --from=dotnet-base /usr/share/dotnet /usr/share/dotnet
+RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 WORKDIR /app
 

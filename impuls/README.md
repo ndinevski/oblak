@@ -7,7 +7,7 @@ Impuls is a lightweight FaaS (Function as a Service) platform built on top of Fi
 - **Function Management**: Create, update, delete, and list functions
 - **HTTP Invocation**: Execute functions via HTTP endpoints
 - **Fast Cold Starts**: Leverages Firecracker's sub-second boot times
-- **Language Support**: Node.js (expandable to other runtimes)
+- **Multi-Language Support**: Node.js, Python, and C# (.NET) runtimes
 - **Secure Isolation**: Each function runs in its own microVM
 
 ## Architecture
@@ -26,7 +26,7 @@ Impuls is a lightweight FaaS (Function as a Service) platform built on top of Fi
 │                    Firecracker VMs                           │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
 │  │  VM 1   │  │  VM 2   │  │  VM 3   │  │  VM N   │        │
-│  │ Node.js │  │ Node.js │  │ Python  │  │   ...   │        │
+│  │ Node.js │  │ Python  │  │  .NET   │  │   ...   │        │
 │  └─────────┘  └─────────┘  └─────────┘  └─────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -143,10 +143,12 @@ impuls/
 │   ├── api/                # HTTP API handlers
 │   ├── function/           # Function management
 │   ├── firecracker/        # Firecracker VM management
-│   ├── runtime/            # Language runtimes
+│   ├── models/             # Data models
 │   └── storage/            # Function code storage
 ├── runtimes/
-│   └── nodejs/             # Node.js runtime files
+│   ├── nodejs/             # Node.js runtime files
+│   ├── python/             # Python runtime files
+│   └── dotnet/             # .NET (C#) runtime files
 ├── scripts/                # Setup and utility scripts
 ├── images/                 # Kernel and rootfs images
 └── docs/                   # Documentation

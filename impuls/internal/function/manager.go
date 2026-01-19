@@ -254,13 +254,25 @@ func (m *Manager) InvokeLocal(ctx context.Context, name string, payload interfac
 		return nil, fmt.Errorf("failed to get function code: %w", err)
 	}
 
-	// For local execution, we'll use a Node.js process directly
-	// This is useful for development/testing without Firecracker
-	result, err := executeNodeJSLocal(ctx, fn, code, payload)
-	if err != nil {
+	// Execute based on runtime
+	var result interface{}
+	var execErr error
+
+	switch models.GetRuntimeLanguage(fn.Runtime) {
+	case "nodejs":
+		result, execErr = executeNodeJSLocal(ctx, fn, code, payload)
+	case "python":
+		result, execErr = executePythonLocal(ctx, fn, code, payload)
+	case "dotnet":
+		result, execErr = executeDotNetLocal(ctx, fn, code, payload)
+	default:
+		execErr = fmt.Errorf("unsupported runtime for local execution: %s", fn.Runtime)
+	}
+
+	if execErr != nil {
 		return &models.InvocationResponse{
 			StatusCode: 500,
-			Error:      err.Error(),
+			Error:      execErr.Error(),
 			Duration:   time.Since(startTime).Milliseconds(),
 		}, nil
 	}

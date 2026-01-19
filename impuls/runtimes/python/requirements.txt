@@ -1,0 +1,5 @@
+# Impuls Python Runtime Dependencies
+# These are pre-installed in the runtime image
+
+# No external dependencies required for the base runtime
+# Users can include additional dependencies in their function packages

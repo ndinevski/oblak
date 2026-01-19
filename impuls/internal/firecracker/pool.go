@@ -9,11 +9,11 @@ import (
 
 // VMPool manages a pool of pre-warmed VMs for faster cold starts
 type VMPool struct {
-	manager     *Manager
-	pools       map[string]chan *VM // runtime -> pool of warm VMs
-	poolSize    int
-	mu          sync.RWMutex
-	stopChan    chan struct{}
+	manager  *Manager
+	pools    map[string]chan *VM // runtime -> pool of warm VMs
+	poolSize int
+	mu       sync.RWMutex
+	stopChan chan struct{}
 }
 
 // NewVMPool creates a new VM pool
@@ -26,7 +26,7 @@ func NewVMPool(manager *Manager, poolSize int) *VMPool {
 	}
 
 	// Initialize pools for supported runtimes
-	runtimes := []string{"nodejs20", "nodejs18"}
+	runtimes := []string{"nodejs20", "nodejs18", "python312", "python311", "dotnet8", "dotnet7"}
 	for _, runtime := range runtimes {
 		pool.pools[runtime] = make(chan *VM, poolSize)
 	}

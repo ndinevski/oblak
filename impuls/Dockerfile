@@ -17,6 +17,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /impuls-server ./cmd/impuls-server
 
 # Runtime stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS dotnet-base
+
 FROM alpine:3.19
 
 # Install runtime dependencies
@@ -24,12 +26,21 @@ RUN apk add --no-cache \
     ca-certificates \
     nodejs \
     npm \
+    python3 \
+    py3-pip \
     curl \
     iproute2 \
     iptables \
     e2fsprogs \
     coreutils \
-    bash
+    bash \
+    icu-libs \
+    libgcc \
+    libstdc++
+
+# Copy .NET SDK from dotnet-base
+COPY --from=dotnet-base /usr/share/dotnet /usr/share/dotnet
+RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 WORKDIR /app
 

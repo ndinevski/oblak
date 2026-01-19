@@ -6,11 +6,12 @@ import "time"
 type Runtime string
 
 const (
-	RuntimeNodeJS20 Runtime = "nodejs20"
-	RuntimeNodeJS18 Runtime = "nodejs18"
-	// Add more runtimes here as needed
-	// RuntimePython39 Runtime = "python39"
-	// RuntimeGo121    Runtime = "go121"
+	RuntimeNodeJS20  Runtime = "nodejs20"
+	RuntimeNodeJS18  Runtime = "nodejs18"
+	RuntimePython312 Runtime = "python312"
+	RuntimePython311 Runtime = "python311"
+	RuntimeDotNet8   Runtime = "dotnet8"
+	RuntimeDotNet7   Runtime = "dotnet7"
 )
 
 // Function represents a serverless function
@@ -97,10 +98,26 @@ func (r *CreateFunctionRequest) Validate() error {
 
 func isValidRuntime(r Runtime) bool {
 	switch r {
-	case RuntimeNodeJS20, RuntimeNodeJS18:
+	case RuntimeNodeJS20, RuntimeNodeJS18,
+		RuntimePython312, RuntimePython311,
+		RuntimeDotNet8, RuntimeDotNet7:
 		return true
 	default:
 		return false
+	}
+}
+
+// GetRuntimeLanguage returns the base language for a runtime
+func GetRuntimeLanguage(r Runtime) string {
+	switch r {
+	case RuntimeNodeJS20, RuntimeNodeJS18:
+		return "nodejs"
+	case RuntimePython312, RuntimePython311:
+		return "python"
+	case RuntimeDotNet8, RuntimeDotNet7:
+		return "dotnet"
+	default:
+		return ""
 	}
 }
 
