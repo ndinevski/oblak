@@ -1,11 +1,13 @@
-.PHONY: start stop restart logs status create-user create-bucket clean help
+.PHONY: build start stop restart logs status create-user create-bucket clean dev help
 
 # Default target
 help:
 	@echo "Spomen - Object Storage Service"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make start          - Start the service"
+	@echo "  make build          - Build the API server"
+	@echo "  make dev            - Run locally for development"
+	@echo "  make start          - Start the service (Docker)"
 	@echo "  make stop           - Stop the service"
 	@echo "  make restart        - Restart the service"
 	@echo "  make logs           - View logs"
@@ -14,6 +16,12 @@ help:
 	@echo "  make create-bucket  - Create a new bucket (BUCKET=name)"
 	@echo "  make clean          - Remove all data (DANGEROUS)"
 	@echo ""
+
+build:
+	go build -o spomen-server ./cmd/spomen-server
+
+dev: build
+	./spomen-server --port 8081 --minio-endpoint localhost:9000
 
 start:
 	@./scripts/start.sh
@@ -24,12 +32,15 @@ stop:
 restart: stop start
 
 logs:
-	docker compose logs -f minio
+	docker compose logs -f
+
+logs-api:
+	docker compose logs -f spomen-api
 
 status:
 	@docker compose ps
 	@echo ""
-	@docker compose exec minio mc admin info local 2>/dev/null || echo "Service not running"
+	@curl -s http://localhost:8081/health | jq . 2>/dev/null || echo "API not running"
 
 create-user:
 	@if [ -z "$(USER)" ] || [ -z "$(PASS)" ]; then \

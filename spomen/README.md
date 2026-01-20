@@ -1,6 +1,6 @@
-# Spomen - Object Storage
+# Spomen - Object Storage Service
 
-Spomen is the object storage component of the private cloud, powered by [Minio](https://min.io/). It provides S3-compatible object storage that can be accessed using any S3 SDK or client.
+Spomen is the object storage component of the private cloud, powered by [Minio](https://min.io/). It provides both S3-compatible storage and a simplified REST API for bucket and object management.
 
 ## Quick Start
 
@@ -16,60 +16,187 @@ make start
 make status
 ```
 
-## Access
+## Endpoints
 
-- **API Endpoint**: `http://localhost:9000`
-- **Web Console**: `http://localhost:9001`
-- **Default Credentials**: `spomen-admin` / `spomen-secret-key` (change in production!)
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Spomen API** | `http://localhost:8081` | REST API for storage management |
+| **Minio S3** | `http://localhost:9000` | S3-compatible endpoint |
+| **Minio Console** | `http://localhost:9001` | Web-based admin UI |
 
-## Default Buckets
+## API Reference
 
-The following buckets are created on first start:
-
-| Bucket | Purpose |
-|--------|---------|
-| `default` | General purpose storage |
-| `backups` | Backup files |
-| `uploads` | User uploads |
-| `public` | Publicly accessible files (anonymous read) |
-| `logs` | Log files |
-| `artifacts` | Build artifacts |
-
-## Management
-
-### Create a User
+### Health Check
 
 ```bash
-make create-user USER=myuser PASS=mysecret POLICY=readwrite
+curl http://localhost:8081/health
 ```
 
-Available policies: `readwrite`, `readonly`, `writeonly`
+---
 
-### Create a Bucket
+### Buckets
+
+#### List Buckets
 
 ```bash
-# Private bucket
-make create-bucket BUCKET=mybucket
-
-# Public bucket (anonymous read access)
-make create-bucket BUCKET=mybucket PUBLIC=public
+curl http://localhost:8081/api/v1/buckets
 ```
 
-### View Logs
+#### Create Bucket
 
 ```bash
-make logs
+curl -X POST http://localhost:8081/api/v1/buckets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-bucket",
+    "policy": "private",
+    "versioning": false
+  }'
 ```
 
-## Client Usage
+**Policy options:** `private` (default), `public-read`, `public-read-write`
+
+#### Get Bucket Details
+
+```bash
+curl http://localhost:8081/api/v1/buckets/my-bucket
+```
+
+#### Update Bucket
+
+```bash
+curl -X PUT http://localhost:8081/api/v1/buckets/my-bucket \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policy": "public-read",
+    "versioning": true
+  }'
+```
+
+#### Delete Bucket
+
+```bash
+# Delete empty bucket
+curl -X DELETE http://localhost:8081/api/v1/buckets/my-bucket
+
+# Force delete (removes all objects first)
+curl -X DELETE "http://localhost:8081/api/v1/buckets/my-bucket?force=true"
+```
+
+---
+
+### Objects
+
+#### List Objects
+
+```bash
+# List all objects
+curl http://localhost:8081/api/v1/buckets/my-bucket/objects
+
+# With prefix filter
+curl "http://localhost:8081/api/v1/buckets/my-bucket/objects?prefix=images/"
+
+# With delimiter (directory-like listing)
+curl "http://localhost:8081/api/v1/buckets/my-bucket/objects?prefix=data/&delimiter=/"
+
+# Pagination
+curl "http://localhost:8081/api/v1/buckets/my-bucket/objects?max_keys=100&marker=last-key"
+```
+
+#### Upload Object
+
+```bash
+# Simple upload
+curl -X PUT http://localhost:8081/api/v1/buckets/my-bucket/objects/path/to/file.txt \
+  -H "Content-Type: text/plain" \
+  -d "Hello, World!"
+
+# Upload with custom metadata
+curl -X PUT http://localhost:8081/api/v1/buckets/my-bucket/objects/document.pdf \
+  -H "Content-Type: application/pdf" \
+  -H "X-Meta-Author: John Doe" \
+  -H "X-Meta-Version: 1.0" \
+  --data-binary @document.pdf
+```
+
+#### Download Object
+
+```bash
+curl http://localhost:8081/api/v1/buckets/my-bucket/objects/path/to/file.txt
+```
+
+#### Get Object Info (Metadata Only)
+
+```bash
+curl "http://localhost:8081/api/v1/buckets/my-bucket/objects/path/to/file.txt?info=true"
+```
+
+#### Delete Object
+
+```bash
+curl -X DELETE http://localhost:8081/api/v1/buckets/my-bucket/objects/path/to/file.txt
+```
+
+#### Delete Multiple Objects
+
+```bash
+curl -X POST http://localhost:8081/api/v1/buckets/my-bucket/delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keys": ["file1.txt", "file2.txt", "images/photo.jpg"]
+  }'
+```
+
+#### Copy Object
+
+```bash
+curl -X POST "http://localhost:8081/api/v1/buckets/dest-bucket/objects/new-file.txt?action=copy" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_bucket": "source-bucket",
+    "source_key": "original-file.txt",
+    "dest_key": "new-file.txt"
+  }'
+```
+
+---
+
+### Presigned URLs
+
+Generate temporary URLs for direct upload/download:
+
+```bash
+# Generate download URL (valid for 1 hour)
+curl -X POST http://localhost:8081/api/v1/buckets/my-bucket/presign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "private-file.pdf",
+    "method": "GET",
+    "expires_in": 3600
+  }'
+
+# Generate upload URL
+curl -X POST http://localhost:8081/api/v1/buckets/my-bucket/presign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "uploads/new-file.pdf",
+    "method": "PUT",
+    "expires_in": 600
+  }'
+```
+
+---
+
+## Direct S3 Access
+
+You can also use any S3 SDK directly with the Minio endpoint:
 
 ### AWS CLI
 
 ```bash
 aws configure set aws_access_key_id spomen-admin
-aws configure set aws_secret_access_key spomen-secret-key
+aws configure set aws_secret_access_key your-secret-key
 
-# Use with endpoint
 aws --endpoint-url http://localhost:9000 s3 ls
 aws --endpoint-url http://localhost:9000 s3 cp file.txt s3://default/
 ```
@@ -83,101 +210,92 @@ s3 = boto3.client(
     's3',
     endpoint_url='http://localhost:9000',
     aws_access_key_id='spomen-admin',
-    aws_secret_access_key='spomen-secret-key'
+    aws_secret_access_key='your-secret-key'
 )
 
-# List buckets
-print(s3.list_buckets())
+# Upload
+s3.upload_file('local.txt', 'default', 'remote.txt')
 
-# Upload file
-s3.upload_file('local-file.txt', 'default', 'remote-file.txt')
-
-# Download file
-s3.download_file('default', 'remote-file.txt', 'downloaded.txt')
+# Download
+s3.download_file('default', 'remote.txt', 'local.txt')
 ```
 
 ### Go
 
 ```go
-package main
+import "github.com/minio/minio-go/v7"
 
-import (
-    "github.com/minio/minio-go/v7"
-    "github.com/minio/minio-go/v7/pkg/credentials"
-)
-
-func main() {
-    client, _ := minio.New("localhost:9000", &minio.Options{
-        Creds:  credentials.NewStaticV4("spomen-admin", "spomen-secret-key", ""),
-        Secure: false,
-    })
-    
-    // Use client...
-}
+client, _ := minio.New("localhost:9000", &minio.Options{
+    Creds:  credentials.NewStaticV4("spomen-admin", "your-secret-key", ""),
+    Secure: false,
+})
 ```
 
-### JavaScript/Node.js
+---
 
-```javascript
-const { S3Client, ListBucketsCommand } = require('@aws-sdk/client-s3');
+## Default Buckets
 
-const client = new S3Client({
-    endpoint: 'http://localhost:9000',
-    region: 'us-east-1',
-    credentials: {
-        accessKeyId: 'spomen-admin',
-        secretAccessKey: 'spomen-secret-key'
-    },
-    forcePathStyle: true
-});
+| Bucket | Policy | Purpose |
+|--------|--------|---------|
+| `default` | private | General purpose storage |
+| `backups` | private | Backup files |
+| `uploads` | private | User uploads |
+| `public` | public-read | Publicly accessible files |
+| `logs` | private | Log files |
+| `artifacts` | private | Build artifacts |
 
-const response = await client.send(new ListBucketsCommand({}));
-console.log(response.Buckets);
-```
+---
 
-### mc (Minio Client)
+## Development
+
+### Run Locally
 
 ```bash
-# Configure alias
-mc alias set spomen http://localhost:9000 spomen-admin spomen-secret-key
+# Start Minio only
+docker compose up -d minio
 
-# List buckets
-mc ls spomen/
-
-# Upload file
-mc cp file.txt spomen/default/
-
-# Download file
-mc cp spomen/default/file.txt ./
+# Run API server locally
+make dev
 ```
 
-## Production Considerations
+### Build
 
-1. **Change default credentials** in `.env`
-2. **Use HTTPS** - Set up a reverse proxy with TLS
-3. **Backup data** - The `./data` directory contains all storage
-4. **Set resource limits** in docker-compose for production
-5. **Enable versioning** for important buckets:
-   ```bash
-   mc version enable spomen/mybucket
-   ```
+```bash
+make build
+```
 
-## Directory Structure
+---
+
+## Project Structure
 
 ```
 spomen/
-├── docker-compose.yml    # Service definition
-├── .env.example          # Configuration template
-├── .env                  # Your configuration (gitignored)
-├── Makefile              # Convenience commands
-├── data/                 # Minio data (gitignored)
-└── scripts/
-    ├── start.sh          # Start service
-    ├── stop.sh           # Stop service
-    ├── init-buckets.sh   # Initialize default buckets
-    ├── create-user.sh    # Create new users
-    └── create-bucket.sh  # Create new buckets
+├── cmd/
+│   └── spomen-server/
+│       └── main.go           # Entry point
+├── internal/
+│   ├── api/
+│   │   ├── server.go         # HTTP server
+│   │   ├── bucket_routes.go  # Bucket endpoints
+│   │   └── object_routes.go  # Object endpoints
+│   ├── models/
+│   │   ├── bucket.go         # Bucket models
+│   │   └── object.go         # Object models
+│   └── storage/
+│       └── client.go         # Minio client wrapper
+├── scripts/
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── init-buckets.sh
+│   ├── create-user.sh
+│   └── create-bucket.sh
+├── docker-compose.yml
+├── Dockerfile
+├── Makefile
+└── go.mod
 ```
+
+---
 
 ## License
 
