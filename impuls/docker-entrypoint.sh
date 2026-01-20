@@ -5,6 +5,8 @@ DATA_DIR="${DATA_DIR:-/var/lib/impuls}"
 IMAGES_DIR="${DATA_DIR}/images"
 KERNEL_PATH="${IMAGES_DIR}/vmlinux"
 ROOTFS_PATH="${IMAGES_DIR}/rootfs.ext4"
+STORAGE_TYPE="${STORAGE_TYPE:-file}"
+DB_CONN="${DB_CONN:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,6 +15,22 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}=== Impuls FaaS Server ===${NC}"
+echo ""
+
+# Storage configuration
+echo "Storage Configuration:"
+if [ "$STORAGE_TYPE" = "postgres" ]; then
+    echo -e "  Type: ${GREEN}PostgreSQL${NC}"
+    if [ -z "$DB_CONN" ]; then
+        echo -e "  ${RED}✗ Database connection string not provided${NC}"
+        echo "    Set DB_CONN environment variable"
+        exit 1
+    fi
+    echo -e "  ${GREEN}✓ Database connection configured${NC}"
+else
+    echo -e "  Type: ${GREEN}File System${NC}"
+    echo "  Path: ${DATA_DIR}/functions"
+fi
 echo ""
 
 # Check for KVM support
@@ -110,6 +128,13 @@ echo "Starting Impuls server..."
 
 # Build command arguments
 ARGS="--data-dir ${DATA_DIR}"
+
+# Storage configuration
+if [ "$STORAGE_TYPE" = "postgres" ]; then
+    ARGS="$ARGS --storage postgres --db-conn ${DB_CONN}"
+else
+    ARGS="$ARGS --storage file"
+fi
 
 if [ "$KVM_AVAILABLE" = "false" ]; then
     echo -e "${YELLOW}Running in LOCAL MODE (no Firecracker)${NC}"

@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // Object represents a stored object
 type Object struct {
@@ -29,6 +33,18 @@ type PresignedURLRequest struct {
 	Key       string `json:"key"`
 	ExpiresIn int    `json:"expires_in"` // Seconds (default: 3600)
 	Method    string `json:"method"`     // "GET" or "PUT"
+}
+
+// Validate validates the PresignedURLRequest
+func (r *PresignedURLRequest) Validate() error {
+	if r.Key == "" {
+		return fmt.Errorf("key is required")
+	}
+	method := strings.ToUpper(r.Method)
+	if method != "GET" && method != "PUT" && method != "" {
+		return fmt.Errorf("method must be GET or PUT")
+	}
+	return nil
 }
 
 // PresignedURLResponse represents a presigned URL response

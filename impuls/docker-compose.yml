@@ -14,7 +14,12 @@ services:
       - impuls-images:/var/lib/impuls/images
     environment:
       - DATA_DIR=/var/lib/impuls
+      - STORAGE_TYPE=postgres
+      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     # Required for Firecracker
     privileged: true
     devices:
@@ -40,10 +45,16 @@ services:
     environment:
       - DATA_DIR=/var/lib/impuls
       - IMPULS_LOCAL_MODE=true
+      - STORAGE_TYPE=postgres
+      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     profiles:
       - dev
 
 volumes:
   impuls-data:
   impuls-images:
+  postgres-data:

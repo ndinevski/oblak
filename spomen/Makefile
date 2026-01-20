@@ -1,4 +1,4 @@
-.PHONY: build start stop restart logs status create-user create-bucket clean dev help
+.PHONY: build start stop restart logs status create-user create-bucket clean dev test help
 
 # Default target
 help:
@@ -6,6 +6,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  make build          - Build the API server"
+	@echo "  make test           - Run tests"
 	@echo "  make dev            - Run locally for development"
 	@echo "  make start          - Start the service (Docker)"
 	@echo "  make stop           - Stop the service"
@@ -19,6 +20,10 @@ help:
 
 build:
 	go build -o spomen-server ./cmd/spomen-server
+
+test:
+	@echo "Running tests..."
+	go test -v ./...
 
 dev: build
 	./spomen-server --port 8081 --minio-endpoint localhost:9000

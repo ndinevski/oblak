@@ -23,6 +23,8 @@ func main() {
 	firecrackerBin := flag.String("firecracker", "/usr/local/bin/firecracker", "Path to firecracker binary")
 	kernelPath := flag.String("kernel", "", "Path to kernel image (defaults to data-dir/images/vmlinux)")
 	rootfsPath := flag.String("rootfs", "", "Path to rootfs image (defaults to data-dir/images/rootfs.ext4)")
+	storageType := flag.String("storage", "file", "Storage type: file or postgres")
+	dbConnStr := flag.String("db-conn", "", "Database connection string (required for postgres storage)")
 	flag.Parse()
 
 	// Set default paths
@@ -33,10 +35,28 @@ func main() {
 		*rootfsPath = *dataDir + "/images/rootfs.ext4"
 	}
 
-	// Initialize storage
-	store, err := storage.NewFileStorage(*dataDir + "/functions")
-	if err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+	// Initialize storage based on type
+	var store storage.Storage
+	var err error
+
+	switch *storageType {
+	case "postgres":
+		if *dbConnStr == "" {
+			log.Fatal("Database connection string is required for postgres storage. Use --db-conn flag")
+		}
+		store, err = storage.NewPostgresStorage(*dbConnStr)
+		if err != nil {
+			log.Fatalf("Failed to initialize postgres storage: %v", err)
+		}
+		log.Println("Using PostgreSQL storage")
+	case "file":
+		store, err = storage.NewFileStorage(*dataDir + "/functions")
+		if err != nil {
+			log.Fatalf("Failed to initialize file storage: %v", err)
+		}
+		log.Println("Using file storage")
+	default:
+		log.Fatalf("Invalid storage type: %s. Must be 'file' or 'postgres'", *storageType)
 	}
 
 	// Initialize Firecracker manager
@@ -90,6 +110,13 @@ func main() {
 	// Cleanup running VMs
 	if err := fcManager.Cleanup(); err != nil {
 		log.Printf("Error during Firecracker cleanup: %v", err)
+	}
+
+	// Close storage connection if it's PostgreSQL
+	if pgStore, ok := store.(*storage.PostgresStorage); ok {
+		if err := pgStore.Close(); err != nil {
+			log.Printf("Error closing database connection: %v", err)
+		}
 	}
 
 	if err := server.Shutdown(ctx); err != nil {

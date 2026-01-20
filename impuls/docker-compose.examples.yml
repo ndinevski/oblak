@@ -1,0 +1,133 @@
+version: '3.8'
+
+# Example configuration for different deployment scenarios
+
+# Scenario 1: Development with file storage (no database)
+# Usage: docker compose -f docker-compose.examples.yml up dev-filestore
+services:
+  dev-filestore:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/var/lib/impuls
+    environment:
+      - STORAGE_TYPE=file
+      - DATA_DIR=/var/lib/impuls
+      - IMPULS_LOCAL_MODE=true
+    profiles:
+      - dev-file
+
+  # Scenario 2: Production with PostgreSQL (single instance)
+  # Usage: docker compose -f docker-compose.examples.yml up postgres prod-single
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=impuls
+      - POSTGRES_USER=impuls
+      - POSTGRES_PASSWORD=impuls123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./internal/storage/migrations.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U impuls"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prod-single:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - STORAGE_TYPE=postgres
+      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
+      - DATA_DIR=/var/lib/impuls
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - impuls-data:/var/lib/impuls
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+
+  # Scenario 3: Production with PostgreSQL (multi-instance for load balancing)
+  # Usage: docker compose -f docker-compose.examples.yml up postgres prod-multi-1 prod-multi-2 nginx
+  prod-multi-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - STORAGE_TYPE=postgres
+      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
+      - DATA_DIR=/var/lib/impuls
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - impuls-data-1:/var/lib/impuls
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    profiles:
+      - multi
+
+  prod-multi-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - STORAGE_TYPE=postgres
+      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
+      - DATA_DIR=/var/lib/impuls
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - impuls-data-2:/var/lib/impuls
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    profiles:
+      - multi
+
+  # Load balancer for multi-instance setup
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - prod-multi-1
+      - prod-multi-2
+    profiles:
+      - multi
+
+volumes:
+  postgres-data:
+  impuls-data:
+  impuls-data-1:
+  impuls-data-2:

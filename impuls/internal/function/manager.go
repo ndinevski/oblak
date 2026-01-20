@@ -63,16 +63,25 @@ func (m *Manager) Create(req *models.CreateFunctionRequest) (*models.Function, e
 		UpdatedAt:   time.Now(),
 	}
 
-	// Save code to storage
+	// Create function in storage first (needed for PostgreSQL)
+	if err := m.storage.Create(fn); err != nil {
+		return nil, fmt.Errorf("failed to create function: %w", err)
+	}
+
+	// Save code to storage (for file storage, creates separate code file)
 	codePath, err := m.storage.SaveCode(fn.Name, []byte(req.Code))
 	if err != nil {
+		// Rollback: delete the created function
+		m.storage.Delete(fn.Name)
 		return nil, fmt.Errorf("failed to save function code: %w", err)
 	}
 	fn.CodePath = codePath
 
-	// Create function in storage
-	if err := m.storage.Create(fn); err != nil {
-		return nil, fmt.Errorf("failed to create function: %w", err)
+	// Update with code path
+	if err := m.storage.Update(fn); err != nil {
+		// Rollback: delete the created function
+		m.storage.Delete(fn.Name)
+		return nil, fmt.Errorf("failed to update function with code path: %w", err)
 	}
 
 	return fn, nil

@@ -48,6 +48,9 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/functions/{name}", s.deleteFunction).Methods("DELETE")
 	api.HandleFunc("/functions/{name}/invoke", s.invokeFunction).Methods("POST")
 
+	// VM routes (for debugging/admin)
+	s.registerVMRoutes(api)
+
 	// Add middleware
 	s.router.Use(loggingMiddleware)
 	s.router.Use(contentTypeMiddleware)

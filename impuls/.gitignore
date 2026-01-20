@@ -1,5 +1,6 @@
 # Binaries
 build/
+impuls-server
 *.exe
 
 # Images (downloaded separately)
