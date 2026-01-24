@@ -1,6 +1,6 @@
 # Oblak - Private Cloud Platform
 
-Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes two core services: **Impuls** (serverless functions) and **Spomen** (object storage).
+Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes three core services: **Impuls** (FaaS service), **Spomen** (Object Storage service), and **Izvor** (VM service).
 
 ## Services
 
@@ -28,6 +28,20 @@ S3-compatible object storage service powered by MinIO, with a simplified REST AP
 - Web-based admin console (MinIO)
 
 📖 [Full Documentation](spomen/README.md)
+
+### 🖥️ Izvor - VM Provisioning
+
+EC2-like VM provisioning and management service powered by Proxmox VE, enabling self-service virtual machine deployment in your private cloud.
+
+**Features:**
+- VM lifecycle management (create, start, stop, delete)
+- Predefined VM sizes (nano, micro, small, medium, large)
+- Template-based provisioning
+- Cloud-init configuration support
+- Snapshot management
+- Cluster-aware node distribution
+
+📖 [Full Documentation](izvor/README.md)
 
 ## Quick Start
 
@@ -108,6 +122,34 @@ docker compose ps
 curl http://localhost:8080/health
 ```
 
+### Izvor (VM Provisioning)
+
+Izvor requires a Proxmox VE cluster to provision VMs:
+
+```bash
+cd izvor
+
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your Proxmox credentials
+
+# Start Izvor API
+docker compose up -d
+
+# Check status
+docker compose ps
+```
+
+**Services started:**
+| Service | URL | Description |
+|---------|-----|-------------|
+| Izvor API | http://localhost:8082 | VM provisioning API |
+
+**Verify it's running:**
+```bash
+curl http://localhost:8082/health
+```
+
 ---
 
 ### Run All Tests
@@ -119,6 +161,7 @@ make test
 # Or run tests for individual services
 make test-impuls
 make test-spomen
+make test-izvor
 ```
 
 ## Project Structure
@@ -144,6 +187,14 @@ oblak/
 │   │   └── storage/        # MinIO client
 │   └── scripts/            # Utility scripts
 │
+├── izvor/                  # VM provisioning service
+│   ├── cmd/                # Server entrypoint
+│   ├── internal/           # Core implementation
+│   │   ├── api/            # HTTP API handlers
+│   │   ├── models/         # Data models
+│   │   └── proxmox/        # Proxmox VE client
+│   └── scripts/            # Utility scripts
+│
 └── Makefile                # Root-level build/test commands
 ```
 
@@ -161,6 +212,7 @@ make test-coverage
 # Run specific service tests
 make test-impuls
 make test-spomen
+make test-izvor
 ```
 
 ### Building
@@ -172,6 +224,7 @@ make build
 # Build specific service
 make build-impuls
 make build-spomen
+make build-izvor
 ```
 
 ## Service Endpoints
@@ -180,6 +233,7 @@ make build-spomen
 |---------|------|-------------|
 | Impuls API | 8080 | Serverless functions API |
 | Spomen API | 8081 | Object storage REST API |
+| Izvor API | 8082 | VM provisioning API |
 | MinIO S3 | 9000 | S3-compatible endpoint |
 | MinIO Console | 9001 | Web admin interface |
 
