@@ -1,0 +1,31 @@
+services:
+  # Izvor API server
+  izvor-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: izvor-api
+    ports:
+      - "${IZVOR_API_PORT:-8082}:8082"
+    environment:
+      IZVOR_PORT: "8082"
+      PROXMOX_URL: ${PROXMOX_URL:-https://proxmox.local:8006}
+      PROXMOX_USER: ${PROXMOX_USER:-root@pam}
+      PROXMOX_PASSWORD: ${PROXMOX_PASSWORD:-}
+      PROXMOX_TOKEN_ID: ${PROXMOX_TOKEN_ID:-}
+      PROXMOX_TOKEN_SECRET: ${PROXMOX_TOKEN_SECRET:-}
+      PROXMOX_NODE: ${PROXMOX_NODE:-}
+      PROXMOX_INSECURE: ${PROXMOX_INSECURE:-true}
+    restart: unless-stopped
+    networks:
+      - izvor-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  izvor-network:
+    driver: bridge

@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+izvor-server
+*.exe
+
+# Test files
+*_test.go
+coverage.out
+coverage.html
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Scripts (not needed in container)
+scripts/
+
+# Environment files
+.env
+.env.*
+!.env.example
