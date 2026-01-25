@@ -1,0 +1,20 @@
+# Development override for docker-compose
+version: '3.8'
+
+services:
+  dashboard-db:
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.cache
+      - /app/dist
+    environment:
+      NODE_ENV: development
+    command: npm run develop

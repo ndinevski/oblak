@@ -1,0 +1,93 @@
+# Oblak Cloud Dashboard - Development Docker Compose
+# Uses development Dockerfiles with hot-reload
+
+services:
+  # PostgreSQL Database for Strapi
+  postgres:
+    image: postgres:16-alpine
+    container_name: oblak-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oblak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oblak_password}
+      POSTGRES_DB: ${POSTGRES_DB:-oblak_dashboard}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oblak} -d ${POSTGRES_DB:-oblak_dashboard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oblak-network-dev
+
+  # Strapi Backend (Development)
+  backend:
+    build:
+      context: ./backend-dashboard
+      dockerfile: Dockerfile.dev
+    container_name: oblak-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 1337
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-oblak_dashboard}
+      DATABASE_USERNAME: ${POSTGRES_USER:-oblak}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-oblak_password}
+      DATABASE_SSL: "false"
+      APP_KEYS: dev_key1,dev_key2,dev_key3,dev_key4
+      API_TOKEN_SALT: dev_api_token_salt
+      ADMIN_JWT_SECRET: dev_admin_jwt_secret
+      TRANSFER_TOKEN_SALT: dev_transfer_token_salt
+      JWT_SECRET: dev_jwt_secret
+      # Service URLs
+      IMPULS_URL: ${IMPULS_URL:-http://host.docker.internal:8080}
+      IZVOR_URL: ${IZVOR_URL:-http://host.docker.internal:8082}
+      SPOMEN_URL: ${SPOMEN_URL:-http://host.docker.internal:8081}
+    volumes:
+      - ./backend-dashboard:/app
+      - /app/node_modules
+      - /app/.cache
+    ports:
+      - "1337:1337"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - oblak-network-dev
+
+  # React Frontend (Development)
+  frontend:
+    build:
+      context: ./frontend-dashboard
+      dockerfile: Dockerfile.dev
+    container_name: oblak-frontend-dev
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:1337/api
+      VITE_IMPULS_URL: ${IMPULS_URL:-http://localhost:8080}
+      VITE_IZVOR_URL: ${IZVOR_URL:-http://localhost:8082}
+      VITE_SPOMEN_URL: ${SPOMEN_URL:-http://localhost:8081}
+    volumes:
+      - ./frontend-dashboard:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - oblak-network-dev
+
+volumes:
+  postgres_data_dev:
+    driver: local
+
+networks:
+  oblak-network-dev:
+    driver: bridge

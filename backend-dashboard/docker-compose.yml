@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Strapi
+  dashboard-db:
+    image: postgres:16-alpine
+    container_name: oblak-dashboard-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-oblak_dashboard}
+      POSTGRES_USER: ${DATABASE_USERNAME:-oblak}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-oblak_secret}
+    volumes:
+      - dashboard_db_data:/var/lib/postgresql/data
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    networks:
+      - oblak_backend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-oblak} -d ${DATABASE_NAME:-oblak_dashboard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Strapi Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oblak-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-1337}:1337"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      HOST: 0.0.0.0
+      PORT: 1337
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: dashboard-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DATABASE_NAME:-oblak_dashboard}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-oblak}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-oblak_secret}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      APP_KEYS: ${APP_KEYS}
+      API_TOKEN_SALT: ${API_TOKEN_SALT}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT}
+      IMPULS_URL: ${IMPULS_URL:-http://impuls:8080}
+      IZVOR_URL: ${IZVOR_URL:-http://izvor:8082}
+      SPOMEN_URL: ${SPOMEN_URL:-http://spomen:8081}
+    depends_on:
+      dashboard-db:
+        condition: service_healthy
+    networks:
+      - oblak_backend_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:1337/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  oblak_backend_network:
+    driver: bridge
+    name: oblak_backend_network
+
+volumes:
+  dashboard_db_data:
+    name: oblak_dashboard_db_data

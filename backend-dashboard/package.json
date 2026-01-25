@@ -1,0 +1,33 @@
+{
+  "name": "oblak-backend-dashboard",
+  "version": "1.0.0",
+  "description": "Strapi backend for Oblak Cloud Dashboard",
+  "private": true,
+  "scripts": {
+    "develop": "strapi develop",
+    "start": "strapi start",
+    "build": "strapi build",
+    "strapi": "strapi",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@strapi/strapi": "^5.4.2",
+    "@strapi/plugin-users-permissions": "^5.4.2",
+    "@strapi/plugin-cloud": "^5.4.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "supertest": "^7.0.0",
+    "@types/supertest": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0 <=24.x.x",
+    "npm": ">=6.0.0"
+  },
+  "license": "MIT"
+}
