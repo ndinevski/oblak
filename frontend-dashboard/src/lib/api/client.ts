@@ -142,6 +142,9 @@ function getDefaultErrorMessage(status: number): string {
  */
 export const apiClient = createApiClient();
 
+// Default export for convenience
+export default apiClient;
+
 /**
  * Check if error is an ApiError
  */

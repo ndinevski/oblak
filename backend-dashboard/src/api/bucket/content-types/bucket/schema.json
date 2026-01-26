@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "buckets",
+  "info": {
+    "singularName": "bucket",
+    "pluralName": "buckets",
+    "displayName": "Bucket",
+    "description": "Storage bucket metadata for Spomen integration"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 3,
+      "maxLength": 63,
+      "regex": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"
+    },
+    "policy": {
+      "type": "enumeration",
+      "enum": ["private", "public-read", "public-read-write"],
+      "default": "private",
+      "required": true
+    },
+    "versioning": {
+      "type": "boolean",
+      "default": false
+    },
+    "objectCount": {
+      "type": "biginteger",
+      "default": "0"
+    },
+    "totalSize": {
+      "type": "biginteger",
+      "default": "0"
+    },
+    "tags": {
+      "type": "json",
+      "default": {}
+    },
+    "description": {
+      "type": "text"
+    },
+    "corsConfiguration": {
+      "type": "json"
+    },
+    "lifecycleRules": {
+      "type": "json"
+    },
+    "quotaBytes": {
+      "type": "biginteger"
+    },
+    "externalSynced": {
+      "type": "boolean",
+      "default": true,
+      "private": true
+    },
+    "lastSyncedAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

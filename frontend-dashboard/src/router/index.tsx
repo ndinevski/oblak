@@ -20,6 +20,7 @@ const OverviewPage = lazy(() => import('@/pages/dashboard/OverviewPage'));
 const FunctionsListPage = lazy(() => import('@/pages/impuls/FunctionsListPage'));
 const FunctionDetailPage = lazy(() => import('@/pages/impuls/FunctionDetailPage'));
 const CreateFunctionPage = lazy(() => import('@/pages/impuls/CreateFunctionPage'));
+const EditFunctionPage = lazy(() => import('@/pages/impuls/EditFunctionPage'));
 
 // Izvor (VMs) pages
 const VMsListPage = lazy(() => import('@/pages/izvor/VMsListPage'));
@@ -34,6 +35,8 @@ const CreateBucketPage = lazy(() => import('@/pages/spomen/CreateBucketPage'));
 // Settings pages
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const ProfilePage = lazy(() => import('@/pages/settings/ProfilePage'));
+const ActivityPage = lazy(() => import('@/pages/settings/ActivityPage'));
+const QuotaPage = lazy(() => import('@/pages/settings/QuotaPage'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -134,6 +137,14 @@ export const router = createBrowserRouter([
               </SuspenseWrapper>
             ),
           },
+          {
+            path: ':functionId/edit',
+            element: (
+              <SuspenseWrapper>
+                <EditFunctionPage />
+              </SuspenseWrapper>
+            ),
+          },
         ],
       },
 
@@ -216,6 +227,22 @@ export const router = createBrowserRouter([
             element: (
               <SuspenseWrapper>
                 <ProfilePage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'activity',
+            element: (
+              <SuspenseWrapper>
+                <ActivityPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'quota',
+            element: (
+              <SuspenseWrapper>
+                <QuotaPage />
               </SuspenseWrapper>
             ),
           },

@@ -10,6 +10,12 @@ import {
   AvatarFallback,
   ScrollArea,
   Button,
+  ThemeDropdown,
+  Toaster,
+  GlobalSearch,
+  SearchTrigger,
+  useGlobalSearchShortcut,
+  ErrorBoundary,
 } from '@/components/ui';
 import {
   LayoutDashboard,
@@ -24,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 
 const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
@@ -39,10 +46,21 @@ const bottomNavigation = [
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const { logout, user } = useAuthStore();
+
+  // Enable Cmd+K global search shortcut
+  useGlobalSearchShortcut();
 
   const handleLogout = () => {
-    // TODO: Implement logout with auth store
+    logout();
     navigate('/auth/login');
+  };
+
+  const getInitials = () => {
+    if (user?.username) {
+      return user.username.slice(0, 2).toUpperCase();
+    }
+    return 'U';
   };
 
   return (
@@ -143,14 +161,22 @@ export default function DashboardLayout() {
             <Menu className="h-5 w-5" />
           </Button>
 
+          {/* Global Search */}
+          <div className="hidden md:block ml-4">
+            <SearchTrigger className="w-64" />
+          </div>
+
           <div className="flex-1" />
+
+          {/* Theme toggle */}
+          <ThemeDropdown className="mr-2" />
 
           {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar>
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -176,9 +202,15 @@ export default function DashboardLayout() {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto p-4 lg:p-6">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
+
+      {/* Global Components */}
+      <GlobalSearch />
+      <Toaster />
     </div>
   );
 }

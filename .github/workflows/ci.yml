@@ -1,0 +1,388 @@
+# Oblak Cloud Dashboard - CI/CD Pipeline
+# GitHub Actions workflow for testing and deployment
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.21'
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/oblak
+
+jobs:
+  # Backend Dashboard Tests
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend-dashboard
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: strapi
+          POSTGRES_PASSWORD: strapi
+          POSTGRES_DB: strapi_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./backend-dashboard/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint --if-present
+      
+      - name: Run type check
+        run: npm run typecheck --if-present
+      
+      - name: Run tests
+        run: npm test
+        env:
+          DATABASE_CLIENT: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_NAME: strapi_test
+          DATABASE_USERNAME: strapi
+          DATABASE_PASSWORD: strapi
+          JWT_SECRET: test-jwt-secret
+          APP_KEYS: test-app-key-1,test-app-key-2
+          API_TOKEN_SALT: test-api-token-salt
+          ADMIN_JWT_SECRET: test-admin-jwt-secret
+          TRANSFER_TOKEN_SALT: test-transfer-token-salt
+      
+      - name: Run coverage
+        run: npm run test:coverage --if-present
+        continue-on-error: true
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success() || failure()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./backend-dashboard/coverage
+          flags: backend
+          fail_ci_if_error: false
+
+  # Frontend Dashboard Tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend-dashboard
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./frontend-dashboard/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint --if-present
+      
+      - name: Run type check
+        run: npm run typecheck --if-present
+      
+      - name: Run tests
+        run: npm test
+      
+      - name: Run coverage
+        run: npm run test:coverage --if-present
+        continue-on-error: true
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: success() || failure()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./frontend-dashboard/coverage
+          flags: frontend
+          fail_ci_if_error: false
+
+  # E2E Tests (only on main branch)
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: ./frontend-dashboard
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./frontend-dashboard/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          CI: true
+      
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend-dashboard/playwright-report/
+          retention-days: 7
+
+  # Go Services Tests
+  go-tests:
+    name: Go Services Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [impuls, izvor, spomen]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ./${{ matrix.service }}/go.sum
+      
+      - name: Download dependencies
+        working-directory: ./${{ matrix.service }}
+        run: go mod download
+      
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          working-directory: ./${{ matrix.service }}
+          skip-cache: false
+      
+      - name: Run tests
+        working-directory: ./${{ matrix.service }}
+        run: go test -v -race -coverprofile=coverage.out ./...
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./${{ matrix.service }}/coverage.out
+          flags: ${{ matrix.service }}
+          fail_ci_if_error: false
+
+  # Build Docker Images
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, go-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: backend-dashboard
+            context: ./backend-dashboard
+            dockerfile: ./backend-dashboard/Dockerfile
+          - service: frontend-dashboard
+            context: ./frontend-dashboard
+            dockerfile: ./frontend-dashboard/Dockerfile
+          - service: impuls
+            context: ./impuls
+            dockerfile: ./impuls/Dockerfile
+          - service: izvor
+            context: ./izvor
+            dockerfile: ./izvor/Dockerfile
+          - service: spomen
+            context: ./spomen
+            dockerfile: ./spomen/Dockerfile
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # Deploy to Production (only on main branch push)
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to server
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /opt/oblak
+            git pull origin main
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker system prune -f
+          EOF
+      
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f ${{ vars.PRODUCTION_URL }}/health || exit 1
+      
+      - name: Notify on success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "✅ Oblak deployed successfully to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Oblak Cloud Dashboard*\n✅ Deployed to production\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|View commit>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true
+      
+      - name: Notify on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "❌ Oblak deployment failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Oblak Cloud Dashboard*\n❌ Deployment failed\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true
+
+  # Security Scan
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

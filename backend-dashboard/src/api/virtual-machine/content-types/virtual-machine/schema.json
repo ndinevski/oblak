@@ -1,0 +1,100 @@
+{
+  "kind": "collectionType",
+  "collectionName": "virtual_machines",
+  "info": {
+    "singularName": "virtual-machine",
+    "pluralName": "virtual-machines",
+    "displayName": "Virtual Machine",
+    "description": "User virtual machines managed by Izvor"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 63,
+      "regex": "^[a-z][a-z0-9-]*[a-z0-9]$"
+    },
+    "description": {
+      "type": "text"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["running", "stopped", "paused", "starting", "stopping", "creating", "deleting", "error", "unknown"],
+      "default": "creating"
+    },
+    "template": {
+      "type": "string"
+    },
+    "osType": {
+      "type": "enumeration",
+      "enum": ["linux", "windows", "other"],
+      "default": "linux"
+    },
+    "size": {
+      "type": "enumeration",
+      "enum": ["nano", "micro", "small", "medium", "large", "xlarge", "xxlarge", "custom"],
+      "default": "small"
+    },
+    "cores": {
+      "type": "integer",
+      "default": 1,
+      "min": 1,
+      "max": 128
+    },
+    "memoryMB": {
+      "type": "integer",
+      "default": 1024,
+      "min": 256,
+      "max": 65536
+    },
+    "diskGB": {
+      "type": "integer",
+      "default": 20,
+      "min": 5,
+      "max": 2000
+    },
+    "ipAddress": {
+      "type": "string"
+    },
+    "ipv6Address": {
+      "type": "string"
+    },
+    "network": {
+      "type": "string",
+      "default": "vmbr0"
+    },
+    "cloudInit": {
+      "type": "json",
+      "default": {}
+    },
+    "tags": {
+      "type": "json",
+      "default": []
+    },
+    "metadata": {
+      "type": "json",
+      "default": {}
+    },
+    "externalId": {
+      "type": "string",
+      "private": true
+    },
+    "node": {
+      "type": "string",
+      "private": true
+    },
+    "lastActionAt": {
+      "type": "datetime"
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

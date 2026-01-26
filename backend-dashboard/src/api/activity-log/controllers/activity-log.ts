@@ -1,83 +1,121 @@
 /**
- * Activity log controller
+ * Activity Log Controller
+ * Handles HTTP requests for activity log operations
  */
 
-import { factories } from '@strapi/strapi';
+import { Strapi } from '@strapi/strapi';
 
-export default factories.createCoreController('api::activity-log.activity-log', ({ strapi }) => ({
-  /**
-   * Find activity logs for current user
-   */
-  async find(ctx) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized('You must be logged in');
-    }
+// =============================================================================
+// Types
+// =============================================================================
 
-    const { page = 1, pageSize = 25, resourceType, action } = ctx.query;
+interface Context {
+  state: {
+    user?: { id: number };
+  };
+  request: {
+    body?: unknown;
+    query?: Record<string, unknown>;
+  };
+  params: Record<string, string>;
+  query: Record<string, unknown>;
+  throw: (status: number, message: string) => never;
+  unauthorized: (message: string) => void;
+  notFound: (message: string) => void;
+  forbidden: (message: string) => void;
+  badRequest: (message: string) => void;
+  body: unknown;
+  status: number;
+}
 
-    const filters: Record<string, unknown> = { user: user.id };
-    if (resourceType) filters.resourceType = resourceType;
-    if (action) filters.action = action;
+// =============================================================================
+// Helpers
+// =============================================================================
 
+function getAuthenticatedUser(ctx: Context): { id: number } {
+  if (!ctx.state.user) {
+    ctx.throw(401, 'Authentication required');
+  }
+  return ctx.state.user;
+}
+
+// =============================================================================
+// Controller Factory
+// =============================================================================
+
+export default ({ strapi }: { strapi: Strapi }) => ({
+  // ===========================================================================
+  // Find Activity Logs
+  // ===========================================================================
+
+  async find(ctx: Context) {
     try {
-      const logs = await strapi.entityService.findMany('api::activity-log.activity-log', {
-        filters,
-        sort: { createdAt: 'desc' },
-        limit: Number(pageSize),
-        offset: (Number(page) - 1) * Number(pageSize),
+      const user = getAuthenticatedUser(ctx);
+      const activityService = strapi.service('api::activity-log.activity-log');
+
+      const result = await activityService.find({
+        userId: user.id,
+        resourceType: ctx.query.resourceType as string,
+        action: ctx.query.action as string,
+        status: ctx.query.status as string,
+        startDate: ctx.query.startDate as string,
+        endDate: ctx.query.endDate as string,
+        page: Number(ctx.query.page) || 1,
+        pageSize: Number(ctx.query.pageSize) || 25,
       });
 
-      const total = await strapi.db.query('api::activity-log.activity-log').count({
-        where: filters,
-      });
-
-      return {
-        data: logs,
-        meta: {
-          pagination: {
-            page: Number(page),
-            pageSize: Number(pageSize),
-            total,
-            pageCount: Math.ceil(total / Number(pageSize)),
-          },
-        },
-      };
+      ctx.body = result;
     } catch (error) {
       strapi.log.error('Error fetching activity logs:', error);
-      return ctx.badRequest('Failed to fetch activity logs');
+      ctx.status = 400;
+      ctx.body = { error: { message: 'Failed to fetch activity logs' } };
     }
   },
 
-  /**
-   * Find one activity log
-   */
-  async findOne(ctx) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized('You must be logged in');
-    }
+  // ===========================================================================
+  // Find One Activity Log
+  // ===========================================================================
 
-    const { id } = ctx.params;
-
+  async findOne(ctx: Context) {
     try {
-      const log = await strapi.entityService.findOne('api::activity-log.activity-log', id, {
-        populate: ['user'],
-      });
+      const user = getAuthenticatedUser(ctx);
+      const logId = parseInt(ctx.params.id, 10);
+      const activityService = strapi.service('api::activity-log.activity-log');
+
+      const log = await activityService.findOne(logId, user.id);
 
       if (!log) {
-        return ctx.notFound('Activity log not found');
+        ctx.status = 404;
+        ctx.body = { error: { message: 'Activity log not found' } };
+        return;
       }
 
-      // Check ownership
-      if (log.user?.id !== user.id) {
-        return ctx.forbidden('You do not have access to this activity log');
-      }
-
-      return { data: log };
+      ctx.body = { data: log };
     } catch (error) {
       strapi.log.error('Error fetching activity log:', error);
-      return ctx.badRequest('Failed to fetch activity log');
+      ctx.status = 400;
+      ctx.body = { error: { message: 'Failed to fetch activity log' } };
     }
   },
-}));
+
+  // ===========================================================================
+  // Get Activity Summary
+  // ===========================================================================
+
+  async summary(ctx: Context) {
+    try {
+      const user = getAuthenticatedUser(ctx);
+      const activityService = strapi.service('api::activity-log.activity-log');
+
+      const days = ctx.query.days ? Number(ctx.query.days) : 30;
+      const summary = await activityService.getSummary(user.id, days);
+
+      ctx.body = { data: summary };
+    } catch (error) {
+      strapi.log.error('Error fetching activity summary:', error);
+      ctx.status = 400;
+      ctx.body = { error: { message: 'Failed to fetch activity summary' } };
+    }
+  },
+});
+
