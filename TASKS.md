@@ -80,37 +80,45 @@
 
 ### 1.2 Frontend Setup (React)
 
-- [ ] **Task 1.2.1**: Initialize React project with Vite
-  - Create `frontend-dashboard` directory
-  - Initialize with Vite + React + TypeScript template
-  - Configure path aliases in `tsconfig.json`
-  - Create Dockerfile (multi-stage build with nginx)
+- [x] **Task 1.2.1**: Initialize React project with Vite ✅
+  - Created `frontend-dashboard` directory
+  - Initialized with Vite + React + TypeScript template
+  - Configured path aliases in `tsconfig.json` (@/ alias)
+  - Created Dockerfile (multi-stage build with nginx) and Dockerfile.dev
+  - Created nginx.conf for production serving
   - **Tests**: Build succeeds, dev server starts
+  - **Completed**: January 26, 2026
 
-- [ ] **Task 1.2.2**: Configure Tailwind CSS
-  - Install and configure Tailwind CSS
-  - Set up `tailwind.config.js` with custom theme
-  - Create CSS variables for black/white theme
-  - Configure dark mode support
+- [x] **Task 1.2.2**: Configure Tailwind CSS ✅
+  - Installed and configured Tailwind CSS v3.4
+  - Set up `tailwind.config.js` with custom theme (colors, animations)
+  - Created CSS variables for black/white theme in index.css
+  - Configured dark mode support (class-based)
+  - Added tailwindcss-animate plugin
   - **Tests**: Tailwind classes compile correctly
+  - **Completed**: January 26, 2026
 
-- [ ] **Task 1.2.3**: Install and configure shadcn/ui
-  - Initialize shadcn/ui with CLI
-  - Install base components (button, card, input, etc.)
-  - Configure component aliases
-  - **Tests**: Components render correctly
+- [x] **Task 1.2.3**: Install and configure shadcn/ui ✅
+  - Initialized shadcn/ui with components.json configuration
+  - Installed 15 base components (button, card, input, dialog, dropdown-menu, avatar, badge, label, scroll-area, separator, spinner, table, tabs, tooltip)
+  - Configured component aliases (@/components, @/lib/utils, @/hooks)
+  - **Tests**: 19 component tests passing
+  - **Completed**: January 26, 2026
 
-- [ ] **Task 1.2.4**: Set up React Router
-  - Install react-router-dom
-  - Create route configuration
-  - Set up route guards for authentication
-  - **Tests**: Route navigation tests, guard tests
+- [x] **Task 1.2.4**: Set up React Router ✅
+  - Installed react-router-dom v6.28
+  - Created comprehensive route configuration with lazy loading
+  - Set up AuthLayout and DashboardLayout with route guards
+  - Configured routes for auth, dashboard, impuls, izvor, spomen, and settings
+  - **Tests**: 6 router tests passing
+  - **Completed**: January 26, 2026
 
-- [ ] **Task 1.2.5**: Set up TanStack Query
-  - Install @tanstack/react-query
-  - Configure QueryClient with defaults
-  - Set up QueryClientProvider
-  - **Tests**: Query hook tests
+- [x] **Task 1.2.5**: Set up TanStack Query ✅
+  - Installed @tanstack/react-query v5.62 and devtools
+  - Configured QueryClient with sensible defaults (staleTime, gcTime, retry logic)
+  - Set up QueryProvider with ReactQueryDevtools for development
+  - **Tests**: 19 hook tests passing (includes query hooks)
+  - **Completed**: January 26, 2026
 
 ### 1.3 Docker & Infrastructure
 
