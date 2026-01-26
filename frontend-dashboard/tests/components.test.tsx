@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 describe('Button Component', () => {
   it('renders with default variant', () => {
@@ -170,5 +172,82 @@ describe('Spinner Component', () => {
 
     rerender(<Spinner size="lg" data-testid="spinner" />);
     expect(screen.getByTestId('spinner').querySelector('svg')).toHaveClass('h-8', 'w-8');
+  });
+});
+
+describe('Breadcrumb Component', () => {
+  it('renders nothing on home page', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Breadcrumb />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('renders nothing on auth pages', () => {
+    render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <Breadcrumb />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('renders breadcrumb with home and current page', () => {
+    render(
+      <MemoryRouter initialEntries={['/functions']}>
+        <Breadcrumb />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    expect(screen.getByText('Functions')).toBeInTheDocument();
+  });
+
+  it('renders nested breadcrumbs', () => {
+    render(
+      <MemoryRouter initialEntries={['/functions/create']}>
+        <Breadcrumb />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Functions')).toBeInTheDocument();
+    expect(screen.getByText('Create')).toBeInTheDocument();
+  });
+
+  it('renders custom items when provided', () => {
+    const items = [
+      { label: 'Home', href: '/', current: false },
+      { label: 'Products', href: '/products', current: false },
+      { label: 'Item', href: '/products/123', current: true },
+    ];
+    render(
+      <MemoryRouter>
+        <Breadcrumb items={items} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('Products')).toBeInTheDocument();
+    expect(screen.getByText('Item')).toBeInTheDocument();
+  });
+
+  it('marks current item as non-link', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <Breadcrumb />
+      </MemoryRouter>
+    );
+    const settingsElement = screen.getByText('Settings');
+    expect(settingsElement.tagName).toBe('SPAN');
+    expect(settingsElement).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('renders home icon when showHome is true', () => {
+    render(
+      <MemoryRouter initialEntries={['/functions']}>
+        <Breadcrumb showHome={true} />
+      </MemoryRouter>
+    );
+    // Home link should exist
+    expect(screen.getByRole('link')).toBeInTheDocument();
   });
 });

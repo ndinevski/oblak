@@ -48,3 +48,4 @@ export {
   TableCaption,
 } from './table';
 export { Spinner } from './spinner';
+export { Breadcrumb, type BreadcrumbItem, type BreadcrumbProps } from './breadcrumb';
