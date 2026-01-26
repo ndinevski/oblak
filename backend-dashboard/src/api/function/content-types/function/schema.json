@@ -1,0 +1,82 @@
+{
+  "kind": "collectionType",
+  "collectionName": "functions",
+  "info": {
+    "singularName": "function",
+    "pluralName": "functions",
+    "displayName": "Function",
+    "description": "Serverless functions managed by Impuls"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 2,
+      "maxLength": 63,
+      "regex": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    },
+    "externalId": {
+      "type": "string",
+      "private": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "runtime": {
+      "type": "enumeration",
+      "enum": ["nodejs20", "nodejs18", "python312", "python311", "dotnet8", "dotnet7"],
+      "required": true,
+      "default": "nodejs20"
+    },
+    "handler": {
+      "type": "string",
+      "required": true,
+      "default": "index.handler"
+    },
+    "code": {
+      "type": "text"
+    },
+    "memoryMB": {
+      "type": "integer",
+      "default": 128,
+      "min": 64,
+      "max": 3008
+    },
+    "timeoutSec": {
+      "type": "integer",
+      "default": 30,
+      "min": 1,
+      "max": 900
+    },
+    "environment": {
+      "type": "json",
+      "default": {}
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["active", "inactive", "error", "deploying"],
+      "default": "inactive"
+    },
+    "lastInvokedAt": {
+      "type": "datetime"
+    },
+    "invocationCount": {
+      "type": "biginteger",
+      "default": "0"
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "tags": {
+      "type": "json",
+      "default": []
+    }
+  }
+}
