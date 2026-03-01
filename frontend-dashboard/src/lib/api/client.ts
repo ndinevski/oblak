@@ -10,7 +10,7 @@ import { getStoredToken, logout } from '@/stores/authStore';
  * API configuration
  */
 export const API_CONFIG = {
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:1337',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:1337/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -138,12 +138,45 @@ function getDefaultErrorMessage(status: number): string {
 }
 
 /**
- * Main API client instance
+ * Raw Axios API client instance
  */
-export const apiClient = createApiClient();
+const axiosClient = createApiClient();
+
+/**
+ * Main API client instance (raw Axios instance)
+ * Use this when you need full access to AxiosResponse
+ */
+export const apiClient = axiosClient;
 
 // Default export for convenience
 export default apiClient;
+
+/**
+ * API client that extracts data from Axios responses
+ * Use this when you just want the response data directly
+ */
+export const api = {
+  get: async <T>(url: string, config?: Parameters<typeof axiosClient.get>[1]): Promise<T> => {
+    const response = await axiosClient.get<T>(url, config);
+    return response.data;
+  },
+  post: async <T>(url: string, data?: unknown, config?: Parameters<typeof axiosClient.post>[2]): Promise<T> => {
+    const response = await axiosClient.post<T>(url, data, config);
+    return response.data;
+  },
+  put: async <T>(url: string, data?: unknown, config?: Parameters<typeof axiosClient.put>[2]): Promise<T> => {
+    const response = await axiosClient.put<T>(url, data, config);
+    return response.data;
+  },
+  patch: async <T>(url: string, data?: unknown, config?: Parameters<typeof axiosClient.patch>[2]): Promise<T> => {
+    const response = await axiosClient.patch<T>(url, data, config);
+    return response.data;
+  },
+  delete: async <T = void>(url: string, config?: Parameters<typeof axiosClient.delete>[1]): Promise<T> => {
+    const response = await axiosClient.delete<T>(url, config);
+    return response.data;
+  },
+};
 
 /**
  * Check if error is an ApiError

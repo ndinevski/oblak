@@ -8,6 +8,7 @@ export default {
       method: 'GET',
       path: '/quota',
       handler: 'quota.getQuota',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -19,6 +20,7 @@ export default {
       method: 'GET',
       path: '/quota/usage',
       handler: 'quota.getUsage',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -30,6 +32,7 @@ export default {
       method: 'GET',
       path: '/quota/limits',
       handler: 'quota.getLimits',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],

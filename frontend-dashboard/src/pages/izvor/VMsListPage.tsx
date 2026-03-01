@@ -226,7 +226,7 @@ export default function VMsListPage() {
 
   // Render VM card for grid view
   const VMCard = ({ vm }: { vm: VirtualMachine }) => (
-    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/izvor/vms/${vm.documentId}`)}>
+    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/vms/${vm.documentId}`)}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
@@ -296,14 +296,90 @@ export default function VMsListPage() {
     </Card>
   );
 
-  // Loading skeleton
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Izvor VMs</h1>
+          <p className="text-muted-foreground">
+            Manage your virtual machines
+          </p>
         </div>
+        <Button asChild>
+          <Link to="/vms/new">
+            <Plus className="h-4 w-4 mr-2" />
+            Create VM
+          </Link>
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search VMs..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <Select value={status || 'all'} onValueChange={handleStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="running">Running</SelectItem>
+              <SelectItem value="stopped">Stopped</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="creating">Creating</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="outline" size="icon" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Error state */}
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-sm text-destructive">
+                Unable to fetch VMs right now. Showing page fallback.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading skeleton */}
+      {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <Card key={i}>
@@ -321,92 +397,10 @@ export default function VMsListPage() {
             </Card>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="p-6">
-        <Card className="border-destructive">
-          <CardContent className="p-6 text-center">
-            <p className="text-destructive">Failed to load virtual machines</p>
-            <Button variant="outline" onClick={() => refetch()} className="mt-4">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Virtual Machines</h1>
-          <p className="text-muted-foreground">
-            Manage your virtual machines
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/izvor/vms/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Create VM
-          </Link>
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search VMs..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-        </div>
-        <Select value={status || 'all'} onValueChange={handleStatusFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="stopped">Stopped</SelectItem>
-            <SelectItem value="paused">Paused</SelectItem>
-            <SelectItem value="creating">Creating</SelectItem>
-            <SelectItem value="error">Error</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex gap-1 border rounded-md p-1">
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('table')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+      )}
 
       {/* Empty state */}
-      {vms.length === 0 && (
+      {!isLoading && !error && vms.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -418,7 +412,7 @@ export default function VMsListPage() {
             </p>
             {!search && !status && (
               <Button asChild>
-                <Link to="/izvor/vms/new">
+                <Link to="/vms/new">
                   <Plus className="h-4 w-4 mr-2" />
                   Create your first VM
                 </Link>
@@ -456,7 +450,7 @@ export default function VMsListPage() {
                 <TableRow
                   key={vm.documentId}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/izvor/vms/${vm.documentId}`)}
+                  onClick={() => navigate(`/vms/${vm.documentId}`)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">

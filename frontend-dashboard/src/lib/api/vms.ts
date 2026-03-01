@@ -3,7 +3,7 @@
  * Frontend client for VM operations via dashboard backend
  */
 
-import { apiClient } from './client';
+import api from './client';
 import type { PaginatedResponse, ApiResponse, PaginationParams } from './types';
 
 // VM Types
@@ -147,87 +147,103 @@ export async function listVMs(params: VMListParams = {}): Promise<PaginatedRespo
   if (params.sort) searchParams.set('sort', params.sort);
 
   const query = searchParams.toString();
-  return apiClient.get<PaginatedResponse<VirtualMachine>>(
+  const response = await api.get<PaginatedResponse<VirtualMachine>>(
     `/virtual-machines${query ? `?${query}` : ''}`
   );
+  return response.data;
 }
 
 export async function getVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.get<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}`);
+  const response = await api.get<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}`);
+  return response.data;
 }
 
 export async function createVM(data: CreateVMRequest): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>('/virtual-machines', data);
+  const response = await api.post<ApiResponse<VirtualMachine>>('/virtual-machines', data);
+  return response.data;
 }
 
 export async function updateVM(id: string, data: UpdateVMRequest): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.put<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}`, data);
+  const response = await api.put<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}`, data);
+  return response.data;
 }
 
 export async function deleteVM(id: string): Promise<void> {
-  await apiClient.delete(`/virtual-machines/${id}`);
+  await api.delete(`/virtual-machines/${id}`);
 }
 
 // VM Actions
 export async function startVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/start`);
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/start`);
+  return response.data;
 }
 
 export async function stopVM(id: string, force = false): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/stop`, { force });
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/stop`, { force });
+  return response.data;
 }
 
 export async function rebootVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/reboot`);
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/reboot`);
+  return response.data;
 }
 
 export async function pauseVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/pause`);
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/pause`);
+  return response.data;
 }
 
 export async function resumeVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/resume`);
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/resume`);
+  return response.data;
 }
 
 // Console
 export async function getVMConsole(id: string, type: 'vnc' | 'spice' = 'vnc'): Promise<ApiResponse<VMConsoleInfo>> {
-  return apiClient.get<ApiResponse<VMConsoleInfo>>(`/virtual-machines/${id}/console?type=${type}`);
+  const response = await api.get<ApiResponse<VMConsoleInfo>>(`/virtual-machines/${id}/console?type=${type}`);
+  return response.data;
 }
 
 // Stats
 export async function getVMStats(id: string): Promise<ApiResponse<VMStats>> {
-  return apiClient.get<ApiResponse<VMStats>>(`/virtual-machines/${id}/stats`);
+  const response = await api.get<ApiResponse<VMStats>>(`/virtual-machines/${id}/stats`);
+  return response.data;
 }
 
 // Snapshots
 export async function listVMSnapshots(vmId: string): Promise<ApiResponse<VMSnapshot[]>> {
-  return apiClient.get<ApiResponse<VMSnapshot[]>>(`/virtual-machines/${vmId}/snapshots`);
+  const response = await api.get<ApiResponse<VMSnapshot[]>>(`/virtual-machines/${vmId}/snapshots`);
+  return response.data;
 }
 
 export async function createVMSnapshot(vmId: string, data: CreateSnapshotRequest): Promise<ApiResponse<VMSnapshot>> {
-  return apiClient.post<ApiResponse<VMSnapshot>>(`/virtual-machines/${vmId}/snapshots`, data);
+  const response = await api.post<ApiResponse<VMSnapshot>>(`/virtual-machines/${vmId}/snapshots`, data);
+  return response.data;
 }
 
 export async function restoreVMSnapshot(vmId: string, snapshotName: string): Promise<void> {
-  await apiClient.post(`/virtual-machines/${vmId}/snapshots/${snapshotName}/restore`);
+  await api.post(`/virtual-machines/${vmId}/snapshots/${snapshotName}/restore`);
 }
 
 export async function deleteVMSnapshot(vmId: string, snapshotName: string): Promise<void> {
-  await apiClient.delete(`/virtual-machines/${vmId}/snapshots/${snapshotName}`);
+  await api.delete(`/virtual-machines/${vmId}/snapshots/${snapshotName}`);
 }
 
 // Templates and Sizes
 export async function getVMTemplates(): Promise<ApiResponse<VMTemplate[]>> {
-  return apiClient.get<ApiResponse<VMTemplate[]>>('/virtual-machines/templates');
+  const response = await api.get<ApiResponse<VMTemplate[]>>('/virtual-machines/templates');
+  return response.data;
 }
 
 export async function getVMSizes(): Promise<ApiResponse<VMSizeSpec[]>> {
-  return apiClient.get<ApiResponse<VMSizeSpec[]>>('/virtual-machines/sizes');
+  const response = await api.get<ApiResponse<VMSizeSpec[]>>('/virtual-machines/sizes');
+  return response.data;
 }
 
 // Sync
 export async function syncVM(id: string): Promise<ApiResponse<VirtualMachine>> {
-  return apiClient.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/sync`);
+  const response = await api.post<ApiResponse<VirtualMachine>>(`/virtual-machines/${id}/sync`);
+  return response.data;
 }
 
 // Helper functions

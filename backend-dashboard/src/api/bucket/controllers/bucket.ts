@@ -3,7 +3,7 @@
  * Handles HTTP requests for bucket operations
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 import { SpomenClientError } from '../services/spomen-client';
 
 // =============================================================================

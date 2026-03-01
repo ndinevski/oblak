@@ -8,6 +8,8 @@ import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 import { Button } from './button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 
+const isDev = import.meta.env.DEV;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -49,7 +51,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.props.onError?.(error, errorInfo);
     
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.error('Error caught by ErrorBoundary:', error);
       console.error('Component stack:', errorInfo.componentStack);
     }
@@ -108,7 +110,6 @@ export function ErrorFallback({
   onGoHome,
 }: ErrorFallbackProps) {
   const [showDetails, setShowDetails] = React.useState(false);
-  const isDev = process.env.NODE_ENV === 'development';
 
   return (
     <div className="min-h-[400px] flex items-center justify-center p-6">
@@ -217,7 +218,7 @@ export function useErrorBoundary() {
 export function PageErrorBoundary({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary
-      onError={(error, errorInfo) => {
+      onError={(error) => {
         // In production, you would send this to an error tracking service
         console.error('Page error:', error);
       }}

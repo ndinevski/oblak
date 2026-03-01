@@ -325,7 +325,7 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
     });
 
     // Log activity
-    await logActivity(strapi, 'update', userId, bucketId, data);
+    await logActivity(strapi, 'update', userId, bucketId, data as Record<string, unknown>);
 
     return updated;
   },

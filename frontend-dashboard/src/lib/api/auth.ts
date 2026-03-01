@@ -19,12 +19,12 @@ import type {
  * Auth API endpoints
  */
 const AUTH_ENDPOINTS = {
-  login: '/api/auth/local',
-  register: '/api/auth/local/register',
-  forgotPassword: '/api/auth/forgot-password',
-  resetPassword: '/api/auth/reset-password',
-  changePassword: '/api/auth/change-password',
-  me: '/api/users/me',
+  login: '/auth/local',
+  register: '/auth/local/register',
+  forgotPassword: '/auth/forgot-password',
+  resetPassword: '/auth/reset-password',
+  changePassword: '/auth/change-password',
+  me: '/users/me',
 } as const;
 
 /**
@@ -91,7 +91,7 @@ export async function updateProfile(data: UpdateProfileRequest): Promise<User> {
  * Email confirmation (for accounts that require email verification)
  */
 export async function confirmEmail(confirmationToken: string): Promise<AuthResponse> {
-  const response = await apiClient.get<AuthResponse>('/api/auth/email-confirmation', {
+  const response = await apiClient.get<AuthResponse>('/auth/email-confirmation', {
     params: { confirmation: confirmationToken },
   });
   return response.data;
@@ -101,7 +101,7 @@ export async function confirmEmail(confirmationToken: string): Promise<AuthRespo
  * Resend confirmation email
  */
 export async function resendConfirmation(email: string): Promise<{ ok: boolean }> {
-  const response = await apiClient.post<{ ok: boolean }>('/api/auth/send-email-confirmation', {
+  const response = await apiClient.post<{ ok: boolean }>('/auth/send-email-confirmation', {
     email,
   });
   return response.data;

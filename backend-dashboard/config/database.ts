@@ -1,7 +1,7 @@
-export default ({ env }) => {
+export default ({ env }: { env: any }) => {
   const client = env('DATABASE_CLIENT', 'postgres');
 
-  const connections = {
+  const connections: Record<string, any> = {
     postgres: {
       connection: {
         connectionString: env('DATABASE_URL'),

@@ -171,7 +171,7 @@ export default function CreateVMPage() {
         description: `${formData.name} is being provisioned...`,
       });
       
-      navigate('/izvor/vms');
+      navigate('/vms');
     } catch (err) {
       toast({
         title: 'Failed to create VM',
@@ -470,7 +470,7 @@ export default function CreateVMPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/izvor/vms')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/vms')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

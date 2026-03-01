@@ -176,7 +176,7 @@ export default function VMDetailPage() {
     try {
       await deleteVMMutation.mutateAsync(vmId);
       toast({ title: 'VM Deleted', description: `${vm?.name} has been deleted.` });
-      navigate('/izvor/vms');
+      navigate('/vms');
     } catch (err) {
       toast({ title: 'Failed to delete VM', variant: 'destructive' });
     }
@@ -274,7 +274,7 @@ export default function VMDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/izvor/vms')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/vms')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

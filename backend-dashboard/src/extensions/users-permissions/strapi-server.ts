@@ -3,15 +3,15 @@
  * Customizes authentication behavior for Oblak Dashboard
  */
 
-import type { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 export default (plugin: any) => {
   // Store original controller methods
   const originalAuthController = plugin.controllers.auth;
 
   // Extend the auth controller
-  plugin.controllers.auth = (ctx: { strapi: Strapi }) => {
-    const original = originalAuthController(ctx);
+  plugin.controllers.auth = (controllerCtx: { strapi?: Core.Strapi }) => {
+    const original = originalAuthController(controllerCtx);
 
     return {
       ...original,
@@ -55,7 +55,7 @@ export default (plugin: any) => {
 
         // Log registration for audit
         if (ctx.body?.user) {
-          ctx.strapi.log.info(`New user registered: ${ctx.body.user.email}`);
+          controllerCtx?.strapi?.log?.info?.(`New user registered: ${ctx.body.user.email}`);
         }
       },
     };

@@ -1,6 +1,6 @@
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 import { Link } from 'react-router-dom';
-import { User, Shield, Bell, Activity, PieChart, Key } from 'lucide-react';
+import { User, Shield, Bell, Key } from 'lucide-react';
 
 interface SettingsCardProps {
   to?: string;
@@ -56,25 +56,6 @@ export default function SettingsPage() {
             title="API Keys"
             description="Manage API keys for programmatic access"
             disabled
-          />
-        </div>
-      </div>
-
-      {/* Monitoring */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Monitoring</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <SettingsCard
-            to="/settings/activity"
-            icon={Activity}
-            title="Activity Log"
-            description="View your recent activity and audit trail"
-          />
-          <SettingsCard
-            to="/settings/quota"
-            icon={PieChart}
-            title="Quota Usage"
-            description="View resource usage and limits"
           />
         </div>
       </div>

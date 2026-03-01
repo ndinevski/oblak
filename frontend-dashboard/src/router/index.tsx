@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 // Lazy load pages for code splitting
 import { lazy, Suspense } from 'react';
 import { Spinner } from '@/components/ui';
+import { RequireAuth, RedirectIfAuthenticated } from '@/components/auth/RouteGuard';
 
 // Layout components
 const DashboardLayout = lazy(() => import('@/layouts/DashboardLayout'));
@@ -56,7 +57,9 @@ export const router = createBrowserRouter([
     path: '/auth',
     element: (
       <SuspenseWrapper>
-        <AuthLayout />
+        <RedirectIfAuthenticated>
+          <AuthLayout />
+        </RedirectIfAuthenticated>
       </SuspenseWrapper>
     ),
     children: [
@@ -96,7 +99,9 @@ export const router = createBrowserRouter([
     path: '/',
     element: (
       <SuspenseWrapper>
-        <DashboardLayout />
+        <RequireAuth>
+          <DashboardLayout />
+        </RequireAuth>
       </SuspenseWrapper>
     ),
     children: [

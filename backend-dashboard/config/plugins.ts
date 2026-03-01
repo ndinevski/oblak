@@ -1,4 +1,4 @@
-export default ({ env }) => ({
+export default ({ env }: { env: any }) => ({
   // Users & Permissions plugin configuration
   'users-permissions': {
     config: {

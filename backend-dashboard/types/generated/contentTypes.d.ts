@@ -498,6 +498,62 @@ export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiBucketBucket extends Struct.CollectionTypeSchema {
+  collectionName: 'buckets';
+  info: {
+    description: 'Storage bucket metadata for Spomen integration';
+    displayName: 'Bucket';
+    pluralName: 'buckets';
+    singularName: 'bucket';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    corsConfiguration: Schema.Attribute.JSON;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    externalSynced: Schema.Attribute.Boolean &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<true>;
+    lastSyncedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    lifecycleRules: Schema.Attribute.JSON;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::bucket.bucket'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 63;
+        minLength: 3;
+      }>;
+    objectCount: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    policy: Schema.Attribute.Enumeration<
+      ['private', 'public-read', 'public-read-write']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'private'>;
+    publishedAt: Schema.Attribute.DateTime;
+    quotaBytes: Schema.Attribute.BigInteger;
+    tags: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<{}>;
+    totalSize: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    versioning: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+  };
+}
+
 export interface ApiFunctionFunction extends Struct.CollectionTypeSchema {
   collectionName: 'functions';
   info: {
@@ -569,6 +625,112 @@ export interface ApiFunctionFunction extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<30>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiVirtualMachineVirtualMachine
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'virtual_machines';
+  info: {
+    description: 'User virtual machines managed by Izvor';
+    displayName: 'Virtual Machine';
+    pluralName: 'virtual-machines';
+    singularName: 'virtual-machine';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cloudInit: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<{}>;
+    cores: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 128;
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    diskGB: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 2000;
+          min: 5;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<20>;
+    externalId: Schema.Attribute.String & Schema.Attribute.Private;
+    ipAddress: Schema.Attribute.String;
+    ipv6Address: Schema.Attribute.String;
+    lastActionAt: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::virtual-machine.virtual-machine'
+    > &
+      Schema.Attribute.Private;
+    memoryMB: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 65536;
+          min: 256;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1024>;
+    metadata: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<{}>;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 63;
+        minLength: 2;
+      }>;
+    network: Schema.Attribute.String & Schema.Attribute.DefaultTo<'vmbr0'>;
+    node: Schema.Attribute.String & Schema.Attribute.Private;
+    osType: Schema.Attribute.Enumeration<['linux', 'windows', 'other']> &
+      Schema.Attribute.DefaultTo<'linux'>;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    size: Schema.Attribute.Enumeration<
+      [
+        'nano',
+        'micro',
+        'small',
+        'medium',
+        'large',
+        'xlarge',
+        'xxlarge',
+        'custom',
+      ]
+    > &
+      Schema.Attribute.DefaultTo<'small'>;
+    status: Schema.Attribute.Enumeration<
+      [
+        'running',
+        'stopped',
+        'paused',
+        'starting',
+        'stopping',
+        'creating',
+        'deleting',
+        'error',
+        'unknown',
+      ]
+    > &
+      Schema.Attribute.DefaultTo<'creating'>;
+    tags: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<[]>;
+    template: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1100,7 +1262,9 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::activity-log.activity-log': ApiActivityLogActivityLog;
+      'api::bucket.bucket': ApiBucketBucket;
       'api::function.function': ApiFunctionFunction;
+      'api::virtual-machine.virtual-machine': ApiVirtualMachineVirtualMachine;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

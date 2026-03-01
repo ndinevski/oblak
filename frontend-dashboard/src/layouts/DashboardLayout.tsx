@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,8 @@ import {
   Zap,
   Server,
   Database,
+  Activity,
+  PieChart,
   Settings,
   LogOut,
   User,
@@ -32,11 +34,19 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 
-const navigation = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard },
-  { name: 'Functions', href: '/functions', icon: Zap },
-  { name: 'Virtual Machines', href: '/vms', icon: Server },
-  { name: 'Storage', href: '/storage', icon: Database },
+const primaryNavigation = [
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+];
+
+const servicesNavigation = [
+  { name: 'Impuls', href: '/functions', icon: Zap },
+  { name: 'Izvor', href: '/vms', icon: Server },
+  { name: 'Spomen', href: '/storage', icon: Database },
+];
+
+const monitoringNavigation = [
+  { name: 'Activity Log', href: '/settings/activity', icon: Activity },
+  { name: 'Quota Usage', href: '/settings/quota', icon: PieChart },
 ];
 
 const bottomNavigation = [
@@ -45,8 +55,13 @@ const bottomNavigation = [
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
+
+  const isSettingsActive =
+    location.pathname === '/settings' ||
+    location.pathname.startsWith('/settings/profile');
 
   // Enable Cmd+K global search shortcut
   useGlobalSearchShortcut();
@@ -87,7 +102,7 @@ export default function DashboardLayout() {
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg">O</span>
               </div>
-              <span className="font-semibold text-lg">Oblak Cloud</span>
+              <span className="font-semibold text-lg">Oblak Console</span>
             </NavLink>
             <Button
               variant="ghost"
@@ -101,8 +116,8 @@ export default function DashboardLayout() {
 
           {/* Navigation */}
           <ScrollArea className="flex-1 py-4">
-            <nav className="space-y-1 px-2">
-              {navigation.map((item) => (
+            <nav className="space-y-5 px-2">
+              {primaryNavigation.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.href}
@@ -120,6 +135,52 @@ export default function DashboardLayout() {
                   {item.name}
                 </NavLink>
               ))}
+
+              <div className="space-y-1">
+                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                  Services
+                </p>
+                {servicesNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      )
+                    }
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </NavLink>
+                ))}
+              </div>
+
+              <div className="space-y-1">
+                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                  Monitoring
+                </p>
+                {monitoringNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      )
+                    }
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </NavLink>
+                ))}
+              </div>
             </nav>
           </ScrollArea>
 
@@ -130,10 +191,10 @@ export default function DashboardLayout() {
                 <NavLink
                   key={item.name}
                   to={item.href}
-                  className={({ isActive }) =>
+                  className={() =>
                     cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                      isActive
+                      isSettingsActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     )

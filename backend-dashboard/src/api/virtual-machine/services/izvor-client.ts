@@ -3,7 +3,7 @@
  * HTTP client for communicating with the Izvor VM management service
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 // Izvor API types matching the Go models
 export interface IzvorVM {

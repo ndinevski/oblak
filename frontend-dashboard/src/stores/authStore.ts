@@ -74,6 +74,7 @@ export const useAuthStore = create<AuthState>()(
           user, 
           token, 
           isAuthenticated: true, 
+          isLoading: false,
           error: null 
         });
       },

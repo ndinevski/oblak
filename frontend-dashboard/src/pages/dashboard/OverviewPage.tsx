@@ -14,13 +14,33 @@ export default function OverviewPage() {
   const { data: summary } = useDashboardSummary();
   const { data: activities = [] } = useRecentActivities(5);
 
+  const formatOrNA = (value: number | null | undefined) =>
+    typeof value === 'number' ? value : 'N/A';
+
   // Build quota items from summary
   const quotaItems = summary
     ? [
-        { name: 'Functions', used: summary.quotas.functions.used, max: summary.quotas.functions.max },
-        { name: 'Virtual Machines', used: summary.quotas.vms.used, max: summary.quotas.vms.max },
-        { name: 'Buckets', used: summary.quotas.buckets.used, max: summary.quotas.buckets.max },
-        { name: 'Storage', used: summary.quotas.storage.used, max: summary.quotas.storage.max, unit: summary.quotas.storage.unit },
+        {
+          name: 'Functions',
+          used: summary.quotas.functions.used ?? 0,
+          max: summary.quotas.functions.max ?? 0,
+        },
+        {
+          name: 'Virtual Machines',
+          used: summary.quotas.vms.used ?? 0,
+          max: summary.quotas.vms.max ?? 0,
+        },
+        {
+          name: 'Buckets',
+          used: summary.quotas.buckets.used ?? 0,
+          max: summary.quotas.buckets.max ?? 0,
+        },
+        {
+          name: 'Storage',
+          used: summary.quotas.storage.used ?? 0,
+          max: summary.quotas.storage.max ?? 0,
+          unit: summary.quotas.storage.unit,
+        },
       ]
     : [];
 
@@ -31,7 +51,7 @@ export default function OverviewPage() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
-          {user ? `Welcome back, ${user.username}` : 'Welcome to Oblak Cloud Dashboard'}
+          {user ? `Welcome back, ${user.username}` : 'Welcome to Oblak Console'}
         </p>
       </div>
 
@@ -42,24 +62,36 @@ export default function OverviewPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <ResourceCard
           title="Functions"
-          value={summary?.functions.total ?? 0}
-          description={`${summary?.functions.active ?? 0} active`}
+          value={formatOrNA(summary?.functions.total)}
+          description={
+            summary?.functions.active !== null && summary?.functions.active !== undefined
+              ? `${summary.functions.active} active`
+              : 'N/A'
+          }
           icon={Zap}
           href="/functions"
           trend={summary?.functions.trend ? { value: summary.functions.trend } : undefined}
         />
         <ResourceCard
           title="Virtual Machines"
-          value={summary?.virtualMachines.total ?? 0}
-          description={`${summary?.virtualMachines.running ?? 0} running`}
+          value={formatOrNA(summary?.virtualMachines.total)}
+          description={
+            summary?.virtualMachines.running !== null && summary?.virtualMachines.running !== undefined
+              ? `${summary.virtualMachines.running} running`
+              : 'N/A'
+          }
           icon={Server}
           href="/vms"
           trend={summary?.virtualMachines.trend ? { value: summary.virtualMachines.trend } : undefined}
         />
         <ResourceCard
           title="Storage Buckets"
-          value={summary?.storage.totalBuckets ?? 0}
-          description={`${summary?.storage.usedGB ?? 0} GB used`}
+          value={formatOrNA(summary?.storage.totalBuckets)}
+          description={
+            summary?.storage.usedGB !== null && summary?.storage.usedGB !== undefined
+              ? `${summary.storage.usedGB} GB used`
+              : 'N/A'
+          }
           icon={Database}
           href="/storage"
           trend={summary?.storage.trend ? { value: summary.storage.trend } : undefined}

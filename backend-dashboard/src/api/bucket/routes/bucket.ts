@@ -12,6 +12,7 @@ export default {
       method: 'GET',
       path: '/buckets',
       handler: 'bucket.find',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -23,6 +24,7 @@ export default {
       method: 'GET',
       path: '/buckets/:id',
       handler: 'bucket.findOne',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -34,6 +36,7 @@ export default {
       method: 'POST',
       path: '/buckets',
       handler: 'bucket.create',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -45,6 +48,7 @@ export default {
       method: 'PUT',
       path: '/buckets/:id',
       handler: 'bucket.update',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -56,6 +60,7 @@ export default {
       method: 'DELETE',
       path: '/buckets/:id',
       handler: 'bucket.delete',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -71,6 +76,7 @@ export default {
       method: 'GET',
       path: '/buckets/:id/stats',
       handler: 'bucket.stats',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -86,6 +92,7 @@ export default {
       method: 'GET',
       path: '/buckets/:id/objects',
       handler: 'object.list',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -97,6 +104,7 @@ export default {
       method: 'GET',
       path: '/buckets/:id/objects/:objectKey',
       handler: 'object.get',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -108,6 +116,7 @@ export default {
       method: 'POST',
       path: '/buckets/:id/objects',
       handler: 'object.upload',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -119,6 +128,7 @@ export default {
       method: 'DELETE',
       path: '/buckets/:id/objects/:objectKey',
       handler: 'object.delete',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -130,6 +140,7 @@ export default {
       method: 'POST',
       path: '/buckets/:id/objects/delete-many',
       handler: 'object.deleteMany',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -145,6 +156,7 @@ export default {
       method: 'POST',
       path: '/buckets/:id/objects/copy',
       handler: 'object.copy',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -160,6 +172,7 @@ export default {
       method: 'POST',
       path: '/buckets/:id/presigned-url',
       handler: 'object.presignedUrl',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -175,6 +188,7 @@ export default {
       method: 'POST',
       path: '/buckets/:id/sync',
       handler: 'bucket.sync',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],

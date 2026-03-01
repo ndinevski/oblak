@@ -99,6 +99,22 @@ export function GlobalSearch() {
     }
   }, [isOpen]);
 
+  // Ensure Escape always closes on first press, regardless of focused element.
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeSearch();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape, true);
+    return () => document.removeEventListener('keydown', handleEscape, true);
+  }, [isOpen, closeSearch]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
@@ -117,6 +133,8 @@ export function GlobalSearch() {
         }
         break;
       case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
         closeSearch();
         break;
     }
@@ -129,7 +147,13 @@ export function GlobalSearch() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeSearch()}>
-      <DialogContent className="p-0 gap-0 max-w-lg">
+      <DialogContent
+        className="p-0 gap-0 max-w-lg [&_[data-slot='dialog-close']]:hidden"
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          closeSearch();
+        }}
+      >
         <div className="flex items-center border-b px-3">
           <Search className="h-5 w-5 text-muted-foreground" />
           <Input

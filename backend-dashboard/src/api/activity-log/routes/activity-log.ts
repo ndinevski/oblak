@@ -8,6 +8,7 @@ export default {
       method: 'GET',
       path: '/activity-logs',
       handler: 'activity-log.find',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -19,6 +20,7 @@ export default {
       method: 'GET',
       path: '/activity-logs/summary',
       handler: 'activity-log.summary',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -30,6 +32,7 @@ export default {
       method: 'GET',
       path: '/activity-logs/:id',
       handler: 'activity-log.findOne',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],

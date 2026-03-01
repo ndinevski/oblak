@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { 
   Card, 
   CardContent, 
@@ -48,7 +48,6 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
-  Settings,
   Info,
   HardDrive,
   FileText,
@@ -77,7 +76,6 @@ import {
 
 export default function BucketDetailPage() {
   const { bucketId } = useParams();
-  const navigate = useNavigate();
   const id = parseInt(bucketId || '0', 10);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -235,10 +233,6 @@ export default function BucketDetailPage() {
           <Button variant="outline" onClick={() => syncMutation.mutate(id)}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Sync
-          </Button>
-          <Button variant="outline" onClick={() => navigate(`/storage/${id}/settings`)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Settings
           </Button>
         </div>
       </div>

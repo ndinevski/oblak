@@ -91,7 +91,7 @@ export default function BucketsListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Storage Buckets</h1>
+          <h1 className="text-3xl font-bold">Spomen Buckets</h1>
           <p className="text-muted-foreground">Manage your object storage</p>
         </div>
         <Link to="/storage/new">
@@ -204,9 +204,9 @@ export default function BucketsListPage() {
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View Objects
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}/settings`)}>
+                      <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
                         <Settings className="mr-2 h-4 w-4" />
-                        Settings
+                        Details
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleSync(bucket)}>
                         <RefreshCw className="mr-2 h-4 w-4" />
@@ -303,9 +303,9 @@ export default function BucketsListPage() {
                             <ExternalLink className="mr-2 h-4 w-4" />
                             View Objects
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}/settings`)}>
+                          <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
                             <Settings className="mr-2 h-4 w-4" />
-                            Settings
+                            Details
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleSync(bucket)}>
                             <RefreshCw className="mr-2 h-4 w-4" />

@@ -3,7 +3,7 @@
  * Handles HTTP requests for activity log operations
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 // =============================================================================
 // Types

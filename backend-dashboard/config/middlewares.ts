@@ -1,4 +1,4 @@
-export default ({ env }) => [
+export default ({ env }: { env: any }) => [
   'strapi::logger',
   'strapi::errors',
   {
@@ -18,7 +18,6 @@ export default ({ env }) => [
   {
     name: 'strapi::cors',
     config: {
-      enabled: true,
       origin: env.array('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5173']),
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
       headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],

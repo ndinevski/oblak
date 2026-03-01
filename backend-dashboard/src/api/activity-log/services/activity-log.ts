@@ -3,7 +3,7 @@
  * Business logic for activity logging and retrieval
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 // =============================================================================
 // Types

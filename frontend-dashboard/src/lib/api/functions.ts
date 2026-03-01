@@ -113,19 +113,19 @@ export const functionsApi = {
     const queryParams = new URLSearchParams();
     
     if (params?.page) {
-      queryParams.append('pagination[page]', params.page.toString());
+      queryParams.append('page', params.page.toString());
     }
     if (params?.pageSize) {
-      queryParams.append('pagination[pageSize]', params.pageSize.toString());
+      queryParams.append('pageSize', params.pageSize.toString());
     }
     if (params?.runtime) {
-      queryParams.append('filters[runtime][$eq]', params.runtime);
+      queryParams.append('runtime', params.runtime);
     }
     if (params?.status) {
-      queryParams.append('filters[status][$eq]', params.status);
+      queryParams.append('status', params.status);
     }
     if (params?.search) {
-      queryParams.append('filters[name][$containsi]', params.search);
+      queryParams.append('search', params.search);
     }
     
     // Sort by most recent first

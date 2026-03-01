@@ -3,7 +3,6 @@
  * Handles business logic for function operations with Impuls sync
  */
 
-import { factories } from '@strapi/strapi';
 import { createImpulsClient, ImpulsClient } from './impuls-client';
 
 /**
@@ -21,7 +20,7 @@ function getImpulsClient(): ImpulsClient {
   });
 }
 
-export default factories.createCoreService('api::function.function', ({ strapi }) => ({
+export default ({ strapi }: { strapi: any }) => ({
   /**
    * Create function with Impuls sync
    */
@@ -53,7 +52,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
       });
     } catch (error) {
       strapi.log.error('Failed to create function in Impuls:', error);
-      throw new Error(`Failed to create function in Impuls: ${error.message}`);
+      throw new Error(`Failed to create function in Impuls: ${(error as Error).message}`);
     }
 
     // Create function record in Strapi
@@ -85,7 +84,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
         status: 'success',
         user: data.owner,
       },
-    }).catch(err => strapi.log.warn('Failed to log activity:', err));
+    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
 
     return functionRecord;
   },
@@ -127,7 +126,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
       });
     } catch (error) {
       strapi.log.error('Failed to update function in Impuls:', error);
-      throw new Error(`Failed to update function in Impuls: ${error.message}`);
+      throw new Error(`Failed to update function in Impuls: ${(error as Error).message}`);
     }
 
     // Update in Strapi
@@ -135,7 +134,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
       data: {
         ...data,
         status: 'active',
-      },
+      } as any,
     });
 
     // Log activity
@@ -149,7 +148,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
         user: userId,
         details: { updatedFields: Object.keys(data) },
       },
-    }).catch(err => strapi.log.warn('Failed to log activity:', err));
+    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
 
     return updated;
   },
@@ -187,7 +186,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
         status: 'success',
         user: userId,
       },
-    }).catch(err => strapi.log.warn('Failed to log activity:', err));
+    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
 
     return { success: true, name: existing.name };
   },
@@ -225,12 +224,12 @@ export default factories.createCoreService('api::function.function', ({ strapi }
           resourceId: documentId,
           resourceName: fn.name,
           status: 'failure',
-          errorMessage: error.message,
+          errorMessage: (error as Error).message,
           user: userId,
         },
-      }).catch(err => strapi.log.warn('Failed to log activity:', err));
+      }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
 
-      throw new Error(`Function invocation failed: ${error.message}`);
+      throw new Error(`Function invocation failed: ${(error as Error).message}`);
     }
 
     // Update invocation count and last invoked time
@@ -239,7 +238,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
       data: {
         invocationCount: (currentCount + 1n).toString(),
         lastInvokedAt: new Date().toISOString(),
-      },
+      } as any,
     });
 
     // Log successful invocation
@@ -256,7 +255,7 @@ export default factories.createCoreService('api::function.function', ({ strapi }
           memoryUsedMb: result.memory_used_mb,
         },
       },
-    }).catch(err => strapi.log.warn('Failed to log activity:', err));
+    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
 
     return result;
   },
@@ -264,11 +263,31 @@ export default factories.createCoreService('api::function.function', ({ strapi }
   /**
    * Find functions by owner
    */
-  async findByOwner(ownerId: number, params: { page?: number; pageSize?: number } = {}) {
-    const { page = 1, pageSize = 25 } = params;
+  async findByOwner(
+    ownerId: number,
+    params: { page?: number; pageSize?: number; search?: string; runtime?: string; status?: string } = {}
+  ) {
+    const { page = 1, pageSize = 25, search, runtime, status } = params;
+
+    const filters: Record<string, unknown> = { owner: ownerId };
+
+    if (search) {
+      filters.$or = [
+        { name: { $containsi: search } },
+        { description: { $containsi: search } },
+      ];
+    }
+
+    if (runtime) {
+      filters.runtime = runtime;
+    }
+
+    if (status) {
+      filters.status = status;
+    }
 
     return strapi.entityService.findMany('api::function.function', {
-      filters: { owner: ownerId },
+      filters,
       sort: { createdAt: 'desc' },
       populate: ['owner'],
       limit: pageSize,
@@ -279,9 +298,28 @@ export default factories.createCoreService('api::function.function', ({ strapi }
   /**
    * Count functions by owner
    */
-  async countByOwner(ownerId: number) {
+  async countByOwner(ownerId: number, params: { search?: string; runtime?: string; status?: string } = {}) {
+    const { search, runtime, status } = params;
+
+    const where: Record<string, unknown> = { owner: ownerId };
+
+    if (search) {
+      where.$or = [
+        { name: { $containsi: search } },
+        { description: { $containsi: search } },
+      ];
+    }
+
+    if (runtime) {
+      where.runtime = runtime;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
     const result = await strapi.db.query('api::function.function').count({
-      where: { owner: ownerId },
+      where,
     });
     return result;
   },
@@ -294,6 +332,6 @@ export default factories.createCoreService('api::function.function', ({ strapi }
       filters: { name },
       limit: 1,
     });
-    return results[0] || null;
+    return (results as any[])?.[0] || null;
   },
-}));
+});

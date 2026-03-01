@@ -20,19 +20,19 @@ export interface QuickActionsProps {
 const defaultActions: QuickAction[] = [
   {
     label: 'New Function',
-    href: '/functions/create',
+    href: '/functions/new',
     icon: Zap,
     variant: 'default',
   },
   {
     label: 'New VM',
-    href: '/vms/create',
+    href: '/vms/new',
     icon: Server,
     variant: 'outline',
   },
   {
     label: 'New Bucket',
-    href: '/storage/create',
+    href: '/storage/new',
     icon: Database,
     variant: 'outline',
   },

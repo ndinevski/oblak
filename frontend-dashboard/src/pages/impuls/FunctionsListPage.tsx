@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Button, 
@@ -13,6 +13,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -24,6 +29,9 @@ import {
   Plus, 
   Zap, 
   Search, 
+  LayoutGrid,
+  List,
+  Server,
   MoreHorizontal, 
   Eye, 
   Pencil, 
@@ -81,6 +89,8 @@ function RuntimeBadge({ runtime }: { runtime: string }) {
 export default function FunctionsListPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<FunctionFilters>({});
+  const [searchInput, setSearchInput] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [page, setPage] = useState(1);
   
   const { data, isLoading, error, refetch } = useFunctions({ 
@@ -90,8 +100,28 @@ export default function FunctionsListPage() {
   });
   const deleteFunction = useDeleteFunction();
 
-  const handleSearch = (search: string) => {
-    setFilters((prev) => ({ ...prev, search }));
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setFilters((prev) => ({ ...prev, search: searchInput || undefined }));
+      setPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  const handleStatusFilter = (value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      status: value === 'all' ? undefined : (value as FunctionData['status']),
+    }));
+    setPage(1);
+  };
+
+  const handleRuntimeFilter = (value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      runtime: value === 'all' ? undefined : (value as FunctionData['runtime']),
+    }));
     setPage(1);
   };
 
@@ -107,13 +137,16 @@ export default function FunctionsListPage() {
 
   const functions = data?.data || [];
   const pagination = data?.meta?.pagination;
+  const filteredFunctions = functions.filter((fn) =>
+    fn.name.toLowerCase().includes(searchInput.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Functions</h1>
+          <h1 className="text-3xl font-bold">Impuls Functions</h1>
           <p className="text-muted-foreground">Manage your serverless functions</p>
         </div>
         <Link to="/functions/new">
@@ -124,74 +157,174 @@ export default function FunctionsListPage() {
         </Link>
       </div>
 
-      {/* Main Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Your Functions
-              </CardTitle>
-              <CardDescription>
-                Deploy and manage serverless functions with Impuls
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search */}
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search functions..."
-                className="pl-10"
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* Search and View Toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search functions..."
+            className="pl-10"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <Select value={filters.runtime || 'all'} onValueChange={handleRuntimeFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Runtime" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Runtimes</SelectItem>
+              <SelectItem value="nodejs20">Node.js 20</SelectItem>
+              <SelectItem value="nodejs18">Node.js 18</SelectItem>
+              <SelectItem value="python312">Python 3.12</SelectItem>
+              <SelectItem value="python311">Python 3.11</SelectItem>
+              <SelectItem value="python310">Python 3.10</SelectItem>
+              <SelectItem value="dotnet8">.NET 8</SelectItem>
+              <SelectItem value="dotnet7">.NET 7</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filters.status || 'all'} onValueChange={handleStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="deploying">Deploying</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setViewMode('grid')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setViewMode('table')}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-          {/* Error State */}
-          {error && (
-            <div className="flex items-center gap-2 text-destructive p-4 bg-destructive/10 rounded-lg">
-              <AlertCircle className="h-5 w-5" />
-              <span>Failed to load functions. Please try again.</span>
-            </div>
-          )}
+      {/* Error State */}
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="p-4 flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span>Unable to fetch functions right now. Showing page fallback.</span>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-12">
-              <Spinner className="h-8 w-8" />
-            </div>
-          )}
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
+      )}
 
-          {/* Empty State */}
-          {!isLoading && !error && functions.length === 0 && (
-            <div className="text-center py-12">
-              <Zap className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No functions yet</h3>
-              <p className="mt-2 text-muted-foreground">
-                Create your first function to get started with serverless computing.
-              </p>
+      {/* Empty State */}
+      {!isLoading && !error && filteredFunctions.length === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              {searchInput ? 'No Matching Functions' : 'Your Functions'}
+            </CardTitle>
+            <CardDescription>
+              {searchInput
+                ? 'No functions match your search criteria.'
+                : 'Deploy and manage serverless functions with Impuls'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {searchInput ? (
+              <Button variant="outline" onClick={() => setSearchInput('')}>
+                Clear Search
+              </Button>
+            ) : (
               <Link to="/functions/new">
-                <Button className="mt-4">
+                <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Function
+                  Create Your First Function
                 </Button>
               </Link>
-            </div>
-          )}
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Functions Table */}
-          {!isLoading && !error && functions.length > 0 && (
-            <>
-              <Table>
+      {/* Grid View */}
+      {!isLoading && filteredFunctions.length > 0 && viewMode === 'grid' && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredFunctions.map((fn) => (
+            <Card
+              key={fn.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => navigate(`/functions/${fn.id}`)}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    {fn.name}
+                  </CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}`); }}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}/edit`); }}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); void handleDelete(fn.id, fn.name); }}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RuntimeBadge runtime={fn.runtime} />
+                  <StatusBadge status={fn.status} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {fn.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{fn.description}</p>
+                )}
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  <span>{Number(fn.invocationCount).toLocaleString()} invocations</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Table View */}
+      {!isLoading && filteredFunctions.length > 0 && viewMode === 'table' && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
@@ -203,15 +336,14 @@ export default function FunctionsListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {functions.map((fn) => (
-                    <TableRow key={fn.id}>
+                  {filteredFunctions.map((fn) => (
+                    <TableRow
+                      key={fn.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/functions/${fn.id}`)}
+                    >
                       <TableCell>
-                        <Link 
-                          to={`/functions/${fn.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {fn.name}
-                        </Link>
+                        <span className="font-medium hover:underline">{fn.name}</span>
                         {fn.description && (
                           <p className="text-sm text-muted-foreground truncate max-w-[300px]">
                             {fn.description}
@@ -232,28 +364,28 @@ export default function FunctionsListPage() {
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="sm">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/functions/${fn.id}`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}`); }}>
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/functions/${fn.id}/test`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}/test`); }}>
                               <Play className="mr-2 h-4 w-4" />
                               Test
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/functions/${fn.id}/edit`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}/edit`); }}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => handleDelete(fn.id, fn.name)}
+                              onClick={(e) => { e.stopPropagation(); void handleDelete(fn.id, fn.name); }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -265,39 +397,38 @@ export default function FunctionsListPage() {
                   ))}
                 </TableBody>
               </Table>
+          </CardContent>
+        </Card>
+      )}
 
-              {/* Pagination */}
-              {pagination && pagination.pageCount > 1 && (
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
-                    {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{' '}
-                    {pagination.total} functions
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pagination.page <= 1}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pagination.page >= pagination.pageCount}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {/* Pagination */}
+      {pagination && pagination.pageCount > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
+            {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{' '}
+            {pagination.total} functions
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page >= pagination.pageCount}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -164,7 +164,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
 
         const contentType = response.headers.get('content-type');
         if (contentType?.includes('application/json')) {
-          return await response.json();
+          return await response.json() as T;
         }
 
         // For binary responses, return as-is

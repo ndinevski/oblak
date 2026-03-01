@@ -3,27 +3,32 @@
  * Handles HTTP requests for function operations
  */
 
-import { factories } from '@strapi/strapi';
-
-export default factories.createCoreController('api::function.function', ({ strapi }) => ({
+export default ({ strapi }: { strapi: any }) => ({
   /**
    * Find all functions for the current user
    */
-  async find(ctx) {
+  async find(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
     }
 
-    const { page = 1, pageSize = 25 } = ctx.query;
+    const { page = 1, pageSize = 25, search, runtime, status } = ctx.query;
 
     try {
       const functions = await strapi.service('api::function.function').findByOwner(user.id, {
         page: Number(page),
         pageSize: Number(pageSize),
+        search: search ? String(search) : undefined,
+        runtime: runtime ? String(runtime) : undefined,
+        status: status ? String(status) : undefined,
       });
 
-      const total = await strapi.service('api::function.function').countByOwner(user.id);
+      const total = await strapi.service('api::function.function').countByOwner(user.id, {
+        search: search ? String(search) : undefined,
+        runtime: runtime ? String(runtime) : undefined,
+        status: status ? String(status) : undefined,
+      });
 
       return {
         data: functions,
@@ -45,7 +50,7 @@ export default factories.createCoreController('api::function.function', ({ strap
   /**
    * Find one function by ID
    */
-  async findOne(ctx) {
+  async findOne(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -77,7 +82,7 @@ export default factories.createCoreController('api::function.function', ({ strap
   /**
    * Find function by name
    */
-  async findByName(ctx) {
+  async findByName(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -112,7 +117,7 @@ export default factories.createCoreController('api::function.function', ({ strap
   /**
    * Create a new function
    */
-  async create(ctx) {
+  async create(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -159,14 +164,14 @@ export default factories.createCoreController('api::function.function', ({ strap
       return { data: fn };
     } catch (error) {
       strapi.log.error('Error creating function:', error);
-      return ctx.badRequest(error.message || 'Failed to create function');
+      return ctx.badRequest((error as Error).message || 'Failed to create function');
     }
   },
 
   /**
    * Update a function
    */
-  async update(ctx) {
+  async update(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -198,14 +203,14 @@ export default factories.createCoreController('api::function.function', ({ strap
       return { data: fn };
     } catch (error) {
       strapi.log.error('Error updating function:', error);
-      return ctx.badRequest(error.message || 'Failed to update function');
+      return ctx.badRequest((error as Error).message || 'Failed to update function');
     }
   },
 
   /**
    * Delete a function
    */
-  async delete(ctx) {
+  async delete(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -231,14 +236,14 @@ export default factories.createCoreController('api::function.function', ({ strap
       return { data: { success: true, name: existing.name } };
     } catch (error) {
       strapi.log.error('Error deleting function:', error);
-      return ctx.badRequest(error.message || 'Failed to delete function');
+      return ctx.badRequest((error as Error).message || 'Failed to delete function');
     }
   },
 
   /**
    * Invoke a function
    */
-  async invoke(ctx) {
+  async invoke(ctx: any) {
     const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
@@ -272,7 +277,7 @@ export default factories.createCoreController('api::function.function', ({ strap
       return { data: result };
     } catch (error) {
       strapi.log.error('Error invoking function:', error);
-      return ctx.badRequest(error.message || 'Failed to invoke function');
+      return ctx.badRequest((error as Error).message || 'Failed to invoke function');
     }
   },
-}));
+});

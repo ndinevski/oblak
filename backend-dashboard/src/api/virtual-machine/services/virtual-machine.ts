@@ -3,7 +3,7 @@
  * Business logic for VM operations and synchronization with Izvor
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 import { createIzvorClient, IzvorVM, IzvorClientError } from './izvor-client';
 import type { IzvorClient } from './izvor-client';
 
@@ -39,9 +39,9 @@ export function createVMService(strapi: Strapi) {
 
     return {
       vmCount: vms.length,
-      totalCores: vms.reduce((sum, vm) => sum + (vm.cores || 0), 0),
-      totalMemory: vms.reduce((sum, vm) => sum + (vm.memoryMB || 0), 0),
-      totalDisk: vms.reduce((sum, vm) => sum + (vm.diskGB || 0), 0),
+      totalCores: vms.reduce((sum: number, vm: any) => sum + (vm.cores || 0), 0),
+      totalMemory: vms.reduce((sum: number, vm: any) => sum + (vm.memoryMB || 0), 0),
+      totalDisk: vms.reduce((sum: number, vm: any) => sum + (vm.diskGB || 0), 0),
     };
   }
 
@@ -140,7 +140,7 @@ export function createVMService(strapi: Strapi) {
 
       return await strapi.documents('api::virtual-machine.virtual-machine').update({
         documentId: vmDocumentId,
-        data: updatedData,
+        data: updatedData as any,
       });
     } catch (error) {
       if (error instanceof IzvorClientError && error.statusCode === 404) {
@@ -148,7 +148,7 @@ export function createVMService(strapi: Strapi) {
         logger.warn(`VM ${vmDocumentId} not found in Izvor, marking as deleted`);
         await strapi.documents('api::virtual-machine.virtual-machine').update({
           documentId: vmDocumentId,
-          data: { status: 'deleting' },
+          data: { status: 'deleting' } as any,
         });
         return null;
       }
@@ -219,7 +219,7 @@ export function createVMService(strapi: Strapi) {
           cloudInit: data.cloudInit || {},
           tags: data.tags || [],
           owner: userId,
-        },
+        } as any,
       });
 
       try {
@@ -248,7 +248,7 @@ export function createVMService(strapi: Strapi) {
           data: {
             ...updatedData,
             owner: userId,
-          },
+          } as any,
         });
 
         // Log activity
@@ -280,7 +280,7 @@ export function createVMService(strapi: Strapi) {
             metadata: {
               error: error instanceof Error ? error.message : 'Unknown error',
             },
-          },
+          } as any,
         });
         throw error;
       }
@@ -306,7 +306,7 @@ export function createVMService(strapi: Strapi) {
       // Mark as deleting
       await strapi.documents('api::virtual-machine.virtual-machine').update({
         documentId: vmDocumentId,
-        data: { status: 'deleting' },
+        data: { status: 'deleting' } as any,
       });
 
       try {
@@ -342,7 +342,7 @@ export function createVMService(strapi: Strapi) {
               ...vm.metadata as Record<string, unknown>,
               error: error instanceof Error ? error.message : 'Delete failed',
             },
-          },
+          } as any,
         });
         throw error;
       }
@@ -388,7 +388,7 @@ export function createVMService(strapi: Strapi) {
         data: { 
           status: statusMap[action] as 'starting' | 'stopping' | 'paused' | 'running',
           lastActionAt: new Date(),
-        },
+        } as any,
       });
 
       try {

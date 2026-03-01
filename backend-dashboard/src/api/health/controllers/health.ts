@@ -1,6 +1,6 @@
 // Health check API controller
 export default {
-  async index(ctx) {
+  async index(ctx: any) {
     ctx.body = {
       status: 'healthy',
       service: 'oblak-dashboard',

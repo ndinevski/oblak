@@ -8,9 +8,9 @@ import { cn } from '@/lib/utils';
  */
 const routeNameMap: Record<string, string> = {
   '': 'Home',
-  'functions': 'Functions',
-  'vms': 'Virtual Machines',
-  'storage': 'Storage',
+  'functions': 'Impuls',
+  'vms': 'Izvor',
+  'storage': 'Spomen',
   'settings': 'Settings',
   'profile': 'Profile',
   'create': 'Create',

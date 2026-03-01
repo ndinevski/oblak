@@ -3,7 +3,7 @@
  * Unified quota management across all resources
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 // =============================================================================
 // Types
@@ -122,9 +122,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
     });
 
     const vmCount = vms.length;
-    const totalCores = vms.reduce((sum, vm) => sum + (vm.cores || 0), 0);
-    const totalMemoryMB = vms.reduce((sum, vm) => sum + (vm.memoryMB || 0), 0);
-    const totalDiskGB = vms.reduce((sum, vm) => sum + (vm.diskGB || 0), 0);
+    const totalCores = vms.reduce((sum: number, vm: any) => sum + (vm.cores || 0), 0);
+    const totalMemoryMB = vms.reduce((sum: number, vm: any) => sum + (vm.memoryMB || 0), 0);
+    const totalDiskGB = vms.reduce((sum: number, vm: any) => sum + (vm.diskGB || 0), 0);
 
     // Get bucket stats
     const buckets = await strapi.db.query('api::bucket.bucket').findMany({
@@ -133,7 +133,7 @@ export default ({ strapi }: { strapi: Strapi }) => ({
     });
 
     const bucketCount = buckets.length;
-    const totalBytes = buckets.reduce((sum, b) => sum + parseInt(b.totalSize || '0', 10), 0);
+    const totalBytes = buckets.reduce((sum: number, b: any) => sum + parseInt(b.totalSize || '0', 10), 0);
 
     // Get today's function invocations (from activity log)
     const invocationsToday = await strapi.db.query('api::activity-log.activity-log').count({

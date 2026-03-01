@@ -9,6 +9,7 @@ export default {
       method: 'GET',
       path: '/functions',
       handler: 'function.find',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -18,6 +19,7 @@ export default {
       method: 'GET',
       path: '/functions/:id',
       handler: 'function.findOne',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -27,6 +29,7 @@ export default {
       method: 'POST',
       path: '/functions',
       handler: 'function.create',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -36,6 +39,7 @@ export default {
       method: 'PUT',
       path: '/functions/:id',
       handler: 'function.update',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -45,6 +49,7 @@ export default {
       method: 'DELETE',
       path: '/functions/:id',
       handler: 'function.delete',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -55,6 +60,7 @@ export default {
       method: 'POST',
       path: '/functions/:id/invoke',
       handler: 'function.invoke',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],
@@ -65,6 +71,7 @@ export default {
       method: 'GET',
       path: '/functions/name/:name',
       handler: 'function.findByName',
+      info: { type: 'content-api' },
       config: {
         policies: [],
         middlewares: [],

@@ -44,12 +44,12 @@ interface SearchState {
 
 export const staticPages: SearchResult[] = [
   { id: 'page-dashboard', type: 'page', title: 'Dashboard', description: 'Overview and statistics', url: '/' },
-  { id: 'page-functions', type: 'page', title: 'Functions', description: 'Manage serverless functions', url: '/functions' },
-  { id: 'page-functions-new', type: 'page', title: 'Create Function', description: 'Create a new function', url: '/functions/new' },
-  { id: 'page-vms', type: 'page', title: 'Virtual Machines', description: 'Manage virtual machines', url: '/vms' },
+  { id: 'page-functions', type: 'page', title: 'Impuls', description: 'Manage serverless functions', url: '/functions' },
+  { id: 'page-functions-new', type: 'page', title: 'Create Impuls Function', description: 'Create a new function', url: '/functions/new' },
+  { id: 'page-vms', type: 'page', title: 'Izvor', description: 'Manage virtual machines', url: '/vms' },
   { id: 'page-vms-new', type: 'page', title: 'Create VM', description: 'Create a new virtual machine', url: '/vms/new' },
-  { id: 'page-storage', type: 'page', title: 'Storage', description: 'Manage storage buckets', url: '/storage' },
-  { id: 'page-storage-new', type: 'page', title: 'Create Bucket', description: 'Create a new storage bucket', url: '/storage/new' },
+  { id: 'page-storage', type: 'page', title: 'Spomen', description: 'Manage storage buckets', url: '/storage' },
+  { id: 'page-storage-new', type: 'page', title: 'Create Spomen Bucket', description: 'Create a new storage bucket', url: '/storage/new' },
   { id: 'page-settings', type: 'page', title: 'Settings', description: 'Account settings', url: '/settings' },
   { id: 'page-profile', type: 'page', title: 'Profile', description: 'Manage your profile', url: '/settings/profile' },
   { id: 'page-activity', type: 'page', title: 'Activity Log', description: 'View recent activity', url: '/settings/activity' },

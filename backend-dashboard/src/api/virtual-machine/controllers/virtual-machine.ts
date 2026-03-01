@@ -3,7 +3,7 @@
  * Handles HTTP requests for VM operations
  */
 
-import { Strapi } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 import { createVMService } from '../services/virtual-machine';
 import type { VMService } from '../services/virtual-machine';
 import { IzvorClientError } from '../services/izvor-client';
@@ -15,6 +15,14 @@ function getVMService(strapi: Strapi): VMService {
     vmService = createVMService(strapi);
   }
   return vmService;
+}
+
+function getStrapi(ctx: any): Strapi {
+  const instance = ctx?.strapi || (globalThis as any).strapi;
+  if (!instance) {
+    throw new Error('Strapi instance is not available');
+  }
+  return instance as Strapi;
 }
 
 function handleError(ctx: any, error: unknown) {
@@ -61,7 +69,7 @@ function handleError(ctx: any, error: unknown) {
 export default {
   // List VMs for current user
   async find(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const userId = ctx.state.user?.id;
 
     if (!userId) {
@@ -85,14 +93,14 @@ export default {
       const [sortField, sortOrder] = (sort as string).split(':');
 
       const vms = await strapi.documents('api::virtual-machine.virtual-machine').findMany({
-        filters,
-        sort: { [sortField]: sortOrder || 'desc' },
+        filters: filters as any,
+        sort: { [sortField]: sortOrder || 'desc' } as any,
         start: (Number(page) - 1) * Number(pageSize),
         limit: Number(pageSize),
       });
 
       const total = await strapi.documents('api::virtual-machine.virtual-machine').count({
-        filters,
+        filters: filters as any,
       });
 
       ctx.body = {

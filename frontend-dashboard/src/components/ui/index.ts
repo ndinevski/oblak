@@ -93,3 +93,5 @@ export { Checkbox } from './checkbox';
 export { Switch } from './switch';
 export { Textarea } from './textarea';
 export { Alert, AlertTitle, AlertDescription } from './alert';
+export { RadioGroup, RadioGroupItem } from './radio-group';
+export { Slider } from './slider';
