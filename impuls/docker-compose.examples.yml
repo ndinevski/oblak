@@ -17,6 +17,8 @@ services:
       - STORAGE_TYPE=file
       - DATA_DIR=/var/lib/impuls
       - IMPULS_LOCAL_MODE=true
+      - STRAPI_INVOCATION_REPORT_URL=http://host.docker.internal:1337/api/functions/invocation-report
+      - IMPULS_REPORT_SECRET=
     profiles:
       - dev-file
 

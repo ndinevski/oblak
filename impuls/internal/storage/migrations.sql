@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS functions (
     code_path TEXT,
     memory_mb INTEGER NOT NULL,
     timeout_sec INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
     environment JSONB,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL

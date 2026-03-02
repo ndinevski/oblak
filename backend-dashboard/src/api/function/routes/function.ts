@@ -66,6 +66,27 @@ export default {
         middlewares: [],
       },
     },
+    {
+      method: 'POST',
+      path: '/functions/invocation-report',
+      handler: 'function.invocationReport',
+      info: { type: 'content-api' },
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
+      path: '/functions/:id/logs',
+      handler: 'function.logs',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+      },
+    },
     // Get function by name
     {
       method: 'GET',

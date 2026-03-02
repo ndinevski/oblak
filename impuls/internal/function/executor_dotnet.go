@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,9 +25,10 @@ func executeDotNetLocal(ctx context.Context, fn *models.Function, code []byte, p
 	defer os.RemoveAll(tmpDir)
 
 	// Parse handler (format: "Namespace.Class.Method")
-	handlerParts := strings.Split(fn.Handler, ".")
+	normalizedHandler := strings.ReplaceAll(fn.Handler, "::", ".")
+	handlerParts := strings.Split(normalizedHandler, ".")
 	if len(handlerParts) < 2 {
-		return nil, fmt.Errorf("invalid handler format: %s (expected 'Class.Method' or 'Namespace.Class.Method')", fn.Handler)
+		return nil, fmt.Errorf("invalid handler format: %s (expected 'Class.Method', 'Namespace.Class.Method', or 'Class::Method')", fn.Handler)
 	}
 
 	className := strings.Join(handlerParts[:len(handlerParts)-1], ".")
@@ -164,35 +166,59 @@ public static class Runner
 	}
 
 	// Run the command and capture output
-	output, err := runCmd.CombinedOutput()
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+	runCmd.Stdout = &stdoutBuf
+	runCmd.Stderr = &stderrBuf
+
+	err = runCmd.Run()
 	if err != nil {
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("function execution timed out after %d seconds", fn.TimeoutSec)
 		}
-		return nil, fmt.Errorf("function execution failed: %s (output: %s)", err, string(output))
+		return nil, fmt.Errorf("function execution failed: %s (stderr: %s)", err, strings.TrimSpace(stderrBuf.String()))
 	}
 
 	// Parse the output - find the last JSON line
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	stdoutLines := splitNonEmptyLines(stdoutBuf.String())
+	stderrLines := splitNonEmptyLines(stderrBuf.String())
+
+	lines := stdoutLines
 	var result map[string]interface{}
+	jsonLineIndex := -1
 
 	for i := len(lines) - 1; i >= 0; i-- {
 		if err := json.Unmarshal([]byte(lines[i]), &result); err == nil {
+			jsonLineIndex = i
 			break
 		}
 	}
 
-	if result == nil {
+	if result == nil || jsonLineIndex == -1 {
 		// Return raw output if not JSON
-		return string(output), nil
+		return map[string]interface{}{
+			"__impuls_response": strings.TrimSpace(stdoutBuf.String()),
+			"__impuls_logs": map[string]interface{}{
+				"stdout": stdoutLines,
+				"stderr": stderrLines,
+			},
+		}, nil
 	}
+
+	runtimeStdout := append([]string{}, lines[:jsonLineIndex]...)
 
 	// Check for error
 	if errMsg, ok := result["error"].(string); ok {
 		return nil, fmt.Errorf("function error: %s", errMsg)
 	}
 
-	return result["body"], nil
+	return map[string]interface{}{
+		"__impuls_response": result["body"],
+		"__impuls_logs": map[string]interface{}{
+			"stdout": runtimeStdout,
+			"stderr": stderrLines,
+		},
+	}, nil
 }
 
 // escapeForCSharp escapes a string for use in a C# verbatim string literal

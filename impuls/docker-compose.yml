@@ -16,6 +16,8 @@ services:
       - DATA_DIR=/var/lib/impuls
       - STORAGE_TYPE=postgres
       - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
+      - STRAPI_INVOCATION_REPORT_URL=http://backend-dashboard:1337/api/functions/invocation-report
+      - IMPULS_REPORT_SECRET=
     restart: unless-stopped
     depends_on:
       postgres:
@@ -47,6 +49,8 @@ services:
       - IMPULS_LOCAL_MODE=true
       - STORAGE_TYPE=postgres
       - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
+      - STRAPI_INVOCATION_REPORT_URL=http://backend-dashboard:1337/api/functions/invocation-report
+      - IMPULS_REPORT_SECRET=
     restart: unless-stopped
     depends_on:
       postgres:

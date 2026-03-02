@@ -84,7 +84,7 @@
 
   html {
     scroll-behavior: smooth;
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
   }
 
   @media (prefers-reduced-motion: reduce) {

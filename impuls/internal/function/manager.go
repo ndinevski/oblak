@@ -58,6 +58,7 @@ func (m *Manager) Create(req *models.CreateFunctionRequest) (*models.Function, e
 		Code:        req.Code,
 		MemoryMB:    memoryMB,
 		TimeoutSec:  timeoutSec,
+		Status:      models.StatusActive,
 		Environment: req.Environment,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -134,8 +135,14 @@ func (m *Manager) Update(name string, req *models.UpdateFunctionRequest) (*model
 	if req.TimeoutSec != nil {
 		fn.TimeoutSec = *req.TimeoutSec
 	}
+	if req.Status != nil {
+		fn.Status = *req.Status
+	}
 	if req.Environment != nil {
 		fn.Environment = req.Environment
+	}
+	if fn.Status == "" {
+		fn.Status = models.StatusActive
 	}
 
 	fn.UpdatedAt = time.Now()
@@ -173,6 +180,14 @@ func (m *Manager) Invoke(ctx context.Context, name string, payload interface{}) 
 			return nil, fmt.Errorf("function %s not found", name)
 		}
 		return nil, err
+	}
+
+	if fn.Status == models.StatusInactive {
+		return &models.InvocationResponse{
+			StatusCode: 403,
+			Error:      "Function is inactive. Activate it before invoking.",
+			Duration:   time.Since(startTime).Milliseconds(),
+		}, nil
 	}
 
 	// Create timeout context
@@ -257,6 +272,14 @@ func (m *Manager) InvokeLocal(ctx context.Context, name string, payload interfac
 		return nil, err
 	}
 
+	if fn.Status == models.StatusInactive {
+		return &models.InvocationResponse{
+			StatusCode: 403,
+			Error:      "Function is inactive. Activate it before invoking.",
+			Duration:   time.Since(startTime).Milliseconds(),
+		}, nil
+	}
+
 	// Get function code
 	code, err := m.storage.GetCode(name)
 	if err != nil {
@@ -286,9 +309,55 @@ func (m *Manager) InvokeLocal(ctx context.Context, name string, payload interfac
 		}, nil
 	}
 
+	responseBody := result
+	var runtimeLogs *models.InvocationLogs
+
+	if wrapper, ok := result.(map[string]interface{}); ok {
+		if wrappedResponse, exists := wrapper["__impuls_response"]; exists {
+			responseBody = wrappedResponse
+		}
+
+		if logsRaw, exists := wrapper["__impuls_logs"]; exists {
+			if logsMap, ok := logsRaw.(map[string]interface{}); ok {
+				logs := &models.InvocationLogs{}
+
+				if stdoutRaw, exists := logsMap["stdout"]; exists {
+					switch v := stdoutRaw.(type) {
+					case []string:
+						logs.Stdout = append(logs.Stdout, v...)
+					case []interface{}:
+						for _, entry := range v {
+							if s, ok := entry.(string); ok && s != "" {
+								logs.Stdout = append(logs.Stdout, s)
+							}
+						}
+					}
+				}
+
+				if stderrRaw, exists := logsMap["stderr"]; exists {
+					switch v := stderrRaw.(type) {
+					case []string:
+						logs.Stderr = append(logs.Stderr, v...)
+					case []interface{}:
+						for _, entry := range v {
+							if s, ok := entry.(string); ok && s != "" {
+								logs.Stderr = append(logs.Stderr, s)
+							}
+						}
+					}
+				}
+
+				if len(logs.Stdout) > 0 || len(logs.Stderr) > 0 {
+					runtimeLogs = logs
+				}
+			}
+		}
+	}
+
 	return &models.InvocationResponse{
 		StatusCode: 200,
-		Body:       result,
+		Body:       responseBody,
 		Duration:   time.Since(startTime).Milliseconds(),
+		Logs:       runtimeLogs,
 	}, nil
 }

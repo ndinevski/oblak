@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Card, 
@@ -8,10 +8,20 @@ import {
   CardTitle,
   Button,
   Badge,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Input,
+  Switch,
 } from '@/components/ui';
 import {
   ArrowLeft,
@@ -27,9 +37,23 @@ import {
   Terminal,
   AlertCircle,
   CheckCircle,
+  Check,
   XCircle,
+  RefreshCw,
+  ChevronDown,
+  Power,
+  Copy,
 } from 'lucide-react';
-import { useFunction, useDeleteFunction, useInvokeFunction, FunctionData } from '@/hooks/useFunctions';
+import {
+  useFunction,
+  useDeleteFunction,
+  useInvokeFunction,
+  useSetFunctionStatus,
+  useFunctionLogs,
+  useFunctionLogsRetention,
+  useUpdateFunctionLogsRetention,
+  FunctionData,
+} from '@/hooks/useFunctions';
 import { Spinner } from '@/components/ui/spinner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -91,10 +115,12 @@ function StatCard({
  */
 function TestInvokePanel({ 
   functionId, 
-  functionName 
+  functionName,
+  canInvoke,
 }: { 
   functionId: number; 
   functionName: string;
+  canInvoke: boolean;
 }) {
   const invokeFunction = useInvokeFunction();
   const [payload, setPayload] = useState('{\n  "message": "Hello, World!"\n}');
@@ -114,11 +140,10 @@ function TestInvokePanel({
         id: functionId,
         request: { payload: parsedPayload },
       });
+
       setResult({
         success: true,
-        data: response.result,
-        executionTime: response.execution_time_ms,
-        logs: response.logs,
+        data: response,
       });
     } catch (error) {
       if (error instanceof SyntaxError) {
@@ -153,7 +178,7 @@ function TestInvokePanel({
 
         <Button 
           onClick={handleInvoke} 
-          disabled={invokeFunction.isPending}
+          disabled={invokeFunction.isPending || !canInvoke}
           className="w-full"
         >
           {invokeFunction.isPending ? (
@@ -168,6 +193,12 @@ function TestInvokePanel({
             </>
           )}
         </Button>
+
+        {!canInvoke && (
+          <p className="text-sm text-muted-foreground">
+            This function is inactive. Activate it to run test invocations.
+          </p>
+        )}
 
         {result && (
           <div className={`p-4 rounded-lg ${
@@ -193,7 +224,9 @@ function TestInvokePanel({
 
             {result.data !== undefined && (
               <pre className="text-sm font-mono overflow-auto max-h-48 p-2 bg-background rounded">
-                {JSON.stringify(result.data, null, 2)}
+                {typeof result.data === 'string'
+                  ? result.data
+                  : JSON.stringify(result.data, null, 2)}
               </pre>
             )}
 
@@ -223,18 +256,57 @@ export default function FunctionDetailPage() {
   const { functionId } = useParams<{ functionId: string }>();
   const navigate = useNavigate();
   const { data: fn, isLoading, error } = useFunction(functionId);
+  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useFunctionLogs(fn?.id, 25);
+  const { data: retentionPolicy, isLoading: retentionLoading } = useFunctionLogsRetention();
+  const updateLogsRetention = useUpdateFunctionLogsRetention();
+  const setFunctionStatus = useSetFunctionStatus();
   const deleteFunction = useDeleteFunction();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [useCustomRetention, setUseCustomRetention] = useState(false);
+  const [customRetentionDays, setCustomRetentionDays] = useState('30');
+  const [copiedEndpoint, setCopiedEndpoint] = useState(false);
+
+  useEffect(() => {
+    if (!retentionPolicy) {
+      return;
+    }
+
+    setUseCustomRetention(retentionPolicy.useCustomRetention);
+    setCustomRetentionDays(String(retentionPolicy.customRetentionDays));
+  }, [retentionPolicy]);
 
   const handleDelete = async () => {
     if (!fn) return;
-    if (window.confirm(`Are you sure you want to delete "${fn.name}"? This cannot be undone.`)) {
-      try {
-        await deleteFunction.mutateAsync(fn.id);
-        navigate('/functions');
-      } catch {
-        // Error handled by mutation
-      }
+    try {
+      await deleteFunction.mutateAsync(fn.id);
+      setDeleteDialogOpen(false);
+      navigate('/functions');
+    } catch {
+      // Error handled by mutation
     }
+  };
+
+  const handleSaveRetention = async () => {
+    const parsedDays = Number(customRetentionDays);
+
+    await updateLogsRetention.mutateAsync({
+      useCustomRetention,
+      customRetentionDays: Number.isFinite(parsedDays) ? parsedDays : undefined,
+    });
+
+    refetchLogs();
+  };
+
+  const handleToggleActive = async () => {
+    if (!fn) return;
+    const nextStatus = fn.status === 'active' ? 'inactive' : 'active';
+    await setFunctionStatus.mutateAsync({ id: fn.id, status: nextStatus });
+  };
+
+  const handleCopyEndpoint = async () => {
+    await navigator.clipboard?.writeText(directInvokeEndpoint);
+    setCopiedEndpoint(true);
+    window.setTimeout(() => setCopiedEndpoint(false), 1500);
   };
 
   if (isLoading) {
@@ -269,6 +341,8 @@ export default function FunctionDetailPage() {
     dotnet8: '.NET 8',
     dotnet7: '.NET 7',
   };
+  const impulsBaseUrl = (import.meta.env.VITE_IMPULS_URL || 'http://localhost:8080').replace(/\/$/, '');
+  const directInvokeEndpoint = `${impulsBaseUrl}/api/v1/functions/${encodeURIComponent(fn.name)}/invoke`;
 
   return (
     <div className="space-y-6">
@@ -298,6 +372,18 @@ export default function FunctionDetailPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleToggleActive()}
+            disabled={setFunctionStatus.isPending}
+          >
+            {setFunctionStatus.isPending ? (
+              <Spinner className="h-4 w-4 mr-2" />
+            ) : (
+              <Power className="h-4 w-4 mr-2" />
+            )}
+            {fn.status === 'active' ? 'Deactivate' : 'Activate'}
+          </Button>
           <Link to={`/functions/${fn.id}/edit`}>
             <Button variant="outline">
               <Pencil className="h-4 w-4 mr-2" />
@@ -306,7 +392,7 @@ export default function FunctionDetailPage() {
           </Link>
           <Button 
             variant="destructive" 
-            onClick={handleDelete}
+            onClick={() => setDeleteDialogOpen(true)}
             disabled={deleteFunction.isPending}
           >
             {deleteFunction.isPending ? (
@@ -353,10 +439,36 @@ export default function FunctionDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="code">Code</TabsTrigger>
           <TabsTrigger value="test">Test</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Direct Invoke Endpoint (Impuls)</CardTitle>
+              <CardDescription>
+                Call Impuls directly to invoke this function.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Input readOnly value={directInvokeEndpoint} />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void handleCopyEndpoint()}
+                  aria-label="Copy invoke endpoint"
+                >
+                  {copiedEndpoint ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Method: POST • Body: JSON payload
+              </p>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Configuration */}
             <Card>
@@ -457,10 +569,167 @@ export default function FunctionDetailPage() {
         </TabsContent>
 
         <TabsContent value="test">
-          <TestInvokePanel functionId={fn.id} functionName={fn.name} />
+          <TestInvokePanel functionId={fn.id} functionName={fn.name} canInvoke={fn.status === 'active'} />
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="logs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Invocation Logs</CardTitle>
+                  <CardDescription>
+                    Latest execution logs for {fn.name}
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetchLogs()}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {logsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Spinner className="h-6 w-6" />
+                </div>
+              ) : logsData?.data?.length ? (
+                <div className="space-y-4">
+                  {logsData.data.map((entry) => (
+                    <details key={entry.id} className="group rounded-lg border bg-card">
+                      <summary className="list-none cursor-pointer px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={entry.status === 'failure' ? 'destructive' : entry.status === 'pending' ? 'outline' : 'default'}
+                              className="capitalize"
+                            >
+                              {entry.status}
+                            </Badge>
+                            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                          </div>
+                        </div>
+                      </summary>
+
+                      <div className="border-t px-3 py-3 space-y-3">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          {typeof entry.executionTimeMs === 'number' && (
+                            <span>Duration: {entry.executionTimeMs}ms</span>
+                          )}
+                          {typeof entry.providerStatusCode === 'number' && (
+                            <span>Provider status: {entry.providerStatusCode}</span>
+                          )}
+                        </div>
+
+                        {entry.errorMessage && (
+                          <p className="text-sm text-destructive">{entry.errorMessage}</p>
+                        )}
+
+                        {entry.response !== undefined && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">Response</p>
+                            <pre className="text-xs font-mono bg-muted p-3 rounded overflow-auto max-h-48">
+                              {JSON.stringify(entry.response, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+
+                        {entry.runtimeLogs && (entry.runtimeLogs.stdout.length > 0 || entry.runtimeLogs.stderr.length > 0) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium">stdout</p>
+                              <pre className="text-xs font-mono bg-muted p-3 rounded overflow-auto max-h-40">
+                                {entry.runtimeLogs.stdout.length > 0
+                                  ? entry.runtimeLogs.stdout.join('\n')
+                                  : '(empty)'}
+                              </pre>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium">stderr</p>
+                              <pre className="text-xs font-mono bg-muted p-3 rounded overflow-auto max-h-40">
+                                {entry.runtimeLogs.stderr.length > 0
+                                  ? entry.runtimeLogs.stderr.join('\n')
+                                  : '(empty)'}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-sm text-muted-foreground">
+                  No invocation logs yet. Invoke this function from the Test tab to generate logs.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Log Retention</CardTitle>
+              <CardDescription>
+                Default retention is 7 days. Enable custom retention only if you want to keep logs longer.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">Use custom retention period</p>
+                  <p className="text-sm text-muted-foreground">
+                    {retentionLoading
+                      ? 'Loading retention policy...'
+                      : `Effective retention: ${retentionPolicy?.effectiveRetentionDays ?? 7} days`}
+                  </p>
+                </div>
+                <Switch
+                  checked={useCustomRetention}
+                  onCheckedChange={setUseCustomRetention}
+                  disabled={retentionLoading || updateLogsRetention.isPending}
+                />
+              </div>
+
+              {useCustomRetention && (
+                <div className="grid gap-2 max-w-xs">
+                  <label className="text-sm font-medium">Custom retention days</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={customRetentionDays}
+                    onChange={(e) => setCustomRetentionDays(e.target.value)}
+                    disabled={updateLogsRetention.isPending}
+                  />
+                </div>
+              )}
+
+              <Button
+                onClick={handleSaveRetention}
+                disabled={retentionLoading || updateLogsRetention.isPending}
+              >
+                {updateLogsRetention.isPending ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Retention Settings'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Danger Zone</CardTitle>
@@ -478,7 +747,7 @@ export default function FunctionDetailPage() {
                 </div>
                 <Button 
                   variant="destructive" 
-                  onClick={handleDelete}
+                  onClick={() => setDeleteDialogOpen(true)}
                   disabled={deleteFunction.isPending}
                 >
                   {deleteFunction.isPending ? (
@@ -493,6 +762,26 @@ export default function FunctionDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Function</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{fn.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

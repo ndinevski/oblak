@@ -50,10 +50,13 @@ func (ps *PostgresStorage) initSchema() error {
 		code_path TEXT,
 		memory_mb INTEGER NOT NULL,
 		timeout_sec INTEGER NOT NULL,
+		status TEXT NOT NULL DEFAULT 'active',
 		environment JSONB,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL
 	);
+
+	ALTER TABLE functions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 
 	CREATE INDEX IF NOT EXISTS idx_functions_name ON functions(name);
 	CREATE INDEX IF NOT EXISTS idx_functions_created_at ON functions(created_at DESC);
@@ -72,13 +75,18 @@ func (ps *PostgresStorage) Create(fn *models.Function) error {
 
 	query := `
 		INSERT INTO functions (id, name, description, runtime, handler, code, code_path, 
-			memory_mb, timeout_sec, environment, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			memory_mb, timeout_sec, status, environment, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
+
+	status := fn.Status
+	if status == "" {
+		status = models.StatusActive
+	}
 
 	_, err = ps.db.Exec(query,
 		fn.ID, fn.Name, fn.Description, fn.Runtime, fn.Handler, fn.Code, fn.CodePath,
-		fn.MemoryMB, fn.TimeoutSec, envJSON, fn.CreatedAt, fn.UpdatedAt,
+		fn.MemoryMB, fn.TimeoutSec, status, envJSON, fn.CreatedAt, fn.UpdatedAt,
 	)
 
 	if err != nil {
@@ -95,7 +103,7 @@ func (ps *PostgresStorage) Create(fn *models.Function) error {
 func (ps *PostgresStorage) Get(name string) (*models.Function, error) {
 	query := `
 		SELECT id, name, description, runtime, handler, code, code_path,
-			memory_mb, timeout_sec, environment, created_at, updated_at
+			memory_mb, timeout_sec, status, environment, created_at, updated_at
 		FROM functions
 		WHERE name = $1
 	`
@@ -105,7 +113,7 @@ func (ps *PostgresStorage) Get(name string) (*models.Function, error) {
 
 	err := ps.db.QueryRow(query, name).Scan(
 		&fn.ID, &fn.Name, &fn.Description, &fn.Runtime, &fn.Handler, &fn.Code, &fn.CodePath,
-		&fn.MemoryMB, &fn.TimeoutSec, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
+		&fn.MemoryMB, &fn.TimeoutSec, &fn.Status, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
 	)
 
 	if err != nil {
@@ -120,6 +128,9 @@ func (ps *PostgresStorage) Get(name string) (*models.Function, error) {
 			return nil, fmt.Errorf("failed to unmarshal environment: %w", err)
 		}
 	}
+	if fn.Status == "" {
+		fn.Status = models.StatusActive
+	}
 
 	return fn, nil
 }
@@ -128,7 +139,7 @@ func (ps *PostgresStorage) Get(name string) (*models.Function, error) {
 func (ps *PostgresStorage) GetByID(id string) (*models.Function, error) {
 	query := `
 		SELECT id, name, description, runtime, handler, code, code_path,
-			memory_mb, timeout_sec, environment, created_at, updated_at
+			memory_mb, timeout_sec, status, environment, created_at, updated_at
 		FROM functions
 		WHERE id = $1
 	`
@@ -138,7 +149,7 @@ func (ps *PostgresStorage) GetByID(id string) (*models.Function, error) {
 
 	err := ps.db.QueryRow(query, id).Scan(
 		&fn.ID, &fn.Name, &fn.Description, &fn.Runtime, &fn.Handler, &fn.Code, &fn.CodePath,
-		&fn.MemoryMB, &fn.TimeoutSec, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
+		&fn.MemoryMB, &fn.TimeoutSec, &fn.Status, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
 	)
 
 	if err != nil {
@@ -152,6 +163,9 @@ func (ps *PostgresStorage) GetByID(id string) (*models.Function, error) {
 		if err := json.Unmarshal(envJSON, &fn.Environment); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal environment: %w", err)
 		}
+	}
+	if fn.Status == "" {
+		fn.Status = models.StatusActive
 	}
 
 	return fn, nil
@@ -167,13 +181,18 @@ func (ps *PostgresStorage) Update(fn *models.Function) error {
 	query := `
 		UPDATE functions
 		SET description = $1, runtime = $2, handler = $3, code = $4, code_path = $5,
-			memory_mb = $6, timeout_sec = $7, environment = $8, updated_at = $9
-		WHERE name = $10
+			memory_mb = $6, timeout_sec = $7, status = $8, environment = $9, updated_at = $10
+		WHERE name = $11
 	`
+
+	status := fn.Status
+	if status == "" {
+		status = models.StatusActive
+	}
 
 	result, err := ps.db.Exec(query,
 		fn.Description, fn.Runtime, fn.Handler, fn.Code, fn.CodePath,
-		fn.MemoryMB, fn.TimeoutSec, envJSON, fn.UpdatedAt, fn.Name,
+		fn.MemoryMB, fn.TimeoutSec, status, envJSON, fn.UpdatedAt, fn.Name,
 	)
 
 	if err != nil {
@@ -217,7 +236,7 @@ func (ps *PostgresStorage) Delete(name string) error {
 func (ps *PostgresStorage) List() ([]*models.Function, error) {
 	query := `
 		SELECT id, name, description, runtime, handler, code, code_path,
-			memory_mb, timeout_sec, environment, created_at, updated_at
+			memory_mb, timeout_sec, status, environment, created_at, updated_at
 		FROM functions
 		ORDER BY created_at DESC
 	`
@@ -236,7 +255,7 @@ func (ps *PostgresStorage) List() ([]*models.Function, error) {
 
 		err := rows.Scan(
 			&fn.ID, &fn.Name, &fn.Description, &fn.Runtime, &fn.Handler, &fn.Code, &fn.CodePath,
-			&fn.MemoryMB, &fn.TimeoutSec, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
+			&fn.MemoryMB, &fn.TimeoutSec, &fn.Status, &envJSON, &fn.CreatedAt, &fn.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan function: %w", err)
@@ -246,6 +265,9 @@ func (ps *PostgresStorage) List() ([]*models.Function, error) {
 			if err := json.Unmarshal(envJSON, &fn.Environment); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal environment: %w", err)
 			}
+		}
+		if fn.Status == "" {
+			fn.Status = models.StatusActive
 		}
 
 		functions = append(functions, fn)

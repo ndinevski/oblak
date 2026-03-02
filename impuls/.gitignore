@@ -3,6 +3,8 @@ build/
 impuls-server
 *.exe
 
+data/*
+
 # Images (downloaded separately)
 images/*.ext4
 images/vmlinux

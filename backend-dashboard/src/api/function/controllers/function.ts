@@ -5,6 +5,29 @@
 
 export default ({ strapi }: { strapi: any }) => ({
   /**
+   * Resolve function by numeric id or documentId
+   */
+  async resolveFunction(idOrDocumentId: string) {
+    if (/^\d+$/.test(idOrDocumentId)) {
+      const byId = await strapi.entityService.findOne('api::function.function', Number(idOrDocumentId), {
+        populate: ['owner'],
+      });
+
+      if (byId) {
+        return byId;
+      }
+    }
+
+    const byDocumentId = await strapi.entityService.findMany('api::function.function', {
+      filters: { documentId: idOrDocumentId },
+      populate: ['owner'],
+      limit: 1,
+    });
+
+    return byDocumentId?.[0] || null;
+  },
+
+  /**
    * Find all functions for the current user
    */
   async find(ctx: any) {
@@ -59,9 +82,7 @@ export default ({ strapi }: { strapi: any }) => ({
     const { id } = ctx.params;
 
     try {
-      const fn = await strapi.entityService.findOne('api::function.function', id, {
-        populate: ['owner'],
-      });
+      const fn = await strapi.controller('api::function.function').resolveFunction(String(id));
 
       if (!fn) {
         return ctx.notFound('Function not found');
@@ -98,7 +119,7 @@ export default ({ strapi }: { strapi: any }) => ({
       }
 
       // Populate owner for access check
-      const fnWithOwner = await strapi.entityService.findOne('api::function.function', fn.documentId, {
+      const fnWithOwner = await strapi.entityService.findOne('api::function.function', fn.id, {
         populate: ['owner'],
       });
 
@@ -123,7 +144,8 @@ export default ({ strapi }: { strapi: any }) => ({
       return ctx.unauthorized('You must be logged in');
     }
 
-    const { name, description, runtime, handler, code, memoryMB, timeoutSec, environment } = ctx.request.body;
+    const payload = ctx.request.body?.data ?? ctx.request.body ?? {};
+    const { name, description, runtime, handler, code, memoryMB, timeoutSec, environment, tags } = payload;
 
     // Validate required fields
     if (!name || !runtime || !handler) {
@@ -158,6 +180,7 @@ export default ({ strapi }: { strapi: any }) => ({
         memoryMB,
         timeoutSec,
         environment,
+        tags,
         owner: user.id,
       });
 
@@ -178,12 +201,11 @@ export default ({ strapi }: { strapi: any }) => ({
     }
 
     const { id } = ctx.params;
-    const { description, runtime, handler, code, memoryMB, timeoutSec, environment } = ctx.request.body;
+    const payload = ctx.request.body?.data ?? ctx.request.body ?? {};
+    const { description, runtime, handler, code, memoryMB, timeoutSec, environment, tags, status } = payload;
 
     // Check ownership
-    const existing = await strapi.entityService.findOne('api::function.function', id, {
-      populate: ['owner'],
-    });
+    const existing = await strapi.controller('api::function.function').resolveFunction(String(id));
 
     if (!existing) {
       return ctx.notFound('Function not found');
@@ -195,8 +217,8 @@ export default ({ strapi }: { strapi: any }) => ({
 
     try {
       const fn = await strapi.service('api::function.function').updateWithSync(
-        id,
-        { description, runtime, handler, code, memoryMB, timeoutSec, environment },
+        existing.id,
+        { description, runtime, handler, code, memoryMB, timeoutSec, environment, tags, status },
         user.id
       );
 
@@ -219,9 +241,7 @@ export default ({ strapi }: { strapi: any }) => ({
     const { id } = ctx.params;
 
     // Check ownership
-    const existing = await strapi.entityService.findOne('api::function.function', id, {
-      populate: ['owner'],
-    });
+    const existing = await strapi.controller('api::function.function').resolveFunction(String(id));
 
     if (!existing) {
       return ctx.notFound('Function not found');
@@ -232,7 +252,7 @@ export default ({ strapi }: { strapi: any }) => ({
     }
 
     try {
-      await strapi.service('api::function.function').deleteWithSync(id, user.id);
+      await strapi.service('api::function.function').deleteWithSync(existing.id, user.id);
       return { data: { success: true, name: existing.name } };
     } catch (error) {
       strapi.log.error('Error deleting function:', error);
@@ -245,18 +265,113 @@ export default ({ strapi }: { strapi: any }) => ({
    */
   async invoke(ctx: any) {
     const user = ctx.state.user;
+
+    const { id } = ctx.params;
+    const payload = ctx.request.body || {};
+    const { local } = ctx.query;
+    const localOverride =
+      typeof local === 'string'
+        ? ['1', 'true', 'yes', 'on'].includes(local.trim().toLowerCase())
+        : undefined;
+
+    // Check ownership
+    const existing = await strapi.controller('api::function.function').resolveFunction(String(id));
+
+    if (!existing) {
+      return ctx.notFound('Function not found');
+    }
+
+    if (user && existing.owner?.id !== user.id) {
+      return ctx.forbidden('You do not have access to this function');
+    }
+
+    if (existing.status === 'inactive') {
+      return ctx.forbidden('Function is inactive. Activate it before invoking.');
+    }
+
+    try {
+      const result = await strapi.service('api::function.function').invoke(
+        existing.id,
+        payload,
+        user?.id,
+        { local: localOverride }
+      );
+
+      return {
+        data: result.body,
+        meta: {
+          statusCode: result.statusCode,
+        },
+      };
+    } catch (error) {
+      strapi.log.error('Error invoking function:', error);
+      return ctx.badRequest((error as Error).message || 'Failed to invoke function');
+    }
+  },
+
+  /**
+   * Receive invocation report from Impuls
+   */
+  async invocationReport(ctx: any) {
+    const configuredSecret = process.env.IMPULS_REPORT_SECRET;
+    const providedSecret = ctx.request.headers['x-impuls-report-secret'];
+
+    if (configuredSecret && providedSecret !== configuredSecret) {
+      return ctx.unauthorized('Invalid report secret');
+    }
+
+    const payload = ctx.request.body ?? {};
+    const {
+      functionName,
+      status,
+      providerStatusCode,
+      executionTimeMs,
+      runtimeLogs,
+      response,
+      errorMessage,
+      memoryUsedMb,
+      local,
+      invokedAt,
+    } = payload;
+
+    if (!functionName || (status !== 'success' && status !== 'failure')) {
+      return ctx.badRequest('functionName and valid status are required');
+    }
+
+    try {
+      await strapi.service('api::function.function').recordInvocationReport({
+        functionName: String(functionName),
+        status,
+        providerStatusCode: typeof providerStatusCode === 'number' ? providerStatusCode : undefined,
+        executionTimeMs: typeof executionTimeMs === 'number' ? executionTimeMs : undefined,
+        runtimeLogs: runtimeLogs && typeof runtimeLogs === 'object' ? runtimeLogs : undefined,
+        response,
+        errorMessage: typeof errorMessage === 'string' ? errorMessage : undefined,
+        memoryUsedMb: typeof memoryUsedMb === 'number' ? memoryUsedMb : undefined,
+        local: Boolean(local),
+        invokedAt: typeof invokedAt === 'string' ? invokedAt : undefined,
+      });
+
+      return { data: { success: true } };
+    } catch (error) {
+      strapi.log.error('Error recording invocation report:', error);
+      return ctx.badRequest((error as Error).message || 'Failed to record invocation report');
+    }
+  },
+
+  /**
+   * Get function invocation logs
+   */
+  async logs(ctx: any) {
+    const user = ctx.state.user;
     if (!user) {
       return ctx.unauthorized('You must be logged in');
     }
 
     const { id } = ctx.params;
-    const payload = ctx.request.body || {};
-    const { local } = ctx.query;
+    const requestedLimit = Number(ctx.query.limit) || 25;
 
-    // Check ownership
-    const existing = await strapi.entityService.findOne('api::function.function', id, {
-      populate: ['owner'],
-    });
+    const existing = await strapi.controller('api::function.function').resolveFunction(String(id));
 
     if (!existing) {
       return ctx.notFound('Function not found');
@@ -267,17 +382,16 @@ export default ({ strapi }: { strapi: any }) => ({
     }
 
     try {
-      const result = await strapi.service('api::function.function').invoke(
-        id,
-        payload,
-        user.id,
-        { local: local === 'true' }
-      );
+      const logs = await strapi.service('api::activity-log.activity-log').getFunctionInvocationLogs({
+        userId: user.id,
+        resourceIds: [String(existing.id), String(existing.documentId)],
+        limit: requestedLimit,
+      });
 
-      return { data: result };
+      return logs;
     } catch (error) {
-      strapi.log.error('Error invoking function:', error);
-      return ctx.badRequest((error as Error).message || 'Failed to invoke function');
+      strapi.log.error('Error fetching function logs:', error);
+      return ctx.badRequest((error as Error).message || 'Failed to fetch function logs');
     }
   },
 });

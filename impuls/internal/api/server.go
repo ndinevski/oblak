@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/oblak/impuls/internal/function"
@@ -14,6 +16,7 @@ import (
 type Server struct {
 	funcManager *function.Manager
 	router      *mux.Router
+	reporter    *invocationReporter
 }
 
 // NewServer creates a new API server
@@ -21,6 +24,7 @@ func NewServer(funcManager *function.Manager) *Server {
 	s := &Server{
 		funcManager: funcManager,
 		router:      mux.NewRouter(),
+		reporter:    newInvocationReporterFromEnv(),
 	}
 
 	s.setupRoutes()
@@ -163,7 +167,12 @@ func (s *Server) invokeFunction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for local execution mode (for development/testing without Firecracker)
-	useLocal := r.URL.Query().Get("local") == "true"
+	useLocal := false
+	if localRaw := r.URL.Query().Get("local"); localRaw != "" {
+		if parsed, err := strconv.ParseBool(localRaw); err == nil {
+			useLocal = parsed
+		}
+	}
 
 	var response *models.InvocationResponse
 	var err error
@@ -175,13 +184,58 @@ func (s *Server) invokeFunction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		s.reportInvocation(invocationReportPayload{
+			FunctionName:       name,
+			Status:             "failure",
+			ProviderStatusCode: http.StatusInternalServerError,
+			ErrorMessage:       err.Error(),
+			Local:              useLocal,
+			InvokedAt:          time.Now().UTC(),
+		})
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Return the invocation response
-	w.Header().Set("X-Impuls-Duration", string(rune(response.Duration)))
-	respondJSON(w, response.StatusCode, response)
+	if response.Error != "" {
+		s.reportInvocation(invocationReportPayload{
+			FunctionName:       name,
+			Status:             "failure",
+			ProviderStatusCode: response.StatusCode,
+			ExecutionTimeMs:    response.Duration,
+			RuntimeLogs:        response.Logs,
+			ErrorMessage:       response.Error,
+			Local:              useLocal,
+			InvokedAt:          time.Now().UTC(),
+		})
+		respondError(w, response.StatusCode, response.Error)
+		return
+	}
+
+	s.reportInvocation(invocationReportPayload{
+		FunctionName:       name,
+		Status:             "success",
+		ProviderStatusCode: response.StatusCode,
+		ExecutionTimeMs:    response.Duration,
+		RuntimeLogs:        response.Logs,
+		Response:           response.Body,
+		Local:              useLocal,
+		InvokedAt:          time.Now().UTC(),
+	})
+
+	// Return only function body using function status code.
+	respondJSON(w, response.StatusCode, response.Body)
+}
+
+func (s *Server) reportInvocation(payload invocationReportPayload) {
+	if s.reporter == nil {
+		return
+	}
+
+	go func() {
+		if err := s.reporter.Send(payload); err != nil {
+			log.Printf("Failed to report invocation to Strapi: %v", err)
+		}
+	}()
 }
 
 // respondJSON sends a JSON response

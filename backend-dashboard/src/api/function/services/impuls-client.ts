@@ -46,6 +46,7 @@ export interface UpdateFunctionRequest {
   code?: string;
   memory_mb?: number;
   timeout_sec?: number;
+  status?: 'active' | 'inactive' | 'error' | 'deploying';
   environment?: Record<string, string>;
 }
 
@@ -61,10 +62,8 @@ export interface InvokeFunctionRequest {
  * Invoke function response
  */
 export interface InvokeFunctionResponse {
-  result: unknown;
-  execution_time_ms: number;
-  memory_used_mb?: number;
-  logs?: string[];
+  status_code: number;
+  body: unknown;
 }
 
 /**
@@ -237,9 +236,15 @@ export class ImpulsClient {
     const response = await this.client.post(
       `/functions/${name}/invoke`,
       request.payload || {},
-      { params }
+      {
+        params,
+        validateStatus: () => true,
+      }
     );
-    return response.data;
+    return {
+      status_code: response.status,
+      body: response.data,
+    };
   }
 }
 

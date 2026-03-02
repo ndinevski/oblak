@@ -19,6 +19,136 @@ function shouldSeedDemoData(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
 
+const ACTIVITY_CLEANUP_TIMER_SYMBOL = Symbol.for('__oblakActivityCleanupTimer__');
+
+async function setupActivityLogRetentionCleanup(strapi: Core.Strapi): Promise<void> {
+  const intervalMinutes = Math.max(
+    5,
+    Math.trunc(Number(process.env.ACTIVITY_LOG_CLEANUP_INTERVAL_MINUTES || 60))
+  );
+  const intervalMs = intervalMinutes * 60 * 1000;
+
+  const runCleanup = async () => {
+    try {
+      const result = await strapi.service('api::activity-log.activity-log').runRetentionCleanup();
+      strapi.log.debug(
+        `Activity retention cleanup completed (retentionDays=${result.retentionDays}, deleted=${result.deleted})`
+      );
+    } catch (error) {
+      strapi.log.error('Activity retention cleanup failed:', error);
+    }
+  };
+
+  await runCleanup();
+
+  const globalWithTimer = globalThis as typeof globalThis & {
+    [ACTIVITY_CLEANUP_TIMER_SYMBOL]?: NodeJS.Timeout;
+  };
+
+  if (globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL]) {
+    clearInterval(globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL]);
+  }
+
+  globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL] = setInterval(() => {
+    void runCleanup();
+  }, intervalMs);
+}
+
+async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void> {
+  const authenticatedRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+    where: { type: 'authenticated' },
+  });
+
+  if (!authenticatedRole) {
+    return;
+  }
+
+  const requiredActions = [
+    'api::function.function.find',
+    'api::function.function.findOne',
+    'api::function.function.findByName',
+    'api::function.function.create',
+    'api::function.function.update',
+    'api::function.function.delete',
+    'api::function.function.invoke',
+    'api::function.function.logs',
+    'api::activity-log.activity-log.find',
+    'api::activity-log.activity-log.findOne',
+    'api::activity-log.activity-log.summary',
+    'api::activity-log.activity-log.retention',
+    'api::activity-log.activity-log.updateRetention',
+  ];
+
+  for (const action of requiredActions) {
+    const existingPermission = await strapi.db.query('plugin::users-permissions.permission').findOne({
+      where: {
+        action,
+        role: authenticatedRole.id,
+      },
+    });
+
+    if (existingPermission) {
+      if (!existingPermission.enabled) {
+        await strapi.db.query('plugin::users-permissions.permission').update({
+          where: { id: existingPermission.id },
+          data: { enabled: true },
+        });
+      }
+      continue;
+    }
+
+    await strapi.db.query('plugin::users-permissions.permission').create({
+      data: {
+        action,
+        role: authenticatedRole.id,
+        enabled: true,
+      },
+    });
+  }
+}
+
+async function ensurePublicInvokePermission(strapi: Core.Strapi): Promise<void> {
+  const publicRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+    where: { type: 'public' },
+  });
+
+  if (!publicRole) {
+    return;
+  }
+
+  const requiredActions = [
+    'api::function.function.invoke',
+    'api::function.function.invocationReport',
+  ];
+
+  for (const action of requiredActions) {
+    const existingPermission = await strapi.db.query('plugin::users-permissions.permission').findOne({
+      where: {
+        action,
+        role: publicRole.id,
+      },
+    });
+
+    if (existingPermission) {
+      if (!existingPermission.enabled) {
+        await strapi.db.query('plugin::users-permissions.permission').update({
+          where: { id: existingPermission.id },
+          data: { enabled: true },
+        });
+      }
+      continue;
+    }
+
+    await strapi.db.query('plugin::users-permissions.permission').create({
+      data: {
+        action,
+        role: publicRole.id,
+        enabled: true,
+      },
+    });
+  }
+}
+
 async function seedDemoData(strapi: Core.Strapi): Promise<void> {
   const authenticatedRole = await strapi.db.query('plugin::users-permissions.role').findOne({
     where: { type: 'authenticated' },
@@ -302,6 +432,18 @@ export default {
       });
     });
 
+    try {
+      await ensureAuthenticatedPermissions(strapi);
+    } catch (error) {
+      strapi.log.warn('Failed to ensure authenticated API permissions:', error);
+    }
+
+    try {
+      await ensurePublicInvokePermission(strapi);
+    } catch (error) {
+      strapi.log.warn('Failed to ensure public invoke permission:', error);
+    }
+
     if (shouldSeedDemoData()) {
       try {
         await seedDemoData(strapi);
@@ -309,5 +451,7 @@ export default {
         strapi.log.error('Demo seed failed:', error);
       }
     }
+
+    await setupActivityLogRetentionCleanup(strapi);
   },
 };

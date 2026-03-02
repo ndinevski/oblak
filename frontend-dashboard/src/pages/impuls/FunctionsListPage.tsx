@@ -18,6 +18,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Table,
   TableBody,
   TableCell,
@@ -39,8 +47,9 @@ import {
   Play,
   RefreshCw,
   AlertCircle,
+  Power,
 } from 'lucide-react';
-import { useFunctions, useDeleteFunction, FunctionData, FunctionFilters } from '@/hooks/useFunctions';
+import { useFunctions, useDeleteFunction, useSetFunctionStatus, FunctionData, FunctionFilters } from '@/hooks/useFunctions';
 import { Spinner } from '@/components/ui/spinner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -92,6 +101,8 @@ export default function FunctionsListPage() {
   const [searchInput, setSearchInput] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [page, setPage] = useState(1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [functionToDelete, setFunctionToDelete] = useState<FunctionData | null>(null);
   
   const { data, isLoading, error, refetch } = useFunctions({ 
     page, 
@@ -99,6 +110,9 @@ export default function FunctionsListPage() {
     ...filters 
   });
   const deleteFunction = useDeleteFunction();
+  const setFunctionStatus = useSetFunctionStatus();
+  const functions = data?.data || [];
+  const pagination = data?.meta?.pagination;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -108,6 +122,16 @@ export default function FunctionsListPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
+
+  useEffect(() => {
+    if (!pagination) {
+      return;
+    }
+
+    if (pagination.pageCount > 0 && page > pagination.pageCount) {
+      setPage(pagination.pageCount);
+    }
+  }, [pagination, page]);
 
   const handleStatusFilter = (value: string) => {
     setFilters((prev) => ({
@@ -125,21 +149,27 @@ export default function FunctionsListPage() {
     setPage(1);
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
-      try {
-        await deleteFunction.mutateAsync(id);
-      } catch {
-        // Error handling is done via the mutation's error state
-      }
+  const requestDelete = (fn: FunctionData) => {
+    setFunctionToDelete(fn);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!functionToDelete) return;
+
+    try {
+      await deleteFunction.mutateAsync(functionToDelete.id);
+      setDeleteDialogOpen(false);
+      setFunctionToDelete(null);
+    } catch {
+      // Error handling is done via the mutation's error state
     }
   };
 
-  const functions = data?.data || [];
-  const pagination = data?.meta?.pagination;
-  const filteredFunctions = functions.filter((fn) =>
-    fn.name.toLowerCase().includes(searchInput.toLowerCase())
-  );
+  const handleToggleStatus = async (fn: FunctionData) => {
+    const nextStatus = fn.status === 'active' ? 'inactive' : 'active';
+    await setFunctionStatus.mutateAsync({ id: fn.id, status: nextStatus });
+  };
 
   return (
     <div className="space-y-6">
@@ -234,7 +264,7 @@ export default function FunctionsListPage() {
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && filteredFunctions.length === 0 && (
+      {!isLoading && !error && functions.length === 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -265,9 +295,9 @@ export default function FunctionsListPage() {
       )}
 
       {/* Grid View */}
-      {!isLoading && filteredFunctions.length > 0 && viewMode === 'grid' && (
+      {!isLoading && functions.length > 0 && viewMode === 'grid' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredFunctions.map((fn) => (
+          {functions.map((fn) => (
             <Card
               key={fn.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
@@ -290,11 +320,15 @@ export default function FunctionsListPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         View
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handleToggleStatus(fn); }}>
+                        <Power className="mr-2 h-4 w-4" />
+                        {fn.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}/edit`); }}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); void handleDelete(fn.id, fn.name); }}>
+                      <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); requestDelete(fn); }}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
@@ -321,7 +355,7 @@ export default function FunctionsListPage() {
       )}
 
       {/* Table View */}
-      {!isLoading && filteredFunctions.length > 0 && viewMode === 'table' && (
+      {!isLoading && functions.length > 0 && viewMode === 'table' && (
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -336,7 +370,7 @@ export default function FunctionsListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredFunctions.map((fn) => (
+                  {functions.map((fn) => (
                     <TableRow
                       key={fn.id}
                       className="cursor-pointer"
@@ -375,7 +409,11 @@ export default function FunctionsListPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}/test`); }}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handleToggleStatus(fn); }}>
+                              <Power className="mr-2 h-4 w-4" />
+                              {fn.status === 'active' ? 'Deactivate' : 'Activate'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/functions/${fn.id}`); }}>
                               <Play className="mr-2 h-4 w-4" />
                               Test
                             </DropdownMenuItem>
@@ -385,7 +423,7 @@ export default function FunctionsListPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={(e) => { e.stopPropagation(); void handleDelete(fn.id, fn.name); }}
+                              onClick={(e) => { e.stopPropagation(); requestDelete(fn); }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -429,6 +467,26 @@ export default function FunctionsListPage() {
           </div>
         </div>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Function</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{functionToDelete?.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

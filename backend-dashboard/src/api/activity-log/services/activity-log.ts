@@ -58,6 +58,42 @@ interface FindLogsParams {
   pageSize?: number;
 }
 
+interface InvocationLogQueryParams {
+  userId: number;
+  resourceIds: string[];
+  limit?: number;
+}
+
+interface RetentionPolicy {
+  defaultRetentionDays: number;
+  useCustomRetention: boolean;
+  customRetentionDays: number;
+  effectiveRetentionDays: number;
+}
+
+const RETENTION_POLICY_STORE_KEY = 'retention-policy';
+const DEFAULT_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_DEFAULT_RETENTION_DAYS || 7);
+const DEFAULT_CUSTOM_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_CUSTOM_RETENTION_DAYS || 30);
+
+function normalizeDays(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  const rounded = Math.trunc(parsed);
+  if (rounded < 1) {
+    return 1;
+  }
+
+  if (rounded > 3650) {
+    return 3650;
+  }
+
+  return rounded;
+}
+
 // =============================================================================
 // Service Factory
 // =============================================================================
@@ -209,10 +245,136 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   },
 
   // ===========================================================================
+  // Get Function Invocation Logs
+  // ===========================================================================
+
+  async getFunctionInvocationLogs(params: InvocationLogQueryParams) {
+    const { userId, resourceIds, limit = 25 } = params;
+
+    if (!resourceIds || resourceIds.length === 0) {
+      return {
+        data: [],
+        meta: { count: 0, limit: 0 },
+      };
+    }
+
+    const retentionPolicy: RetentionPolicy = await strapi
+      .service('api::activity-log.activity-log')
+      .getRetentionPolicy();
+
+    const cappedLimit = Math.max(1, Math.min(200, Number(limit) || 25));
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionPolicy.effectiveRetentionDays);
+
+    const logs = await strapi.db.query('api::activity-log.activity-log').findMany({
+      where: {
+        user: userId,
+        action: 'function.invoke',
+        resourceType: 'function',
+        resourceId: { $in: resourceIds },
+        createdAt: { $gte: cutoffDate },
+      },
+      orderBy: { createdAt: 'desc' },
+      limit: cappedLimit,
+    });
+
+    const data = logs.map((log: any) => {
+      const details = (log.details || {}) as Record<string, unknown>;
+      const runtimeLogsRaw = details.runtimeLogs as Record<string, unknown> | undefined;
+
+      const stdout = Array.isArray(runtimeLogsRaw?.stdout)
+        ? runtimeLogsRaw?.stdout.filter((entry) => typeof entry === 'string')
+        : [];
+      const stderr = Array.isArray(runtimeLogsRaw?.stderr)
+        ? runtimeLogsRaw?.stderr.filter((entry) => typeof entry === 'string')
+        : [];
+
+      return {
+        id: log.id,
+        createdAt: log.createdAt,
+        status: log.status,
+        errorMessage: log.errorMessage,
+        executionTimeMs: details.executionTimeMs,
+        providerStatusCode: details.providerStatusCode,
+        response: details.functionResponse,
+        runtimeLogs: stdout.length > 0 || stderr.length > 0
+          ? {
+              stdout,
+              stderr,
+            }
+          : null,
+      };
+    });
+
+    return {
+      data,
+      meta: {
+        count: data.length,
+        limit: cappedLimit,
+      },
+    };
+  },
+
+  // ===========================================================================
+  // Retention Policy
+  // ===========================================================================
+
+  async getRetentionPolicy(): Promise<RetentionPolicy> {
+    const store = strapi.store({ type: 'core', name: 'activity-log' });
+    const saved = (await store.get({ key: RETENTION_POLICY_STORE_KEY })) as
+      | { useCustomRetention?: boolean; customRetentionDays?: number }
+      | undefined;
+
+    const defaultRetentionDays = normalizeDays(DEFAULT_RETENTION_DAYS, 7);
+    const customRetentionDays = normalizeDays(
+      saved?.customRetentionDays,
+      normalizeDays(DEFAULT_CUSTOM_RETENTION_DAYS, 30)
+    );
+    const useCustomRetention = saved?.useCustomRetention === true;
+
+    return {
+      defaultRetentionDays,
+      useCustomRetention,
+      customRetentionDays,
+      effectiveRetentionDays: useCustomRetention ? customRetentionDays : defaultRetentionDays,
+    };
+  },
+
+  async updateRetentionPolicy(config: {
+    useCustomRetention?: boolean;
+    customRetentionDays?: number;
+  }): Promise<RetentionPolicy> {
+    const currentPolicy: RetentionPolicy = await strapi
+      .service('api::activity-log.activity-log')
+      .getRetentionPolicy();
+
+    const nextUseCustomRetention =
+      typeof config.useCustomRetention === 'boolean'
+        ? config.useCustomRetention
+        : currentPolicy.useCustomRetention;
+
+    const nextCustomRetentionDays =
+      config.customRetentionDays !== undefined
+        ? normalizeDays(config.customRetentionDays, currentPolicy.customRetentionDays)
+        : currentPolicy.customRetentionDays;
+
+    const store = strapi.store({ type: 'core', name: 'activity-log' });
+    await store.set({
+      key: RETENTION_POLICY_STORE_KEY,
+      value: {
+        useCustomRetention: nextUseCustomRetention,
+        customRetentionDays: nextCustomRetentionDays,
+      },
+    });
+
+    return strapi.service('api::activity-log.activity-log').getRetentionPolicy();
+  },
+
+  // ===========================================================================
   // Clean Old Logs
   // ===========================================================================
 
-  async cleanOldLogs(retentionDays = 90) {
+  async cleanOldLogs(retentionDays = 7) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
@@ -223,5 +385,20 @@ export default ({ strapi }: { strapi: Strapi }) => ({
     });
 
     return { deleted: result.count };
+  },
+
+  async runRetentionCleanup() {
+    const policy: RetentionPolicy = await strapi
+      .service('api::activity-log.activity-log')
+      .getRetentionPolicy();
+
+    const cleanup = await strapi
+      .service('api::activity-log.activity-log')
+      .cleanOldLogs(policy.effectiveRetentionDays);
+
+    return {
+      ...cleanup,
+      retentionDays: policy.effectiveRetentionDays,
+    };
   },
 });

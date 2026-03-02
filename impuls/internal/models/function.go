@@ -25,6 +25,7 @@ type Function struct {
 	CodePath    string            `json:"-"`       // Internal path to stored code
 	MemoryMB    int               `json:"memory_mb"`
 	TimeoutSec  int               `json:"timeout_sec"`
+	Status      FunctionStatus    `json:"status"`
 	Environment map[string]string `json:"environment,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
@@ -50,6 +51,7 @@ type UpdateFunctionRequest struct {
 	Code        *string           `json:"code,omitempty"`
 	MemoryMB    *int              `json:"memory_mb,omitempty"`
 	TimeoutSec  *int              `json:"timeout_sec,omitempty"`
+	Status      *FunctionStatus   `json:"status,omitempty"`
 	Environment map[string]string `json:"environment,omitempty"`
 }
 
@@ -58,12 +60,18 @@ type InvocationRequest struct {
 	Payload interface{} `json:"payload,omitempty"`
 }
 
+// InvocationLogs contains captured runtime logs.
+type InvocationLogs struct {
+	Stdout []string `json:"stdout,omitempty"`
+	Stderr []string `json:"stderr,omitempty"`
+}
+
 // InvocationResponse is the response from a function invocation
 type InvocationResponse struct {
 	StatusCode int         `json:"status_code"`
 	Body       interface{} `json:"body"`
 	Duration   int64       `json:"duration_ms"`
-	Logs       string      `json:"logs,omitempty"`
+	Logs       *InvocationLogs `json:"logs,omitempty"`
 	Error      string      `json:"error,omitempty"`
 }
 

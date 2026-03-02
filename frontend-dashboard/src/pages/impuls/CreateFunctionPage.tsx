@@ -212,7 +212,7 @@ export default function CreateFunctionPage() {
     if (runtime.startsWith('python')) {
       updateForm('handler', 'main.handler');
     } else if (runtime.startsWith('dotnet')) {
-      updateForm('handler', 'Function::Handler');
+      updateForm('handler', 'Function.Handler');
     } else {
       updateForm('handler', 'index.handler');
     }

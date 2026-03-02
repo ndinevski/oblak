@@ -30,6 +30,30 @@ export default {
     },
     {
       method: 'GET',
+      path: '/activity-logs/retention',
+      handler: 'activity-log.retention',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+        description: 'Get log retention policy',
+        tags: ['Activity'],
+      },
+    },
+    {
+      method: 'PUT',
+      path: '/activity-logs/retention',
+      handler: 'activity-log.updateRetention',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+        description: 'Update log retention policy',
+        tags: ['Activity'],
+      },
+    },
+    {
+      method: 'GET',
       path: '/activity-logs/:id',
       handler: 'activity-log.findOne',
       info: { type: 'content-api' },

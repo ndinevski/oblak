@@ -14,6 +14,8 @@ import {
   FunctionFilters,
   InvokeFunctionRequest,
   InvokeFunctionResponse,
+  FunctionLogsResponse,
+  LogRetentionPolicy,
 } from '@/lib/api/functions';
 import { PaginationParams } from '@/lib/api/types';
 
@@ -27,6 +29,9 @@ export const functionKeys = {
     [...functionKeys.lists(), filters] as const,
   details: () => [...functionKeys.all, 'detail'] as const,
   detail: (id: number | string) => [...functionKeys.details(), id] as const,
+  logs: () => [...functionKeys.all, 'logs'] as const,
+  log: (id: number | string) => [...functionKeys.logs(), id] as const,
+  logsRetention: () => [...functionKeys.all, 'logs-retention'] as const,
   byName: (name: string) => [...functionKeys.all, 'name', name] as const,
   count: () => [...functionKeys.all, 'count'] as const,
 };
@@ -38,6 +43,7 @@ export function useFunctions(params?: PaginationParams & FunctionFilters) {
   return useQuery({
     queryKey: functionKeys.list(params),
     queryFn: () => functionsApi.list(params),
+    refetchOnMount: 'always',
   });
 }
 
@@ -49,6 +55,7 @@ export function useFunction(id: number | string | undefined) {
     queryKey: functionKeys.detail(id!),
     queryFn: () => functionsApi.getById(id!),
     enabled: !!id,
+    refetchOnMount: 'always',
     select: (data) => data.data,
   });
 }
@@ -99,14 +106,9 @@ export function useUpdateFunction() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number | string; data: UpdateFunctionRequest }) => 
       functionsApi.update(id, data),
-    onSuccess: (result) => {
-      // Update the cache for this specific function
-      queryClient.setQueryData(
-        functionKeys.detail(result.data.id), 
-        result
-      );
-      // Invalidate lists to refetch
-      queryClient.invalidateQueries({ queryKey: functionKeys.lists() });
+    onSuccess: () => {
+      // Invalidate all function queries to guarantee fresh state across pages.
+      queryClient.invalidateQueries({ queryKey: functionKeys.all });
     },
   });
 }
@@ -140,9 +142,68 @@ export function useInvokeFunction() {
     { id: number | string; request?: InvokeFunctionRequest }
   >({
     mutationFn: ({ id, request }) => functionsApi.invoke(id, request),
-    onSuccess: (_, { id }) => {
-      // Invalidate the function detail to refetch updated invocationCount
-      queryClient.invalidateQueries({ queryKey: functionKeys.detail(id) });
+    onSuccess: () => {
+      // Invalidate all function queries so list/detail/count stay in sync.
+      queryClient.invalidateQueries({ queryKey: functionKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook to set function status (activate/deactivate)
+ */
+export function useSetFunctionStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { data: FunctionData },
+    Error,
+    { id: number | string; status: FunctionStatus }
+  >({
+    mutationFn: ({ id, status }) => functionsApi.update(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: functionKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook to fetch recent invocation logs for a function
+ */
+export function useFunctionLogs(id: number | string | undefined, limit = 25) {
+  return useQuery<FunctionLogsResponse>({
+    queryKey: functionKeys.log(id!),
+    queryFn: () => functionsApi.getLogs(id!, limit),
+    enabled: !!id,
+    refetchInterval: 10000,
+  });
+}
+
+/**
+ * Hook to fetch logs retention policy
+ */
+export function useFunctionLogsRetention() {
+  return useQuery<LogRetentionPolicy>({
+    queryKey: functionKeys.logsRetention(),
+    queryFn: () => functionsApi.getLogsRetentionPolicy(),
+  });
+}
+
+/**
+ * Hook to update logs retention policy
+ */
+export function useUpdateFunctionLogsRetention() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    LogRetentionPolicy,
+    Error,
+    { useCustomRetention: boolean; customRetentionDays?: number }
+  >({
+    mutationFn: (payload) => functionsApi.updateLogsRetentionPolicy(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: functionKeys.logsRetention() });
+      queryClient.invalidateQueries({ queryKey: functionKeys.logs() });
     },
   });
 }

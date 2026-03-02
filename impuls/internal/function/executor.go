@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -46,13 +47,28 @@ func executeNodeJSLocal(ctx context.Context, fn *models.Function, code []byte, p
 	runnerScript := fmt.Sprintf(`
 const path = require('path');
 
+const logs = { stdout: [], stderr: [] };
+
+const formatValue = (v) => {
+	if (typeof v === 'string') return v;
+	try { return JSON.stringify(v); } catch { return String(v); }
+};
+
+console.log = (...args) => {
+	logs.stdout.push(args.map(formatValue).join(' '));
+};
+
+console.error = (...args) => {
+	logs.stderr.push(args.map(formatValue).join(' '));
+};
+
 // Load the function
 const fn = require('./function.js');
 
 // Get the handler
 const handler = fn['%s'];
 if (typeof handler !== 'function') {
-    console.error(JSON.stringify({ error: 'Handler %s is not a function' }));
+	process.stdout.write(JSON.stringify({ ok: false, error: 'Handler %s is not a function', logs }) + '\n');
     process.exit(1);
 }
 
@@ -84,13 +100,14 @@ async function run() {
                 });
             });
         }
-        console.log(JSON.stringify({ statusCode: 200, body: result }));
+		process.stdout.write(JSON.stringify({ ok: true, result, logs }) + '\n');
     } catch (err) {
-        console.log(JSON.stringify({ 
-            statusCode: 500, 
-            error: err.message,
-            stack: err.stack 
-        }));
+		process.stdout.write(JSON.stringify({
+			ok: false,
+			error: err.message,
+			stack: err.stack,
+			logs,
+		}) + '\n');
     }
 }
 
@@ -116,25 +133,66 @@ run();
 	}
 
 	// Run the command and capture output
-	output, err := cmd.CombinedOutput()
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err = cmd.Run()
 	if err != nil {
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("function execution timed out after %d seconds", fn.TimeoutSec)
 		}
-		return nil, fmt.Errorf("function execution failed: %s (output: %s)", err, string(output))
+		return nil, fmt.Errorf("function execution failed: %s (stderr: %s)", err, strings.TrimSpace(stderrBuf.String()))
 	}
 
-	// Parse the output
-	var result map[string]interface{}
-	if err := json.Unmarshal(output, &result); err != nil {
+	// Parse runner envelope
+	stdout := strings.TrimSpace(stdoutBuf.String())
+	var envelope map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
 		// Return raw output if not JSON
-		return string(output), nil
+		return map[string]interface{}{
+			"__impuls_response": stdout,
+			"__impuls_logs": map[string]interface{}{
+				"stdout": []string{},
+				"stderr": splitNonEmptyLines(stderrBuf.String()),
+			},
+		}, nil
 	}
 
-	// Check for error
-	if errMsg, ok := result["error"].(string); ok {
+	if okVal, ok := envelope["ok"].(bool); ok && !okVal {
+		errMsg, _ := envelope["error"].(string)
+		if errMsg == "" {
+			errMsg = "unknown function error"
+		}
 		return nil, fmt.Errorf("function error: %s", errMsg)
 	}
 
-	return result["body"], nil
+	logs, _ := envelope["logs"].(map[string]interface{})
+	stderrLines := splitNonEmptyLines(stderrBuf.String())
+	if logs != nil {
+		if existing, ok := logs["stderr"].([]interface{}); ok {
+			for _, line := range stderrLines {
+				existing = append(existing, line)
+			}
+			logs["stderr"] = existing
+		}
+	}
+
+	return map[string]interface{}{
+		"__impuls_response": envelope["result"],
+		"__impuls_logs":     logs,
+	}, nil
+}
+
+func splitNonEmptyLines(input string) []string {
+	lines := strings.Split(strings.ReplaceAll(input, "\r\n", "\n"), "\n")
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

@@ -117,5 +117,50 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       ctx.body = { error: { message: 'Failed to fetch activity summary' } };
     }
   },
+
+  // ===========================================================================
+  // Get Log Retention Policy
+  // ===========================================================================
+
+  async retention(ctx: Context) {
+    try {
+      getAuthenticatedUser(ctx);
+      const activityService = strapi.service('api::activity-log.activity-log');
+      const policy = await activityService.getRetentionPolicy();
+      ctx.body = { data: policy };
+    } catch (error) {
+      strapi.log.error('Error fetching activity retention policy:', error);
+      ctx.status = 400;
+      ctx.body = { error: { message: 'Failed to fetch activity retention policy' } };
+    }
+  },
+
+  // ===========================================================================
+  // Update Log Retention Policy
+  // ===========================================================================
+
+  async updateRetention(ctx: Context) {
+    try {
+      getAuthenticatedUser(ctx);
+      const payload = (ctx.request.body || {}) as {
+        data?: { useCustomRetention?: boolean; customRetentionDays?: number };
+        useCustomRetention?: boolean;
+        customRetentionDays?: number;
+      };
+
+      const config = payload.data || payload;
+      const activityService = strapi.service('api::activity-log.activity-log');
+      const policy = await activityService.updateRetentionPolicy({
+        useCustomRetention: config.useCustomRetention,
+        customRetentionDays: config.customRetentionDays,
+      });
+
+      ctx.body = { data: policy };
+    } catch (error) {
+      strapi.log.error('Error updating activity retention policy:', error);
+      ctx.status = 400;
+      ctx.body = { error: { message: 'Failed to update activity retention policy' } };
+    }
+  },
 });
 

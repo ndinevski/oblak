@@ -3,7 +3,7 @@
  * API client for function CRUD operations and invocation
  */
 
-import { apiClient } from './client';
+import { apiClient, API_CONFIG } from './client';
 import { ApiResponse, PaginatedResponse, PaginationParams } from './types';
 
 /**
@@ -72,6 +72,7 @@ export interface UpdateFunctionRequest {
   timeoutSec?: number;
   environment?: Record<string, string>;
   tags?: string[];
+  status?: FunctionStatus;
 }
 
 /**
@@ -85,10 +86,38 @@ export interface InvokeFunctionRequest {
  * Function invocation response
  */
 export interface InvokeFunctionResponse {
-  result: unknown;
-  execution_time_ms: number;
-  memory_used_mb?: number;
-  logs?: string[];
+  [key: string]: unknown;
+}
+
+export interface FunctionInvocationRuntimeLogs {
+  stdout: string[];
+  stderr: string[];
+}
+
+export interface FunctionInvocationLog {
+  id: number;
+  createdAt: string;
+  status: 'success' | 'failure' | 'pending';
+  errorMessage?: string;
+  executionTimeMs?: number;
+  providerStatusCode?: number;
+  response?: unknown;
+  runtimeLogs?: FunctionInvocationRuntimeLogs | null;
+}
+
+export interface FunctionLogsResponse {
+  data: FunctionInvocationLog[];
+  meta: {
+    count: number;
+    limit: number;
+  };
+}
+
+export interface LogRetentionPolicy {
+  defaultRetentionDays: number;
+  useCustomRetention: boolean;
+  customRetentionDays: number;
+  effectiveRetentionDays: number;
 }
 
 /**
@@ -104,6 +133,8 @@ export interface FunctionFilters {
  * Functions API client
  */
 export const functionsApi = {
+  baseUrl: API_CONFIG.baseURL,
+
   /**
    * Get all functions for current user
    */
@@ -197,11 +228,11 @@ export const functionsApi = {
     id: number | string, 
     request?: InvokeFunctionRequest
   ): Promise<InvokeFunctionResponse> {
-    const response = await apiClient.post<InvokeFunctionResponse>(
+    const response = await apiClient.post<ApiResponse<InvokeFunctionResponse>>(
       `/functions/${id}/invoke`,
       request?.payload || {}
     );
-    return response.data;
+    return response.data.data;
   },
 
   /**
@@ -210,6 +241,33 @@ export const functionsApi = {
   async count(): Promise<number> {
     const response = await apiClient.get<{ count: number }>('/functions/count');
     return response.data.count;
+  },
+
+  /**
+   * Get recent invocation logs for a function
+   */
+  async getLogs(id: number | string, limit = 25): Promise<FunctionLogsResponse> {
+    const response = await apiClient.get<FunctionLogsResponse>(`/functions/${id}/logs?limit=${limit}`);
+    return response.data;
+  },
+
+  /**
+   * Get logs retention policy
+   */
+  async getLogsRetentionPolicy(): Promise<LogRetentionPolicy> {
+    const response = await apiClient.get<{ data: LogRetentionPolicy }>('/activity-logs/retention');
+    return response.data.data;
+  },
+
+  /**
+   * Update logs retention policy
+   */
+  async updateLogsRetentionPolicy(data: {
+    useCustomRetention: boolean;
+    customRetentionDays?: number;
+  }): Promise<LogRetentionPolicy> {
+    const response = await apiClient.put<{ data: LogRetentionPolicy }>('/activity-logs/retention', data);
+    return response.data.data;
   },
 };
 
