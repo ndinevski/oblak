@@ -31,17 +31,25 @@ import {
   List, 
   MoreHorizontal, 
   Trash2, 
-  Settings, 
-  ExternalLink,
+  Eye,
+  Pencil,
   RefreshCw,
-  Lock,
-  Globe,
   HardDrive,
   FileText,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBuckets, useDeleteBucket, useSyncBucket } from '@/hooks/useStorage';
-import { formatBytes, getPolicyLabel, getPolicyColor, type Bucket } from '@/lib/api/storage';
+import { formatBytes, getPolicyLabel, type Bucket } from '@/lib/api/storage';
+
+function PermissionBadge({ policy }: { policy: Bucket['policy'] }) {
+  const variant = policy === 'private' ? 'secondary' : 'default';
+
+  return (
+    <Badge variant={variant} className="capitalize">
+      {getPolicyLabel(policy)}
+    </Badge>
+  );
+}
 
 export default function BucketsListPage() {
   const navigate = useNavigate();
@@ -81,11 +89,6 @@ export default function BucketsListPage() {
     }
   };
 
-  const getPolicyIcon = (policy: string) => {
-    if (policy === 'private') return <Lock className="h-3 w-3" />;
-    return <Globe className="h-3 w-3" />;
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -95,7 +98,7 @@ export default function BucketsListPage() {
           <p className="text-muted-foreground">Manage your object storage</p>
         </div>
         <Link to="/storage/new">
-          <Button>
+          <Button data-testid="bucket-new-button">
             <Plus className="mr-2 h-4 w-4" />
             New Bucket
           </Button>
@@ -111,6 +114,7 @@ export default function BucketsListPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
+            data-testid="bucket-search-input"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -184,38 +188,73 @@ export default function BucketsListPage() {
       {!isLoading && !error && filteredBuckets.length > 0 && viewMode === 'grid' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredBuckets.map((bucket) => (
-            <Card key={bucket.id} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card
+              key={bucket.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              data-testid={`bucket-card-${bucket.id}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/storage/${bucket.id}`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/storage/${bucket.id}`);
+                }
+              }}
+            >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <Link to={`/storage/${bucket.id}`} className="flex-1">
+                  <div className="flex-1">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Database className="h-4 w-4" />
                       {bucket.name}
                     </CardTitle>
-                  </Link>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        data-testid={`bucket-menu-${bucket.id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        View Objects
+                    <DropdownMenuContent
+                      align="end"
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                    >
+                      <DropdownMenuItem onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`/storage/${bucket.id}`);
+                      }}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Details
+                      <DropdownMenuItem onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`/storage/${bucket.id}/edit`);
+                      }}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleSync(bucket)}>
+                      <DropdownMenuItem onClick={(event) => {
+                        event.stopPropagation();
+                        void handleSync(bucket);
+                      }}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Sync
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => {
+                        data-testid={`bucket-delete-${bucket.id}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setBucketToDelete(bucket);
                           setDeleteDialogOpen(true);
                         }}
@@ -226,12 +265,14 @@ export default function BucketsListPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <Badge variant="secondary" className={getPolicyColor(bucket.policy)}>
-                  {getPolicyIcon(bucket.policy)}
-                  <span className="ml-1">{getPolicyLabel(bucket.policy)}</span>
-                </Badge>
+                <PermissionBadge policy={bucket.policy} />
               </CardHeader>
               <CardContent>
+                {bucket.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                    {bucket.description}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
@@ -242,11 +283,6 @@ export default function BucketsListPage() {
                     <span>{formatBytes(bucket.totalSize)}</span>
                   </div>
                 </div>
-                {bucket.description && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                    {bucket.description}
-                  </p>
-                )}
               </CardContent>
             </Card>
           ))}
@@ -270,7 +306,7 @@ export default function BucketsListPage() {
               </thead>
               <tbody>
                 {filteredBuckets.map((bucket) => (
-                  <tr key={bucket.id} className="border-b last:border-0 hover:bg-muted/50">
+                  <tr key={bucket.id} className="border-b last:border-0 hover:bg-muted/50" data-testid={`bucket-row-${bucket.id}`}>
                     <td className="px-4 py-3">
                       <Link 
                         to={`/storage/${bucket.id}`}
@@ -281,10 +317,7 @@ export default function BucketsListPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="secondary" className={getPolicyColor(bucket.policy)}>
-                        {getPolicyIcon(bucket.policy)}
-                        <span className="ml-1">{getPolicyLabel(bucket.policy)}</span>
-                      </Badge>
+                      <PermissionBadge policy={bucket.policy} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{bucket.objectCount}</td>
                     <td className="px-4 py-3 text-muted-foreground">{formatBytes(bucket.totalSize)}</td>
@@ -294,18 +327,18 @@ export default function BucketsListPage() {
                     <td className="px-4 py-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`bucket-menu-${bucket.id}`}>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            View Objects
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}`)}>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Details
+                          <DropdownMenuItem onClick={() => navigate(`/storage/${bucket.id}/edit`)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleSync(bucket)}>
                             <RefreshCw className="mr-2 h-4 w-4" />
@@ -314,6 +347,7 @@ export default function BucketsListPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive"
+                            data-testid={`bucket-delete-${bucket.id}`}
                             onClick={() => {
                               setBucketToDelete(bucket);
                               setDeleteDialogOpen(true);
@@ -377,6 +411,7 @@ export default function BucketsListPage() {
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="bucket-delete-confirm"
             >
               Delete Bucket
             </AlertDialogAction>

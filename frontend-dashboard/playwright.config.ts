@@ -56,7 +56,7 @@ export default defineConfig({
       command: 'npm run develop',
       cwd: '../backend-dashboard',
       url: 'http://localhost:1337/api/health',
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 180 * 1000,
     },
     {

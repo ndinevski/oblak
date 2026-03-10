@@ -22,6 +22,18 @@ export default {
     },
     {
       method: 'GET',
+      path: '/buckets/quota',
+      handler: 'bucket.quota',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+        description: 'Get bucket quota usage for current user',
+        tags: ['Bucket'],
+      },
+    },
+    {
+      method: 'GET',
       path: '/buckets/:id',
       handler: 'bucket.findOne',
       info: { type: 'content-api' },
@@ -145,6 +157,18 @@ export default {
         policies: [],
         middlewares: [],
         description: 'Delete multiple objects',
+        tags: ['Object'],
+      },
+    },
+    {
+      method: 'POST',
+      path: '/buckets/:id/folders/delete',
+      handler: 'object.deleteFolder',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+        description: 'Delete a folder and all nested objects',
         tags: ['Object'],
       },
     },

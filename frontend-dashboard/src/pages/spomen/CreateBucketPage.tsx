@@ -9,7 +9,6 @@ import {
   Input, 
   Label,
   Switch,
-  Textarea,
   Badge,
   Alert,
   AlertDescription,
@@ -24,7 +23,6 @@ interface PolicyOption {
   label: string;
   description: string;
   icon: React.ReactNode;
-  color: string;
 }
 
 const policyOptions: PolicyOption[] = [
@@ -33,21 +31,18 @@ const policyOptions: PolicyOption[] = [
     label: 'Private',
     description: 'Only you can access objects',
     icon: <Lock className="h-5 w-5" />,
-    color: 'border-green-500 bg-green-50',
   },
   {
     value: 'public-read',
     label: 'Public Read',
     description: 'Anyone can view objects, only you can modify',
     icon: <GlobeLock className="h-5 w-5" />,
-    color: 'border-yellow-500 bg-yellow-50',
   },
   {
     value: 'public-read-write',
     label: 'Public Read/Write',
     description: 'Anyone can view and modify objects',
     icon: <Globe className="h-5 w-5" />,
-    color: 'border-red-500 bg-red-50',
   },
 ];
 
@@ -59,7 +54,9 @@ export default function CreateBucketPage() {
   const [description, setDescription] = useState('');
   const [policy, setPolicy] = useState<BucketPolicy>('private');
   const [versioning, setVersioning] = useState(false);
-  const [tags, setTags] = useState('');
+  const [tags, setTags] = useState<Record<string, string>>({});
+  const [newTagKey, setNewTagKey] = useState('');
+  const [newTagValue, setNewTagValue] = useState('');
 
   const nameValidation = name ? validateBucketName(name) : null;
 
@@ -68,29 +65,38 @@ export default function CreateBucketPage() {
 
     if (nameValidation && !nameValidation.valid) return;
 
-    // Parse tags
-    const parsedTags: Record<string, string> = {};
-    if (tags.trim()) {
-      tags.split('\n').forEach((line) => {
-        const [key, value] = line.split('=').map((s) => s.trim());
-        if (key && value) {
-          parsedTags[key] = value;
-        }
-      });
-    }
-
     try {
       const bucket = await createMutation.mutateAsync({
         name,
         description: description || undefined,
         policy,
         versioning,
-        tags: Object.keys(parsedTags).length > 0 ? parsedTags : undefined,
+        tags: Object.keys(tags).length > 0 ? tags : undefined,
       });
       navigate(`/storage/${bucket.id}`);
     } catch (error) {
       console.error('Failed to create bucket:', error);
     }
+  };
+
+  const addTag = () => {
+    const key = newTagKey.trim();
+    const value = newTagValue.trim();
+    if (!key || !value) {
+      return;
+    }
+
+    setTags((prev) => ({ ...prev, [key]: value }));
+    setNewTagKey('');
+    setNewTagValue('');
+  };
+
+  const removeTag = (key: string) => {
+    setTags((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   return (
@@ -119,19 +125,22 @@ export default function CreateBucketPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value.toLowerCase())}
                 className={nameValidation && !nameValidation.valid ? 'border-destructive' : ''}
+                data-testid="bucket-name-input"
               />
-              {nameValidation && !nameValidation.valid && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {nameValidation.error}
-                </p>
-              )}
-              {nameValidation && nameValidation.valid && (
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <Check className="h-3 w-3" />
-                  Valid bucket name
-                </p>
-              )}
+              <div className="min-h-5">
+                {nameValidation && !nameValidation.valid && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {nameValidation.error}
+                  </p>
+                )}
+                {nameValidation && nameValidation.valid && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Valid bucket name
+                  </p>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 3-63 characters, lowercase letters, numbers, hyphens, and periods only.
               </p>
@@ -139,13 +148,52 @@ export default function CreateBucketPage() {
 
             <div className="space-y-2">
               <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
+              <Input
                 id="description"
                 placeholder="A brief description of what this bucket is for..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={2}
+                data-testid="bucket-description-input"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tags (optional)</Label>
+
+              {Object.keys(tags).length > 0 && (
+                <div className="space-y-2">
+                  {Object.entries(tags).map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2 p-2 bg-muted rounded">
+                      <code className="flex-1 font-mono text-sm">{key}</code>
+                      <code className="flex-1 font-mono text-sm text-muted-foreground truncate">
+                        {value}
+                      </code>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeTag(key)}>
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder="key"
+                  value={newTagKey}
+                  onChange={(e) => setNewTagKey(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  className="font-mono"
+                />
+                <Input
+                  placeholder="value"
+                  value={newTagValue}
+                  onChange={(e) => setNewTagValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                />
+                <Button type="button" variant="outline" onClick={addTag}>
+                  Add
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -164,7 +212,7 @@ export default function CreateBucketPage() {
                   onClick={() => setPolicy(option.value)}
                   className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                     policy === option.value
-                      ? option.color + ' border-2'
+                      ? 'border-primary bg-muted'
                       : 'border-muted hover:border-muted-foreground/50'
                   }`}
                 >
@@ -222,19 +270,9 @@ export default function CreateBucketPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (optional)</Label>
-              <Textarea
-                id="tags"
-                placeholder="environment=production&#10;project=myapp"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                One tag per line in key=value format
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Add tags in Basic Information section.
+            </p>
           </CardContent>
         </Card>
 
@@ -243,6 +281,7 @@ export default function CreateBucketPage() {
           <Button
             type="submit"
             disabled={!name || (nameValidation && !nameValidation.valid) || createMutation.isPending}
+            data-testid="bucket-create-submit"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Bucket'}
           </Button>

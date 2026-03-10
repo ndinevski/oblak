@@ -191,6 +191,19 @@ export function useDeleteObjects(bucketId: number) {
   });
 }
 
+export function useDeleteFolder(bucketId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (prefix: string) => storageApi.deleteFolder(bucketId, prefix),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: storageKeys.objects(bucketId) });
+      queryClient.invalidateQueries({ queryKey: storageKeys.bucketStats(bucketId) });
+      queryClient.invalidateQueries({ queryKey: storageKeys.bucket(bucketId) });
+    },
+  });
+}
+
 export function useCopyObject(bucketId: number) {
   const queryClient = useQueryClient();
 
@@ -244,11 +257,15 @@ export function useFileUpload(bucketId: number) {
         try {
           const base64 = (reader.result as string).split(',')[1];
           const key = prefix ? `${prefix}/${file.name}` : file.name;
+          const resolvedContentType = file.type || storageApi.getContentType(file.name);
           const result = await uploadMutation.mutateAsync({
             key,
             data: base64,
-            contentType: file.type || storageApi.getContentType(file.name),
-            metadata: {},
+            contentType: resolvedContentType,
+            metadata: {
+              original_filename: file.name,
+              original_content_type: resolvedContentType,
+            },
           });
           resolve(result);
         } catch (error) {

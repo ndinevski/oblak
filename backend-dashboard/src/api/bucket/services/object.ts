@@ -40,6 +40,52 @@ interface CopyObjectParams {
   metadata?: Record<string, string>;
 }
 
+interface DeleteFolderResult {
+  deleted: string[];
+  errors: string[];
+}
+
+const extensionContentTypes: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  txt: 'text/plain',
+  json: 'application/json',
+  csv: 'text/csv',
+};
+
+function inferContentTypeFromKey(key: string): string {
+  const lastDot = key.lastIndexOf('.');
+  if (lastDot === -1) {
+    return '';
+  }
+
+  const ext = key.slice(lastDot + 1).toLowerCase();
+  return extensionContentTypes[ext] || '';
+}
+
+function normalizeObjectContentType(
+  object: SpomenObject,
+  explicitFallback?: string
+): SpomenObject {
+  const metadataType = object.metadata?.original_content_type || object.metadata?.content_type;
+  const inferredType = inferContentTypeFromKey(object.key);
+
+  return {
+    ...object,
+    content_type:
+      object.content_type ||
+      metadataType ||
+      explicitFallback ||
+      inferredType ||
+      'application/octet-stream',
+  };
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -130,12 +176,17 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
     const spomen = getSpomenClient();
 
     try {
-      return await spomen.listObjects(bucket.name, {
+      const result = await spomen.listObjects(bucket.name, {
         prefix: params.prefix,
         delimiter: params.delimiter,
         marker: params.marker,
         maxKeys: params.maxKeys,
       });
+
+      return {
+        ...result,
+        objects: (result.objects || []).map((object) => normalizeObjectContentType(object)),
+      };
     } catch (error) {
       if (error instanceof SpomenClientError) {
         throw new Error(`Failed to list objects: ${error.message}`);
@@ -157,7 +208,8 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
     const spomen = getSpomenClient();
 
     try {
-      return await spomen.getObjectInfo(bucket.name, key);
+      const result = await spomen.getObjectInfo(bucket.name, key);
+      return normalizeObjectContentType(result);
     } catch (error) {
       if (error instanceof SpomenClientError) {
         throw new Error(`Object not found: ${error.message}`);
@@ -206,6 +258,7 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
         contentLength: params.contentLength,
         metadata: params.metadata,
       });
+      const normalizedResult = normalizeObjectContentType(result, params.contentType);
 
       // Update bucket stats asynchronously
       updateBucketStats(strapi, bucketId, bucket.name);
@@ -213,11 +266,11 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
       // Log activity
       await logActivity(strapi, 'upload', userId, bucketId, {
         key: params.key,
-        size: result.size,
-        contentType: result.content_type,
+        size: normalizedResult.size,
+        contentType: normalizedResult.content_type,
       });
 
-      return result;
+      return normalizedResult;
     } catch (error) {
       if (error instanceof SpomenClientError) {
         throw new Error(`Failed to upload object: ${error.message}`);
@@ -290,6 +343,78 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
   },
 
   // ===========================================================================
+  // Delete Folder (recursive by prefix)
+  // ===========================================================================
+
+  async deleteFolder(
+    bucketId: number,
+    prefix: string,
+    userId: number
+  ): Promise<DeleteFolderResult> {
+    const bucket = await getBucketByIdOrThrow(strapi, bucketId, userId);
+    const spomen = getSpomenClient();
+
+    const normalizedPrefix = `${prefix.replace(/^\/+/, '').replace(/\/+$/, '')}/`;
+    if (!normalizedPrefix || normalizedPrefix === '/') {
+      throw new Error('Folder prefix is required');
+    }
+
+    const allKeys: string[] = [];
+    let marker: string | undefined;
+
+    try {
+      do {
+        const page = await spomen.listObjects(bucket.name, {
+          prefix: normalizedPrefix,
+          marker,
+          maxKeys: 1000,
+        });
+
+        for (const object of page.objects || []) {
+          allKeys.push(object.key);
+        }
+
+        marker = page.is_truncated ? page.next_marker : undefined;
+      } while (marker);
+
+      if (!allKeys.includes(normalizedPrefix)) {
+        allKeys.push(normalizedPrefix);
+      }
+
+      const uniqueKeys = Array.from(new Set(allKeys));
+      if (uniqueKeys.length === 0) {
+        return { deleted: [], errors: [] };
+      }
+
+      const deleted: string[] = [];
+      const errors: string[] = [];
+      const chunkSize = 1000;
+
+      for (let i = 0; i < uniqueKeys.length; i += chunkSize) {
+        const chunk = uniqueKeys.slice(i, i + chunkSize);
+        const result = await spomen.deleteObjects(bucket.name, chunk);
+        deleted.push(...(result.deleted || []));
+        errors.push(...(result.errors || []));
+      }
+
+      updateBucketStats(strapi, bucketId, bucket.name);
+
+      await logActivity(strapi, 'deleteFolder', userId, bucketId, {
+        prefix: normalizedPrefix,
+        deletedCount: deleted.length,
+        errorCount: errors.length,
+      });
+
+      return { deleted, errors };
+    } catch (error) {
+      if (error instanceof SpomenClientError) {
+        throw new Error(`Failed to delete folder: ${error.message}`);
+      }
+      throw error;
+    }
+  },
+
+  // ===========================================================================
   // Copy Object
   // ===========================================================================
 
@@ -310,6 +435,7 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
 
     try {
       const result = await spomen.copyObject(bucket.name, copyRequest);
+      const normalizedResult = normalizeObjectContentType(result);
 
       // Update bucket stats asynchronously
       updateBucketStats(strapi, bucketId, bucket.name);
@@ -320,7 +446,7 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
         destKey: params.destKey,
       });
 
-      return result;
+      return normalizedResult;
     } catch (error) {
       if (error instanceof SpomenClientError) {
         throw new Error(`Failed to copy object: ${error.message}`);

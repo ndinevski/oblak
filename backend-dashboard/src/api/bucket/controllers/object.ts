@@ -66,8 +66,18 @@ function handleError(ctx: Context, error: unknown): void {
 
 // Get the object key from wildcard path params
 function getObjectKey(ctx: Context): string {
-  // The key might be passed as params[0] for wildcard routes
-  return ctx.params['0'] || ctx.params.key || '';
+  // Prefer explicit named route params first.
+  // Fallback to wildcard params for compatibility with wildcard routes.
+  const rawKey = ctx.params.objectKey || ctx.params.key || ctx.params['0'] || '';
+  if (!rawKey) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(rawKey);
+  } catch {
+    return rawKey;
+  }
 }
 
 // =============================================================================
@@ -122,13 +132,15 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       // Download the object
       const response = await objectService.download(bucketId, key, user.id);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
       
       // Stream the response
       ctx.status = 200;
       ctx.set('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-      ctx.set('Content-Length', response.headers.get('content-length') || '0');
+      ctx.set('Content-Length', String(buffer.length));
       ctx.set('ETag', response.headers.get('etag') || '');
-      ctx.body = response.body;
+      ctx.body = buffer;
     } catch (error) {
       handleError(ctx, error);
     }
@@ -158,28 +170,40 @@ export default ({ strapi }: { strapi: Strapi }) => ({
         const file = files.file;
         const fs = await import('fs');
         const data = fs.readFileSync(file.path);
+        const uploadContentType = body.contentType || file.type || 'application/octet-stream';
 
         const result = await objectService.upload(bucketId, user.id, {
           key: body.key || file.name,
           data,
-          contentType: file.type,
+          contentType: uploadContentType,
           contentLength: file.size,
-          metadata: body.metadata,
+          metadata: {
+            ...(body.metadata || {}),
+            original_content_type: uploadContentType,
+            original_filename: file.name,
+          },
         });
 
         ctx.status = 201;
         ctx.body = { data: result };
-      } else if (body.key && (body as Record<string, unknown>).data) {
+      } else if (body.key && Object.prototype.hasOwnProperty.call(body as Record<string, unknown>, 'data')) {
         // Base64 encoded data
-        const base64Data = (body as Record<string, unknown>).data as string;
+        const base64Data = (body as Record<string, unknown>).data;
+        if (typeof base64Data !== 'string') {
+          ctx.throw(400, 'Data must be a base64 string');
+        }
         const buffer = Buffer.from(base64Data, 'base64');
+        const uploadContentType = body.contentType || 'application/octet-stream';
 
         const result = await objectService.upload(bucketId, user.id, {
           key: body.key,
           data: buffer,
-          contentType: body.contentType || 'application/octet-stream',
+          contentType: uploadContentType,
           contentLength: buffer.length,
-          metadata: body.metadata,
+          metadata: {
+            ...(body.metadata || {}),
+            original_content_type: uploadContentType,
+          },
         });
 
         ctx.status = 201;
@@ -233,6 +257,30 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       const result = await objectService.deleteMany(bucketId, body.keys, user.id);
 
+      ctx.body = { data: result };
+    } catch (error) {
+      handleError(ctx, error);
+    }
+  },
+
+  // ===========================================================================
+  // Delete Folder (recursive)
+  // ===========================================================================
+
+  async deleteFolder(ctx: Context) {
+    try {
+      const user = getAuthenticatedUser(ctx);
+      const bucketId = parseInt(ctx.params.id, 10);
+      const objectService = strapi.service('api::bucket.object');
+
+      const body = ctx.request.body as { prefix: string };
+      const prefix = body?.prefix?.trim();
+
+      if (!prefix) {
+        ctx.throw(400, 'Folder prefix is required');
+      }
+
+      const result = await objectService.deleteFolder(bucketId, prefix, user.id);
       ctx.body = { data: result };
     } catch (error) {
       handleError(ctx, error);

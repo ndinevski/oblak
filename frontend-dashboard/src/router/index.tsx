@@ -32,6 +32,7 @@ const CreateVMPage = lazy(() => import('@/pages/izvor/CreateVMPage'));
 const BucketsListPage = lazy(() => import('@/pages/spomen/BucketsListPage'));
 const BucketDetailPage = lazy(() => import('@/pages/spomen/BucketDetailPage'));
 const CreateBucketPage = lazy(() => import('@/pages/spomen/CreateBucketPage'));
+const EditBucketPage = lazy(() => import('@/pages/spomen/EditBucketPage'));
 
 // Settings pages
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -209,6 +210,14 @@ export const router = createBrowserRouter([
             element: (
               <SuspenseWrapper>
                 <BucketDetailPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: ':bucketId/edit',
+            element: (
+              <SuspenseWrapper>
+                <EditBucketPage />
               </SuspenseWrapper>
             ),
           },

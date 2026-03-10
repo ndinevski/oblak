@@ -77,6 +77,22 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::activity-log.activity-log.summary',
     'api::activity-log.activity-log.retention',
     'api::activity-log.activity-log.updateRetention',
+    'api::bucket.bucket.find',
+    'api::bucket.bucket.findOne',
+    'api::bucket.bucket.create',
+    'api::bucket.bucket.update',
+    'api::bucket.bucket.delete',
+    'api::bucket.bucket.stats',
+    'api::bucket.bucket.sync',
+    'api::bucket.bucket.quota',
+    'api::bucket.object.list',
+    'api::bucket.object.get',
+    'api::bucket.object.upload',
+    'api::bucket.object.delete',
+    'api::bucket.object.deleteMany',
+    'api::bucket.object.deleteFolder',
+    'api::bucket.object.copy',
+    'api::bucket.object.presignedUrl',
   ];
 
   for (const action of requiredActions) {

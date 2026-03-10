@@ -3,7 +3,7 @@
  * API functions for bucket and object operations
  */
 
-import api from './client';
+import { api } from './client';
 
 // =============================================================================
 // Types
@@ -109,6 +109,33 @@ export interface QuotaUsage {
   };
 }
 
+interface StorageObjectApi {
+  key: string;
+  size: number;
+  content_type: string;
+  etag: string;
+  last_modified: string;
+  metadata?: Record<string, string>;
+  version_id?: string;
+  is_delete_marker?: boolean;
+}
+
+interface ObjectListApi {
+  objects: StorageObjectApi[];
+  prefix?: string;
+  delimiter?: string;
+  is_truncated: boolean;
+  next_marker?: string;
+  common_prefixes?: string[];
+}
+
+interface PresignedUrlApi {
+  url: string;
+  key: string;
+  method: string;
+  expires_at: string;
+}
+
 // =============================================================================
 // Bucket API Functions
 // =============================================================================
@@ -118,43 +145,44 @@ export async function listBuckets(params?: {
   pageSize?: number;
   sort?: string;
 }): Promise<{ data: Bucket[]; meta: { pagination: { total: number; page: number; pageSize: number; pageCount: number } } }> {
-  const response = await api.get('/buckets', { params });
-  return response.data;
+  return api.get('/buckets', { params });
 }
 
 export async function getBucket(id: number): Promise<Bucket> {
-  const response = await api.get(`/buckets/${id}`);
-  return response.data.data;
+  const response = await api.get<{ data: Bucket }>(`/buckets/${id}`);
+  return response.data;
 }
 
 export async function createBucket(data: CreateBucketRequest): Promise<Bucket> {
-  const response = await api.post('/buckets', data);
-  return response.data.data;
+  const response = await api.post<{ data: Bucket }>('/buckets', data);
+  return response.data;
 }
 
 export async function updateBucket(id: number, data: UpdateBucketRequest): Promise<Bucket> {
-  const response = await api.put(`/buckets/${id}`, data);
-  return response.data.data;
+  const response = await api.put<{ data: Bucket }>(`/buckets/${id}`, data);
+  return response.data;
 }
 
 export async function deleteBucket(id: number, force = false): Promise<{ message: string; name: string }> {
-  const response = await api.delete(`/buckets/${id}`, { params: { force: force ? 'true' : undefined } });
-  return response.data.data;
+  const response = await api.delete<{ data: { message: string; name: string } }>(`/buckets/${id}`, {
+    params: { force: force ? 'true' : undefined },
+  });
+  return response.data;
 }
 
 export async function getBucketStats(id: number): Promise<BucketStats> {
-  const response = await api.get(`/buckets/${id}/stats`);
-  return response.data.data;
+  const response = await api.get<{ data: BucketStats }>(`/buckets/${id}/stats`);
+  return response.data;
 }
 
 export async function syncBucket(id: number): Promise<Bucket> {
-  const response = await api.post(`/buckets/${id}/sync`);
-  return response.data.data;
+  const response = await api.post<{ data: Bucket }>(`/buckets/${id}/sync`);
+  return response.data;
 }
 
 export async function getQuotaUsage(): Promise<QuotaUsage> {
-  const response = await api.get('/buckets/quota');
-  return response.data.data;
+  const response = await api.get<{ data: QuotaUsage }>('/buckets/quota');
+  return response.data;
 }
 
 // =============================================================================
@@ -170,20 +198,23 @@ export async function listObjects(
     maxKeys?: number;
   }
 ): Promise<ObjectList> {
-  const response = await api.get(`/buckets/${bucketId}/objects`, { params });
+  const response = await api.get<{ data: ObjectListApi }>(`/buckets/${bucketId}/objects`, { params });
   // Map snake_case to camelCase
-  const data = response.data.data;
+  const data = response.data;
+
+  const mappedObjects: StorageObject[] = (data.objects || []).map((obj) => ({
+    key: obj.key,
+    size: obj.size,
+    contentType: obj.content_type,
+    etag: obj.etag,
+    lastModified: obj.last_modified,
+    metadata: obj.metadata,
+    versionId: obj.version_id,
+    isDeleteMarker: obj.is_delete_marker,
+  }));
+
   return {
-    objects: data.objects.map((obj: Record<string, unknown>) => ({
-      key: obj.key,
-      size: obj.size,
-      contentType: obj.content_type,
-      etag: obj.etag,
-      lastModified: obj.last_modified,
-      metadata: obj.metadata,
-      versionId: obj.version_id,
-      isDeleteMarker: obj.is_delete_marker,
-    })),
+    objects: mappedObjects,
     prefix: data.prefix,
     delimiter: data.delimiter,
     isTruncated: data.is_truncated,
@@ -193,10 +224,10 @@ export async function listObjects(
 }
 
 export async function getObjectInfo(bucketId: number, key: string): Promise<StorageObject> {
-  const response = await api.get(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`, {
+  const response = await api.get<{ data: StorageObjectApi }>(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`, {
     params: { info: 'true' },
   });
-  const obj = response.data.data;
+  const obj = response.data;
   return {
     key: obj.key,
     size: obj.size,
@@ -210,15 +241,14 @@ export async function getObjectInfo(bucketId: number, key: string): Promise<Stor
 }
 
 export async function downloadObject(bucketId: number, key: string): Promise<Blob> {
-  const response = await api.get(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`, {
+  return api.get(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`, {
     responseType: 'blob',
   });
-  return response.data;
 }
 
 export async function uploadObject(bucketId: number, data: UploadObjectRequest): Promise<StorageObject> {
-  const response = await api.post(`/buckets/${bucketId}/objects`, data);
-  const obj = response.data.data;
+  const response = await api.post<{ data: StorageObjectApi }>(`/buckets/${bucketId}/objects`, data);
+  const obj = response.data;
   return {
     key: obj.key,
     size: obj.size,
@@ -230,18 +260,23 @@ export async function uploadObject(bucketId: number, data: UploadObjectRequest):
 }
 
 export async function deleteObject(bucketId: number, key: string): Promise<{ message: string; key: string }> {
-  const response = await api.delete(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`);
-  return response.data.data;
+  const response = await api.delete<{ data: { message: string; key: string } }>(`/buckets/${bucketId}/objects/${encodeURIComponent(key)}`);
+  return response.data;
 }
 
 export async function deleteObjects(bucketId: number, keys: string[]): Promise<{ deleted: string[]; errors: string[] }> {
-  const response = await api.post(`/buckets/${bucketId}/objects/delete-many`, { keys });
-  return response.data.data;
+  const response = await api.post<{ data: { deleted: string[]; errors: string[] } }>(`/buckets/${bucketId}/objects/delete-many`, { keys });
+  return response.data;
+}
+
+export async function deleteFolder(bucketId: number, prefix: string): Promise<{ deleted: string[]; errors: string[] }> {
+  const response = await api.post<{ data: { deleted: string[]; errors: string[] } }>(`/buckets/${bucketId}/folders/delete`, { prefix });
+  return response.data;
 }
 
 export async function copyObject(bucketId: number, data: CopyObjectRequest): Promise<StorageObject> {
-  const response = await api.post(`/buckets/${bucketId}/objects/copy`, data);
-  const obj = response.data.data;
+  const response = await api.post<{ data: StorageObjectApi }>(`/buckets/${bucketId}/objects/copy`, data);
+  const obj = response.data;
   return {
     key: obj.key,
     size: obj.size,
@@ -253,8 +288,8 @@ export async function copyObject(bucketId: number, data: CopyObjectRequest): Pro
 }
 
 export async function getPresignedUrl(bucketId: number, data: PresignedUrlRequest): Promise<PresignedUrl> {
-  const response = await api.post(`/buckets/${bucketId}/presigned-url`, data);
-  const result = response.data.data;
+  const response = await api.post<{ data: PresignedUrlApi }>(`/buckets/${bucketId}/presigned-url`, data);
+  const result = response.data;
   return {
     url: result.url,
     key: result.key,

@@ -197,24 +197,24 @@ export function createSpomenClient(config: SpomenClientConfig) {
     // =========================================================================
 
     async listBuckets(): Promise<{ buckets: SpomenBucket[]; count: number }> {
-      return request('GET', '/api/buckets');
+      return request('GET', '/api/v1/buckets');
     },
 
     async getBucket(name: string): Promise<SpomenBucket> {
-      return request('GET', `/api/buckets/${encodeURIComponent(name)}`);
+      return request('GET', `/api/v1/buckets/${encodeURIComponent(name)}`);
     },
 
     async createBucket(
       data: SpomenCreateBucketRequest
     ): Promise<SpomenBucket> {
-      return request('POST', '/api/buckets', { body: data });
+      return request('POST', '/api/v1/buckets', { body: data });
     },
 
     async updateBucket(
       name: string,
       data: SpomenUpdateBucketRequest
     ): Promise<SpomenBucket> {
-      return request('PUT', `/api/buckets/${encodeURIComponent(name)}`, {
+      return request('PUT', `/api/v1/buckets/${encodeURIComponent(name)}`, {
         body: data,
       });
     },
@@ -223,7 +223,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
       name: string,
       force = false
     ): Promise<{ message: string; name: string }> {
-      return request('DELETE', `/api/buckets/${encodeURIComponent(name)}`, {
+      return request('DELETE', `/api/v1/buckets/${encodeURIComponent(name)}`, {
         query: force ? { force: 'true' } : undefined,
       });
     },
@@ -241,7 +241,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
         maxKeys?: number;
       } = {}
     ): Promise<SpomenObjectList> {
-      return request('GET', `/api/buckets/${encodeURIComponent(bucket)}/objects`, {
+      return request('GET', `/api/v1/buckets/${encodeURIComponent(bucket)}/objects`, {
         query: {
           prefix: options.prefix,
           delimiter: options.delimiter,
@@ -254,7 +254,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
     async getObjectInfo(bucket: string, key: string): Promise<SpomenObject> {
       return request(
         'GET',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
         {
           query: { info: 'true' },
         }
@@ -264,7 +264,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
     async getObject(bucket: string, key: string): Promise<Response> {
       return request(
         'GET',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`
       );
     },
 
@@ -294,7 +294,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
 
       return request(
         'PUT',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
         {
           stream: data,
           headers,
@@ -308,7 +308,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
     ): Promise<{ message: string; key: string }> {
       return request(
         'DELETE',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`
       );
     },
 
@@ -316,13 +316,9 @@ export function createSpomenClient(config: SpomenClientConfig) {
       bucket: string,
       keys: string[]
     ): Promise<{ deleted: string[]; errors: string[] }> {
-      return request(
-        'POST',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects?action=delete`,
-        {
-          body: { keys },
-        }
-      );
+      return request('POST', `/api/v1/buckets/${encodeURIComponent(bucket)}/delete`, {
+        body: { keys },
+      });
     },
 
     async copyObject(
@@ -331,7 +327,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
     ): Promise<SpomenObject> {
       return request(
         'POST',
-        `/api/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(request_.dest_key)}?action=copy`,
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(request_.source_key)}?action=copy`,
         {
           body: request_,
         }
@@ -348,7 +344,7 @@ export function createSpomenClient(config: SpomenClientConfig) {
     ): Promise<SpomenPresignedURLResponse> {
       return request(
         'POST',
-        `/api/buckets/${encodeURIComponent(bucket)}/presigned`,
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/presign`,
         {
           body: data,
         }
