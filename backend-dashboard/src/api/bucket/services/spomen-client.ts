@@ -106,9 +106,10 @@ export function createSpomenClient(config: SpomenClientConfig) {
       headers?: Record<string, string>;
       stream?: ReadableStream | Buffer;
       query?: Record<string, string | number | undefined>;
+      rawResponse?: boolean;
     } = {}
   ): Promise<T> {
-    const { body, headers = {}, stream, query } = options;
+    const { body, headers = {}, stream, query, rawResponse = false } = options;
 
     let url = `${baseUrl}${path}`;
     
@@ -160,6 +161,10 @@ export function createSpomenClient(config: SpomenClientConfig) {
             // Use raw text
           }
           throw new SpomenClientError(errorMessage, response.status);
+        }
+
+        if (rawResponse) {
+          return response as unknown as T;
         }
 
         const contentType = response.headers.get('content-type');
@@ -264,7 +269,10 @@ export function createSpomenClient(config: SpomenClientConfig) {
     async getObject(bucket: string, key: string): Promise<Response> {
       return request(
         'GET',
-        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`
+        `/api/v1/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
+        {
+          rawResponse: true,
+        }
       );
     },
 

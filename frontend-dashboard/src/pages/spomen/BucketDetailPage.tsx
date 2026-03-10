@@ -60,6 +60,7 @@ import {
   useDeleteBucket,
   useDownloadObject,
   useFileUpload,
+  usePresignedUrl,
   useUploadObject,
   useSyncBucket,
 } from '@/hooks/useStorage';
@@ -122,6 +123,7 @@ export default function BucketDetailPage() {
   const [newFolderName, setNewFolderName] = useState('');
   const [previewObject, setPreviewObject] = useState<StorageObject | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMimeType, setPreviewMimeType] = useState<string>('');
@@ -138,6 +140,7 @@ export default function BucketDetailPage() {
   const deleteBucketMutation = useDeleteBucket();
   const downloadMutation = useDownloadObject(id);
   const uploadObjectMutation = useUploadObject(id);
+  const presignedUrlMutation = usePresignedUrl(id);
   const syncMutation = useSyncBucket();
   const { uploadFile, isUploading } = useFileUpload(id);
 
@@ -332,6 +335,7 @@ export default function BucketDetailPage() {
     const extension = getExtension(key);
     const map: Record<string, string> = {
       pdf: 'application/pdf',
+      json: 'application/json',
       png: 'image/png',
       jpg: 'image/jpeg',
       jpeg: 'image/jpeg',
@@ -344,7 +348,14 @@ export default function BucketDetailPage() {
 
   const isPreviewTypeSupported = (contentType?: string) => {
     if (!contentType) return false;
-    return contentType === 'application/pdf' || contentType.startsWith('image/');
+    return (
+      contentType === 'application/pdf' ||
+      contentType.startsWith('image/') ||
+      contentType.startsWith('text/plain') ||
+      contentType === 'application/json' ||
+      contentType === 'text/json' ||
+      contentType.endsWith('+json')
+    );
   };
 
   const getDisplayContentType = (obj: StorageObject) => {
@@ -354,6 +365,7 @@ export default function BucketDetailPage() {
   useEffect(() => {
     if (!previewObject) {
       setPreviewUrl(null);
+      setPreviewText(null);
       setPreviewLoading(false);
       setPreviewError(null);
       setPreviewMimeType('');
@@ -363,6 +375,7 @@ export default function BucketDetailPage() {
     const fallbackMime = previewObject.contentType || inferContentTypeFromKey(previewObject.key);
     if (!isPreviewTypeSupported(fallbackMime)) {
       setPreviewUrl(null);
+      setPreviewText(null);
       setPreviewLoading(false);
       setPreviewError(null);
       setPreviewMimeType(fallbackMime);
@@ -375,22 +388,67 @@ export default function BucketDetailPage() {
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewMimeType(fallbackMime);
+    setPreviewText(null);
+
+    const applyBlobPreview = async (blob: Blob) => {
+      if (cancelled) return;
+
+      const safeBlobType = blob.type && blob.type !== 'application/json' ? blob.type : '';
+      const resolvedMimeType = safeBlobType || fallbackMime || 'application/octet-stream';
+      setPreviewMimeType(resolvedMimeType);
+
+      if (
+        resolvedMimeType.startsWith('text/plain') ||
+        resolvedMimeType === 'application/json' ||
+        resolvedMimeType === 'text/json' ||
+        resolvedMimeType.endsWith('+json')
+      ) {
+        let text = await blob.text();
+        if (
+          resolvedMimeType === 'application/json' ||
+          resolvedMimeType === 'text/json' ||
+          resolvedMimeType.endsWith('+json')
+        ) {
+          try {
+            text = JSON.stringify(JSON.parse(text), null, 2);
+          } catch {
+            // keep raw text if not valid JSON
+          }
+        }
+        if (cancelled) return;
+        setPreviewText(text);
+        setPreviewUrl(null);
+        return;
+      }
+
+      const normalizedBlob = safeBlobType ? blob : new Blob([blob], { type: resolvedMimeType });
+      objectUrl = URL.createObjectURL(normalizedBlob);
+      setPreviewUrl(objectUrl);
+    };
 
     downloadObjectBlob(id, previewObject.key)
-      .then((blob) => {
-        if (cancelled) return;
-
-        const safeBlobType = blob.type && blob.type !== 'application/json' ? blob.type : '';
-        const resolvedMimeType = safeBlobType || fallbackMime || 'application/octet-stream';
-        const normalizedBlob = safeBlobType ? blob : new Blob([blob], { type: resolvedMimeType });
-
-        objectUrl = URL.createObjectURL(normalizedBlob);
-        setPreviewUrl(objectUrl);
-        setPreviewMimeType(resolvedMimeType);
+      .then(async (blob) => {
+        await applyBlobPreview(blob);
       })
-      .catch(() => {
-        if (cancelled) return;
-        setPreviewError('Failed to load preview. You can still download the file.');
+      .catch(async () => {
+        try {
+          const presigned = await presignedUrlMutation.mutateAsync({
+            key: previewObject.key,
+            method: 'GET',
+            expiresIn: 600,
+          });
+
+          const response = await fetch(presigned.url);
+          if (!response.ok) {
+            throw new Error('Failed to fetch preview from presigned URL');
+          }
+
+          const blob = await response.blob();
+          await applyBlobPreview(blob);
+        } catch {
+          if (cancelled) return;
+          setPreviewError('Failed to load preview. You can still download the file.');
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -924,7 +982,8 @@ export default function BucketDetailPage() {
               )}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div>Preview:</div>
+          <div className="pb-4">
             {previewObject && (
               <div className="space-y-4">
                 {previewLoading && (
@@ -953,6 +1012,17 @@ export default function BucketDetailPage() {
                       className="mx-auto max-h-[70vh] max-w-full object-contain rounded border"
                     />
                   )
+                )}
+
+                {!previewLoading && !previewError && (
+                  previewMimeType.startsWith('text/plain') ||
+                  previewMimeType === 'application/json' ||
+                  previewMimeType === 'text/json' ||
+                  previewMimeType.endsWith('+json')
+                ) && previewText !== null && (
+                  <pre className="max-h-[70vh] overflow-auto rounded border bg-muted p-4 text-sm whitespace-pre-wrap break-words">
+                    {previewText}
+                  </pre>
                 )}
 
                 {!previewLoading && !previewError && !isPreviewTypeSupported(previewMimeType || getDisplayContentType(previewObject)) && (
