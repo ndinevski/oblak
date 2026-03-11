@@ -29,6 +29,8 @@ import {
   User,
   Menu,
   X,
+  PanelLeft,
+  PanelLeftClose,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -55,6 +57,8 @@ const bottomNavigation = [
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isCompact = sidebarCollapsed && !sidebarOpen;
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
@@ -91,19 +95,41 @@ export default function DashboardLayout() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:transition-[width] lg:duration-200',
+          isCompact ? 'lg:w-20' : 'lg:w-64',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-4 border-b border-border">
-            <NavLink to="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">O</span>
-              </div>
-              <span className="font-semibold text-lg">Oblak Console</span>
-            </NavLink>
+          <div
+            className={cn(
+              'flex h-16 items-center border-b border-border',
+              isCompact ? 'px-2 justify-center' : 'px-4 justify-between'
+            )}
+          >
+            {!isCompact && (
+              <NavLink to="/" className="flex min-w-0 items-center gap-2 overflow-hidden">
+                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-lg">O</span>
+                </div>
+                <span className="font-semibold text-lg whitespace-nowrap leading-none">Oblak Console</span>
+              </NavLink>
+            )}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'hidden lg:inline-flex',
+                isCompact ? 'h-9 w-full rounded-lg justify-center' : 'h-10 w-10'
+              )}
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              aria-label={isCompact ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCompact ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -121,9 +147,11 @@ export default function DashboardLayout() {
                 <NavLink
                   key={item.name}
                   to={item.href}
+                  title={isCompact ? item.name : undefined}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -132,21 +160,35 @@ export default function DashboardLayout() {
                   end={item.href === '/'}
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <span
+                    className={cn(
+                      'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200',
+                      isCompact ? 'max-w-0 opacity-0' : 'max-w-[12rem] opacity-100'
+                    )}
+                  >
+                    {item.name}
+                  </span>
                 </NavLink>
               ))}
 
               <div className="space-y-1">
-                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                <p
+                  className={cn(
+                    'overflow-hidden whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground/80 transition-[max-height,max-width,opacity,padding] duration-200',
+                    isCompact ? 'max-h-0 max-w-0 opacity-0 px-0 py-0' : 'max-h-8 max-w-[12rem] opacity-100 px-3 py-1'
+                  )}
+                >
                   Services
                 </p>
                 {servicesNavigation.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.href}
+                    title={isCompact ? item.name : undefined}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                        isCompact ? 'justify-center px-2' : 'gap-3 px-3',
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -154,22 +196,36 @@ export default function DashboardLayout() {
                     }
                   >
                     <item.icon className="h-5 w-5" />
-                    {item.name}
+                    <span
+                      className={cn(
+                        'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200',
+                        isCompact ? 'max-w-0 opacity-0' : 'max-w-[12rem] opacity-100'
+                      )}
+                    >
+                      {item.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>
 
               <div className="space-y-1">
-                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                <p
+                  className={cn(
+                    'overflow-hidden whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground/80 transition-[max-height,max-width,opacity,padding] duration-200',
+                    isCompact ? 'max-h-0 max-w-0 opacity-0 px-0 py-0' : 'max-h-8 max-w-[12rem] opacity-100 px-3 py-1'
+                  )}
+                >
                   Monitoring
                 </p>
                 {monitoringNavigation.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.href}
+                    title={isCompact ? item.name : undefined}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                        isCompact ? 'justify-center px-2' : 'gap-3 px-3',
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -177,7 +233,14 @@ export default function DashboardLayout() {
                     }
                   >
                     <item.icon className="h-5 w-5" />
-                    {item.name}
+                    <span
+                      className={cn(
+                        'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200',
+                        isCompact ? 'max-w-0 opacity-0' : 'max-w-[12rem] opacity-100'
+                      )}
+                    >
+                      {item.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>
@@ -191,9 +254,11 @@ export default function DashboardLayout() {
                 <NavLink
                   key={item.name}
                   to={item.href}
+                  title={isCompact ? item.name : undefined}
                   className={() =>
                     cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
                       isSettingsActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -201,7 +266,14 @@ export default function DashboardLayout() {
                   }
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <span
+                    className={cn(
+                      'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200',
+                      isCompact ? 'max-w-0 opacity-0' : 'max-w-[12rem] opacity-100'
+                    )}
+                  >
+                    {item.name}
+                  </span>
                 </NavLink>
               ))}
             </nav>
