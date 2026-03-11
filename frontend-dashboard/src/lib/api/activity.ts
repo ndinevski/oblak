@@ -119,16 +119,25 @@ export function getActionLabel(action: string): string {
     'vm.restart': 'Restarted VM',
     
     // Bucket actions
+    'bucket.list': 'Listed Buckets',
+    'bucket.view': 'Viewed Bucket',
     'bucket.create': 'Created Bucket',
     'bucket.update': 'Updated Bucket',
     'bucket.delete': 'Deleted Bucket',
     'bucket.sync': 'Synced Bucket',
+    'bucket.stats': 'Viewed Bucket Stats',
+    'bucket.quota': 'Viewed Bucket Quota',
     
     // Object actions
+    'object.list': 'Listed Objects',
+    'object.info': 'Viewed Object Info',
     'object.upload': 'Uploaded Object',
     'object.download': 'Downloaded Object',
     'object.delete': 'Deleted Object',
+    'object.deleteMany': 'Deleted Multiple Objects',
+    'object.deleteFolder': 'Deleted Folder',
     'object.copy': 'Copied Object',
+    'object.presign': 'Generated Presigned URL',
     
     // User actions
     'user.login': 'Logged In',

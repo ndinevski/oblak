@@ -25,6 +25,19 @@ interface Context {
   status: number;
 }
 
+interface ActivityLogPayload {
+  action:
+    | 'bucket.create'
+    | 'bucket.update'
+    | 'bucket.delete';
+  userId: number;
+  resourceId?: string;
+  resourceName?: string;
+  status?: 'success' | 'failure';
+  details?: Record<string, unknown>;
+  errorMessage?: string;
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -61,6 +74,31 @@ function handleError(ctx: Context, error: unknown): void {
   ctx.body = { error: { message: 'Internal server error' } };
 }
 
+async function logBucketActivity(
+  strapi: Strapi,
+  payload: ActivityLogPayload
+): Promise<void> {
+  try {
+    const activityService = strapi.service('api::activity-log.activity-log');
+    if (!activityService || typeof activityService.log !== 'function') {
+      return;
+    }
+
+    await activityService.log({
+      action: payload.action,
+      resourceType: 'bucket',
+      resourceId: payload.resourceId,
+      resourceName: payload.resourceName,
+      userId: payload.userId,
+      status: payload.status || 'success',
+      details: payload.details,
+      errorMessage: payload.errorMessage,
+    });
+  } catch {
+    strapi.log.debug('Failed to write bucket activity log');
+  }
+}
+
 // =============================================================================
 // Controller Factory
 // =============================================================================
@@ -71,8 +109,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async find(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
     try {
-      const user = getAuthenticatedUser(ctx);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const result = await bucketService.find(user.id, {
@@ -95,9 +133,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async findOne(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const bucket = await bucketService.findOne(bucketId, user.id);
@@ -113,8 +151,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async create(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
     try {
-      const user = getAuthenticatedUser(ctx);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const data = ctx.request.body as {
@@ -145,8 +183,30 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       ctx.status = 201;
       ctx.body = { data: bucket };
     } catch (error) {
+      await logBucketActivity(strapi, {
+        action: 'bucket.create',
+        userId: user.id,
+        resourceName: (ctx.request.body as { name?: string })?.name,
+        status: 'failure',
+        details: {
+          name: (ctx.request.body as { name?: string })?.name,
+        },
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
       handleError(ctx, error);
+      return;
     }
+
+    const createdBucket = (ctx.body as { data?: { id?: number; name?: string } })?.data;
+    await logBucketActivity(strapi, {
+      action: 'bucket.create',
+      userId: user.id,
+      resourceId: createdBucket?.id ? String(createdBucket.id) : undefined,
+      resourceName: createdBucket?.name,
+      details: {
+        name: createdBucket?.name,
+      },
+    });
   },
 
   // ===========================================================================
@@ -154,9 +214,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async update(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const data = ctx.request.body as {
@@ -173,8 +233,28 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       ctx.body = { data: bucket };
     } catch (error) {
+      await logBucketActivity(strapi, {
+        action: 'bucket.update',
+        userId: user.id,
+        resourceId: String(bucketId),
+        status: 'failure',
+        details: {
+          updatedFields: Object.keys((ctx.request.body || {}) as Record<string, unknown>),
+        },
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
       handleError(ctx, error);
+      return;
     }
+
+    await logBucketActivity(strapi, {
+      action: 'bucket.update',
+      userId: user.id,
+      resourceId: String(bucketId),
+      details: {
+        updatedFields: Object.keys((ctx.request.body || {}) as Record<string, unknown>),
+      },
+    });
   },
 
   // ===========================================================================
@@ -182,9 +262,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async delete(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const force = ctx.query.force === 'true';
       const bucketService = strapi.service('api::bucket.bucket');
 
@@ -192,8 +272,30 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       ctx.body = { data: result };
     } catch (error) {
+      await logBucketActivity(strapi, {
+        action: 'bucket.delete',
+        userId: user.id,
+        resourceId: String(bucketId),
+        status: 'failure',
+        details: {
+          force: ctx.query.force === 'true',
+        },
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
       handleError(ctx, error);
+      return;
     }
+
+    const deletedData = (ctx.body as { data?: { name?: string } })?.data;
+    await logBucketActivity(strapi, {
+      action: 'bucket.delete',
+      userId: user.id,
+      resourceId: String(bucketId),
+      resourceName: deletedData?.name,
+      details: {
+        force: ctx.query.force === 'true',
+      },
+    });
   },
 
   // ===========================================================================
@@ -201,9 +303,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async stats(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const stats = await bucketService.getStats(bucketId, user.id);
@@ -219,9 +321,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async sync(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const bucket = await bucketService.sync(bucketId, user.id);
@@ -237,8 +339,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async quota(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
     try {
-      const user = getAuthenticatedUser(ctx);
       const bucketService = strapi.service('api::bucket.bucket');
 
       const quota = await bucketService.getQuotaUsage(user.id);

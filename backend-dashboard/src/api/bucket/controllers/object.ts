@@ -32,6 +32,16 @@ interface Context {
   set: (header: string, value: string) => void;
 }
 
+interface ObjectActivityLogPayload {
+  action: 'object.upload' | 'object.delete';
+  userId: number;
+  bucketId?: number;
+  resourceName?: string;
+  status?: 'success' | 'failure';
+  details?: Record<string, unknown>;
+  errorMessage?: string;
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -80,6 +90,31 @@ function getObjectKey(ctx: Context): string {
   }
 }
 
+async function logObjectActivity(
+  strapi: Strapi,
+  payload: ObjectActivityLogPayload
+): Promise<void> {
+  try {
+    const activityService = strapi.service('api::activity-log.activity-log');
+    if (!activityService || typeof activityService.log !== 'function') {
+      return;
+    }
+
+    await activityService.log({
+      action: payload.action,
+      resourceType: 'object',
+      resourceId: payload.bucketId ? String(payload.bucketId) : undefined,
+      resourceName: payload.resourceName,
+      userId: payload.userId,
+      status: payload.status || 'success',
+      details: payload.details,
+      errorMessage: payload.errorMessage,
+    });
+  } catch {
+    strapi.log.debug('Failed to write object activity log');
+  }
+}
+
 // =============================================================================
 // Controller Factory
 // =============================================================================
@@ -90,9 +125,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async list(ctx: Context) {
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const result = await objectService.list(bucketId, user.id, {
@@ -113,10 +148,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async get(ctx: Context) {
+    const userId = ctx.state.user?.id;
+    const bucketId = parseInt(ctx.params.id, 10);
+    const key = getObjectKey(ctx);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
-      const key = getObjectKey(ctx);
       const objectService = strapi.service('api::bucket.object');
 
       if (!key) {
@@ -143,6 +179,7 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       ctx.body = buffer;
     } catch (error) {
       handleError(ctx, error);
+      return;
     }
   },
 
@@ -151,9 +188,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async upload(ctx: Context) {
+    const userId = ctx.state.user?.id;
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const body = ctx.request.body as {
@@ -212,8 +250,35 @@ export default ({ strapi }: { strapi: Strapi }) => ({
         ctx.throw(400, 'No file or data provided');
       }
     } catch (error) {
+      if (userId) {
+        await logObjectActivity(strapi, {
+          action: 'object.upload',
+          userId,
+          bucketId,
+          resourceName: (ctx.request.body as { key?: string })?.key,
+          status: 'failure',
+          details: {
+            key: (ctx.request.body as { key?: string })?.key,
+          },
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
       handleError(ctx, error);
+      return;
     }
+
+    const uploaded = (ctx.body as { data?: { key?: string; size?: number; content_type?: string } })?.data;
+    await logObjectActivity(strapi, {
+      action: 'object.upload',
+      userId: userId!,
+      bucketId,
+      resourceName: uploaded?.key,
+      details: {
+        key: uploaded?.key,
+        size: uploaded?.size,
+        contentType: uploaded?.content_type,
+      },
+    });
   },
 
   // ===========================================================================
@@ -221,10 +286,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async delete(ctx: Context) {
+    const userId = ctx.state.user?.id;
+    const bucketId = parseInt(ctx.params.id, 10);
+    const key = getObjectKey(ctx);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
-      const key = getObjectKey(ctx);
       const objectService = strapi.service('api::bucket.object');
 
       if (!key) {
@@ -235,8 +301,28 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       ctx.body = { data: result };
     } catch (error) {
+      if (userId) {
+        await logObjectActivity(strapi, {
+          action: 'object.delete',
+          userId,
+          bucketId,
+          resourceName: key,
+          status: 'failure',
+          details: { key },
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
       handleError(ctx, error);
+      return;
     }
+
+    await logObjectActivity(strapi, {
+      action: 'object.delete',
+      userId: userId!,
+      bucketId,
+      resourceName: key,
+      details: { key },
+    });
   },
 
   // ===========================================================================
@@ -244,9 +330,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async deleteMany(ctx: Context) {
+    const userId = ctx.state.user?.id;
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const body = ctx.request.body as { keys: string[] };
@@ -259,8 +346,32 @@ export default ({ strapi }: { strapi: Strapi }) => ({
 
       ctx.body = { data: result };
     } catch (error) {
+      if (userId) {
+        await logObjectActivity(strapi, {
+          action: 'object.delete',
+          userId,
+          bucketId,
+          status: 'failure',
+          details: {
+            keys: (ctx.request.body as { keys?: string[] })?.keys || [],
+          },
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
       handleError(ctx, error);
+      return;
     }
+
+    const resultData = (ctx.body as { data?: { deleted?: string[]; errors?: string[] } })?.data;
+    await logObjectActivity(strapi, {
+      action: 'object.delete',
+      userId: userId!,
+      bucketId,
+      details: {
+        deletedCount: resultData?.deleted?.length || 0,
+        errorCount: resultData?.errors?.length || 0,
+      },
+    });
   },
 
   // ===========================================================================
@@ -268,9 +379,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async deleteFolder(ctx: Context) {
+    const userId = ctx.state.user?.id;
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const body = ctx.request.body as { prefix: string };
@@ -283,8 +395,32 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       const result = await objectService.deleteFolder(bucketId, prefix, user.id);
       ctx.body = { data: result };
     } catch (error) {
+      if (userId) {
+        await logObjectActivity(strapi, {
+          action: 'object.delete',
+          userId,
+          bucketId,
+          resourceName: (ctx.request.body as { prefix?: string })?.prefix,
+          status: 'failure',
+          details: {
+            prefix: (ctx.request.body as { prefix?: string })?.prefix,
+          },
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
       handleError(ctx, error);
+      return;
     }
+
+    await logObjectActivity(strapi, {
+      action: 'object.delete',
+      userId: userId!,
+      bucketId,
+      resourceName: (ctx.request.body as { prefix?: string })?.prefix,
+      details: {
+        prefix: (ctx.request.body as { prefix?: string })?.prefix,
+      },
+    });
   },
 
   // ===========================================================================
@@ -292,9 +428,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async copy(ctx: Context) {
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const body = ctx.request.body as {
@@ -326,9 +462,9 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async presignedUrl(ctx: Context) {
+    const bucketId = parseInt(ctx.params.id, 10);
     try {
       const user = getAuthenticatedUser(ctx);
-      const bucketId = parseInt(ctx.params.id, 10);
       const objectService = strapi.service('api::bucket.object');
 
       const body = ctx.request.body as {

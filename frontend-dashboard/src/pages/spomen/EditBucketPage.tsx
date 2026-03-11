@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Alert,
-  AlertDescription,
   Button,
   Card,
   CardContent,
@@ -18,7 +16,7 @@ import {
   SelectValue,
   Switch,
 } from '@/components/ui';
-import { AlertCircle, ArrowLeft, Globe, GlobeLock, Lock, Pencil } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Database, Globe, GlobeLock, Lock, Save } from 'lucide-react';
 import { useBucket, useUpdateBucket } from '@/hooks/useStorage';
 import type { BucketPolicy } from '@/lib/api/storage';
 import { Spinner } from '@/components/ui/spinner';
@@ -117,16 +115,16 @@ export default function EditBucketPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Buckets
         </Button>
-        <Alert variant="destructive">
+        <div className="flex items-center gap-2 text-destructive p-4 bg-destructive/10 rounded-lg">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Bucket not found or failed to load.</AlertDescription>
-        </Alert>
+          <span>Bucket not found or failed to load.</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/storage/${bucket.id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -136,11 +134,18 @@ export default function EditBucketPage() {
 
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Pencil className="h-7 w-7" />
+          <Database className="h-8 w-8" />
           Edit Bucket
         </h1>
         <p className="text-muted-foreground">Editing: {bucket.name}</p>
       </div>
+
+      {updateBucket.error && (
+        <div className="flex items-center gap-2 text-destructive p-4 bg-destructive/10 rounded-lg">
+          <AlertCircle className="h-5 w-5" />
+          <span>Failed to update bucket. Please try again.</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -242,7 +247,17 @@ export default function EditBucketPage() {
             Cancel
           </Button>
           <Button type="submit" data-testid="bucket-edit-save" disabled={updateBucket.isPending}>
-            {updateBucket.isPending ? 'Saving...' : 'Save Changes'}
+            {updateBucket.isPending ? (
+              <>
+                <Spinner className="h-4 w-4 mr-2" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </>
+            )}
           </Button>
         </div>
       </form>
