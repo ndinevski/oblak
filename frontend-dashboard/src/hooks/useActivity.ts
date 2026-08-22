@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import {
   getActivityLogs,
-  getActivityLog,
   getActivitySummary,
   ActivityFilters,
   ActivityLog,
@@ -42,16 +41,6 @@ export function useActivityLogs(filters: ActivityFilters = {}) {
   });
 }
 
-/**
- * Get a single activity log
- */
-export function useActivityLog(id: number) {
-  return useQuery<ActivityLog>({
-    queryKey: activityKeys.detail(id),
-    queryFn: () => getActivityLog(id),
-    enabled: !!id,
-  });
-}
 
 /**
  * Get activity summary

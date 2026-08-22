@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 // =============================================================================
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, toggleTheme } = useThemeStore();
+  const { toggleTheme } = useThemeStore();
 
   return (
     <Button
@@ -46,7 +46,7 @@ interface ThemeDropdownProps {
 }
 
 export function ThemeDropdown({ className, align = 'end' }: ThemeDropdownProps) {
-  const { theme, setTheme, resolvedTheme } = useThemeStore();
+  const { theme, setTheme } = useThemeStore();
 
   const themes: { value: Theme; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { value: 'light', label: 'Light', icon: Sun },

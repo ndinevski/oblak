@@ -201,7 +201,8 @@ describe('Breadcrumb Component', () => {
       </MemoryRouter>
     );
     expect(screen.getByRole('navigation')).toBeInTheDocument();
-    expect(screen.getByText('Functions')).toBeInTheDocument();
+    // /functions is branded as the Impuls service, matching the sidebar nav.
+    expect(screen.getByText('Impuls')).toBeInTheDocument();
   });
 
   it('renders nested breadcrumbs', () => {
@@ -210,7 +211,7 @@ describe('Breadcrumb Component', () => {
         <Breadcrumb />
       </MemoryRouter>
     );
-    expect(screen.getByText('Functions')).toBeInTheDocument();
+    expect(screen.getByText('Impuls')).toBeInTheDocument();
     expect(screen.getByText('Create')).toBeInTheDocument();
   });
 

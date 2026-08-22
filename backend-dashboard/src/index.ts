@@ -1,4 +1,7 @@
 import type { Core } from '@strapi/strapi';
+import { recordAudit, type AuditResourceType } from './telemetry/audit';
+import { startAlertEvaluator, stopAlertEvaluator } from './telemetry/alerting';
+import { DEFAULT_ALERT_RULES } from './telemetry/default-alert-rules';
 
 const DEMO_DEFAULTS = {
   username: process.env.SEED_DEMO_USERNAME || 'demo',
@@ -19,39 +22,31 @@ function shouldSeedDemoData(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
 
-const ACTIVITY_CLEANUP_TIMER_SYMBOL = Symbol.for('__oblakActivityCleanupTimer__');
-
-async function setupActivityLogRetentionCleanup(strapi: Core.Strapi): Promise<void> {
-  const intervalMinutes = Math.max(
-    5,
-    Math.trunc(Number(process.env.ACTIVITY_LOG_CLEANUP_INTERVAL_MINUTES || 60))
-  );
-  const intervalMs = intervalMinutes * 60 * 1000;
-
-  const runCleanup = async () => {
-    try {
-      const result = await strapi.service('api::activity-log.activity-log').runRetentionCleanup();
-      strapi.log.debug(
-        `Activity retention cleanup completed (retentionDays=${result.retentionDays}, deleted=${result.deleted})`
-      );
-    } catch (error) {
-      strapi.log.error('Activity retention cleanup failed:', error);
-    }
-  };
-
-  await runCleanup();
-
-  const globalWithTimer = globalThis as typeof globalThis & {
-    [ACTIVITY_CLEANUP_TIMER_SYMBOL]?: NodeJS.Timeout;
-  };
-
-  if (globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL]) {
-    clearInterval(globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL]);
+/**
+ * Seeds a starting set of alert rules.
+ *
+ * Runs only when there are no rules at all, so deleting a default rule makes it
+ * stay deleted. The defaults carry no notification channel: a new install
+ * should surface alerts in the dashboard, not start emailing someone.
+ */
+async function seedDefaultAlertRules(strapi: Core.Strapi): Promise<void> {
+  const existing = await strapi.db.query('api::alert-rule.alert-rule').count({});
+  if (existing > 0) {
+    return;
   }
 
-  globalWithTimer[ACTIVITY_CLEANUP_TIMER_SYMBOL] = setInterval(() => {
-    void runCleanup();
-  }, intervalMs);
+  for (const rule of DEFAULT_ALERT_RULES) {
+    await strapi.db.query('api::alert-rule.alert-rule').create({
+      data: {
+        ...rule,
+        enabled: true,
+        // Not evaluated yet, so showing them green would be a lie.
+        state: 'unknown',
+      },
+    });
+  }
+
+  strapi.log.info(`Seeded ${DEFAULT_ALERT_RULES.length} default alert rules`);
 }
 
 async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void> {
@@ -72,11 +67,6 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::function.function.delete',
     'api::function.function.invoke',
     'api::function.function.logs',
-    'api::activity-log.activity-log.find',
-    'api::activity-log.activity-log.findOne',
-    'api::activity-log.activity-log.summary',
-    'api::activity-log.activity-log.retention',
-    'api::activity-log.activity-log.updateRetention',
     'api::bucket.bucket.find',
     'api::bucket.bucket.findOne',
     'api::bucket.bucket.create',
@@ -138,6 +128,56 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::polaroid.polaroid.deleteApiKey',
     'api::polaroid.polaroid.runJob',
     'api::polaroid.polaroid.restoreAssets',
+    'api::virtual-machine.virtual-machine.console',
+    'api::virtual-machine.virtual-machine.create',
+    'api::virtual-machine.virtual-machine.createSnapshot',
+    'api::virtual-machine.virtual-machine.delete',
+    'api::virtual-machine.virtual-machine.deleteSnapshot',
+    'api::virtual-machine.virtual-machine.find',
+    'api::virtual-machine.virtual-machine.findOne',
+    'api::virtual-machine.virtual-machine.listSnapshots',
+    'api::virtual-machine.virtual-machine.pause',
+    'api::virtual-machine.virtual-machine.reboot',
+    'api::virtual-machine.virtual-machine.restoreSnapshot',
+    'api::virtual-machine.virtual-machine.resume',
+    'api::virtual-machine.virtual-machine.sizes',
+    'api::virtual-machine.virtual-machine.start',
+    'api::virtual-machine.virtual-machine.stats',
+    'api::virtual-machine.virtual-machine.stop',
+    'api::virtual-machine.virtual-machine.sync',
+    'api::virtual-machine.virtual-machine.templates',
+    'api::virtual-machine.virtual-machine.update',
+    'api::quota.quota.getQuota',
+    'api::quota.quota.getUsage',
+    'api::quota.quota.getLimits',
+    'api::telemetry.telemetry.health',
+    'api::telemetry.telemetry.summary',
+    'api::telemetry.telemetry.services',
+    'api::telemetry.telemetry.serviceOverview',
+    'api::telemetry.telemetry.serviceMap',
+    'api::telemetry.telemetry.logs',
+    'api::telemetry.telemetry.logHistogram',
+    'api::telemetry.telemetry.logFields',
+    'api::telemetry.telemetry.logFieldValues',
+    'api::telemetry.telemetry.audit',
+    'api::telemetry.telemetry.traces',
+    'api::telemetry.telemetry.trace',
+    'api::telemetry.telemetry.metrics',
+    'api::telemetry.telemetry.metricQuery',
+    'api::telemetry.telemetry.requestTimeseries',
+    'api::telemetry.telemetry.endpoints',
+    'api::telemetry.telemetry.containers',
+    'api::telemetry.telemetry.storage',
+    'api::alert-rule.alert-rule.types',
+    'api::alert-rule.alert-rule.history',
+    'api::alert-rule.alert-rule.evaluate',
+    'api::alert-rule.alert-rule.test',
+    'api::alert-rule.alert-rule.find',
+    'api::alert-rule.alert-rule.findOne',
+    'api::alert-rule.alert-rule.create',
+    'api::alert-rule.alert-rule.update',
+    'api::alert-rule.alert-rule.delete',
+    'api::alert-rule.alert-rule.mute',
   ];
 
   for (const action of requiredActions) {
@@ -396,67 +436,30 @@ async function seedDemoData(strapi: Core.Strapi): Promise<void> {
     }
   }
 
-  const activityCount = await strapi.db.query('api::activity-log.activity-log').count({
-    where: { user: ownerId },
-  });
+  // Demo activity is emitted as audit events so it lands in the telemetry
+  // store alongside real activity. Unlike the old table-backed seed there is
+  // nothing to count first: these records expire with the telemetry TTL, and
+  // re-emitting them on each boot keeps the demo view populated.
+  const activitySeeds: Array<{
+    action: string;
+    resourceType: AuditResourceType;
+    resourceName: string;
+  }> = [
+    { action: 'user.login', resourceType: 'user', resourceName: DEMO_DEFAULTS.username },
+    { action: 'function.create', resourceType: 'function', resourceName: 'demo-hello' },
+    { action: 'vm.create', resourceType: 'virtual-machine', resourceName: 'demo-web-vm' },
+    { action: 'bucket.create', resourceType: 'bucket', resourceName: 'demo-assets' },
+    { action: 'polaroid.upload', resourceType: 'polaroid', resourceName: 'photo-upload' },
+    { action: 'function.invoke', resourceType: 'function', resourceName: 'demo-hello' },
+  ];
 
-  if (activityCount === 0) {
-    const activitySeeds = [
-      {
-        action: 'user.login',
-        resourceType: 'user',
-        resourceName: DEMO_DEFAULTS.username,
-        status: 'success',
-      },
-      {
-        action: 'function.create',
-        resourceType: 'function',
-        resourceName: 'demo-hello',
-        status: 'success',
-      },
-      {
-        action: 'vm.create',
-        resourceType: 'virtual-machine',
-        resourceName: 'demo-web-vm',
-        status: 'success',
-      },
-      {
-        action: 'bucket.create',
-        resourceType: 'bucket',
-        resourceName: 'demo-assets',
-        status: 'success',
-      },
-      {
-        action: 'polaroid.upload',
-        resourceType: 'polaroid',
-        resourceName: 'photo-upload',
-        status: 'success',
-      },
-      {
-        action: 'function.invoke',
-        resourceType: 'function',
-        resourceName: 'demo-hello',
-        status: 'success',
-      },
-      {
-        action: 'function.invoke',
-        resourceType: 'function',
-        resourceName: 'demo-hello',
-        status: 'success',
-      },
-    ];
-
-    for (const seed of activitySeeds) {
-      await strapi.db.query('api::activity-log.activity-log').create({
-        data: {
-          ...seed,
-          user: ownerId,
-          details: {
-            source: 'bootstrap-seed',
-          },
-        },
-      });
-    }
+  for (const seed of activitySeeds) {
+    recordAudit({
+      ...seed,
+      userId: ownerId,
+      status: 'success',
+      details: { source: 'bootstrap-seed' },
+    });
   }
 
   strapi.log.info(
@@ -519,6 +522,27 @@ export default {
       }
     }
 
-    await setupActivityLogRetentionCleanup(strapi);
+    try {
+      await seedDefaultAlertRules(strapi);
+    } catch (error) {
+      strapi.log.warn('Could not seed default alert rules:', error);
+    }
+
+    // Alert evaluation runs on a timer rather than per-request. Started last so
+    // a failure here cannot stop the rest of bootstrap.
+    try {
+      startAlertEvaluator(strapi);
+    } catch (error) {
+      strapi.log.error('Could not start the alert evaluator:', error);
+    }
+  },
+
+  /**
+   * Called on shutdown, including every dev-mode reload.
+   */
+  destroy() {
+    // Stop the evaluator before the connection pool closes, or a tick already
+    // scheduled fires against a dead pool.
+    stopAlertEvaluator();
   },
 };

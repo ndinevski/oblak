@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/oblak/impuls/internal/function"
 	"github.com/oblak/impuls/internal/models"
+	"github.com/oblak/impuls/internal/telemetry"
 )
 
 // Server represents the API server
@@ -55,9 +56,21 @@ func (s *Server) setupRoutes() {
 	// VM routes (for debugging/admin)
 	s.registerVMRoutes(api)
 
-	// Add middleware
-	s.router.Use(loggingMiddleware)
+	// Access logging is handled by the telemetry middleware (see
+	// UseTelemetry), which emits a trace-correlated record per request.
 	s.router.Use(contentTypeMiddleware)
+}
+
+// UseTelemetry installs tracing, RED metrics and access logging on every
+// route. Called after NewServer so a service can still run untraced, which is
+// what the unit tests do.
+func (s *Server) UseTelemetry(tel *telemetry.Telemetry, serviceName string) error {
+	metrics, err := telemetry.NewHTTPMetrics(serviceName)
+	if err != nil {
+		return err
+	}
+	s.router.Use(tel.Middleware(serviceName, metrics))
+	return nil
 }
 
 // healthCheck handles health check requests
@@ -256,13 +269,6 @@ func respondError(w http.ResponseWriter, status int, message string) {
 }
 
 // loggingMiddleware logs all requests
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s", r.Method, r.URL.Path, r.RemoteAddr)
-		next.ServeHTTP(w, r)
-	})
-}
-
 // contentTypeMiddleware sets default content type
 func contentTypeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

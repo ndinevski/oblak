@@ -6,17 +6,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as storageApi from '@/lib/api/storage';
 import type {
-  Bucket,
   StorageObject,
-  ObjectList,
-  BucketStats,
   CreateBucketRequest,
   UpdateBucketRequest,
   UploadObjectRequest,
   CopyObjectRequest,
   PresignedUrlRequest,
-  PresignedUrl,
-  QuotaUsage,
   BucketAccessCredentials,
 } from '@/lib/api/storage';
 

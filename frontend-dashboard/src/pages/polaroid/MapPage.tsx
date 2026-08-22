@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { 
-  ChevronLeft, MapPin, Image as ImageIcon, Map as MapIcon, Video,
+  ChevronLeft, MapPin, Image as ImageIcon, Map as MapIcon,
   Heart, Archive, Download, Trash2, Info, X
 } from "lucide-react";
 import {
@@ -19,7 +19,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 import { useMapMarkers, useAsset, useDownloadAsset, useUpdateAsset, useDeleteAssets } from "@/hooks/usePolaroid";
-import { PolaroidMapMarker, PolaroidAsset, formatDuration, formatBytes } from "@/lib/api/polaroid";
+import { PolaroidMapMarker, formatBytes } from "@/lib/api/polaroid";
 import { AssetImage } from "@/components/polaroid/AuthenticatedImage";
 import { cn } from "@/lib/utils";
 

@@ -10,7 +10,7 @@ services:
     ports:
       - "${POLAROID_PORT:-2283}:2283"
     volumes:
-      - ${UPLOAD_LOCATION:-~/.oblak/polaroid/library}:/usr/src/app/upload
+      - ${UPLOAD_LOCATION:-./data/library}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     environment:
       DB_HOSTNAME: immich-postgres
@@ -87,6 +87,8 @@ services:
     restart: unless-stopped
     networks:
       - polaroid-network
+      # Lets the OpenTelemetry collector scrape Postgres internals.
+      - oblak-telemetry
 
 volumes:
   postgres-data:
@@ -96,3 +98,7 @@ volumes:
 networks:
   polaroid-network:
     driver: bridge
+  # Shared with the observability stack.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

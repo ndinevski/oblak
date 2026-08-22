@@ -430,91 +430,106 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
-  collectionName: 'activity_logs';
+export interface ApiAlertRuleAlertRule extends Struct.CollectionTypeSchema {
+  collectionName: 'alert_rules';
   info: {
-    description: 'User activity and audit trail';
-    displayName: 'Activity Log';
-    pluralName: 'activity-logs';
-    singularName: 'activity-log';
+    description: 'Threshold rules evaluated against the telemetry store. Rules are configuration, so they live in Postgres; the firing history they produce is emitted to the telemetry store.';
+    displayName: 'Alert Rule';
+    pluralName: 'alert-rules';
+    singularName: 'alert-rule';
   };
   options: {
     draftAndPublish: false;
   };
   attributes: {
-    action: Schema.Attribute.Enumeration<
-      [
-        'function.create',
-        'function.update',
-        'function.delete',
-        'function.invoke',
-        'vm.create',
-        'vm.start',
-        'vm.stop',
-        'vm.reboot',
-        'vm.delete',
-        'vm.snapshot',
-        'bucket.create',
-        'bucket.list',
-        'bucket.view',
-        'bucket.update',
-        'bucket.delete',
-        'bucket.sync',
-        'bucket.stats',
-        'bucket.quota',
-        'object.list',
-        'object.info',
-        'object.upload',
-        'object.download',
-        'object.delete',
-        'object.deleteMany',
-        'object.deleteFolder',
-        'object.copy',
-        'object.presign',
-        'user.login',
-        'user.logout',
-        'user.update',
-        'polaroid.upload',
-        'polaroid.delete',
-        'polaroid.favorite',
-        'polaroid.archive',
-        'polaroid.album.create',
-        'polaroid.album.update',
-        'polaroid.album.delete',
-        'polaroid.share.create',
-        'polaroid.share.delete',
-      ]
-    > &
-      Schema.Attribute.Required;
+    breachingSince: Schema.Attribute.DateTime;
+    comparison: Schema.Attribute.Enumeration<['gt', 'lt']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'gt'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    details: Schema.Attribute.JSON;
-    errorMessage: Schema.Attribute.Text;
-    ipAddress: Schema.Attribute.String;
+    description: Schema.Attribute.Text;
+    enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    forMinutes: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 1440;
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    lastError: Schema.Attribute.Text;
+    lastEvaluatedAt: Schema.Attribute.DateTime;
+    lastNotifiedAt: Schema.Attribute.DateTime;
+    lastValue: Schema.Attribute.Float;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::activity-log.activity-log'
+      'api::alert-rule.alert-rule'
     > &
       Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    resourceId: Schema.Attribute.String;
-    resourceName: Schema.Attribute.String;
-    resourceType: Schema.Attribute.Enumeration<
-      ['function', 'virtual-machine', 'bucket', 'object', 'user', 'polaroid']
-    > &
-      Schema.Attribute.Required;
-    status: Schema.Attribute.Enumeration<['success', 'failure', 'pending']> &
-      Schema.Attribute.DefaultTo<'success'>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<
+    mutedUntil: Schema.Attribute.DateTime;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    notifyCooldownMinutes: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 1440;
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    notifyEmail: Schema.Attribute.String;
+    notifyWebhook: Schema.Attribute.String;
+    owner: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    userAgent: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    ruleType: Schema.Attribute.Enumeration<
+      [
+        'service.error_rate',
+        'service.latency_p95',
+        'service.request_rate',
+        'service.absent',
+        'log.error_count',
+        'host.cpu',
+        'host.memory',
+        'host.disk',
+        'container.memory',
+        'container.absent',
+        'postgres.connections',
+      ]
+    > &
+      Schema.Attribute.Required;
+    severity: Schema.Attribute.Enumeration<['warning', 'critical']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'warning'>;
+    state: Schema.Attribute.Enumeration<
+      ['ok', 'pending', 'firing', 'unknown']
+    > &
+      Schema.Attribute.DefaultTo<'ok'>;
+    stateChangedAt: Schema.Attribute.DateTime;
+    target: Schema.Attribute.String;
+    threshold: Schema.Attribute.Float & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    windowMinutes: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 1440;
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<5>;
   };
 }
 
@@ -1321,7 +1336,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::activity-log.activity-log': ApiActivityLogActivityLog;
+      'api::alert-rule.alert-rule': ApiAlertRuleAlertRule;
       'api::bucket.bucket': ApiBucketBucket;
       'api::function.function': ApiFunctionFunction;
       'api::polaroid.polaroid': ApiPolaroidPolaroid;

@@ -23,16 +23,25 @@ export default ({ env }: { env: any }) => ({
     },
   },
 
-  // Email plugin configuration (using default sendmail provider for now)
-  // email: {
-  //   config: {
-  //     provider: 'sendmail',
-  //     settings: {
-  //       defaultFrom: env('EMAIL_FROM', 'noreply@oblak.local'),
-  //       defaultReplyTo: env('EMAIL_REPLY_TO', 'support@oblak.local'),
-  //     },
-  //   },
-  // },
+  // Email plugin configuration (nodemailer, used for password reset)
+  email: {
+    config: {
+      provider: env('EMAIL_PROVIDER', 'nodemailer'),
+      providerOptions: {
+        host: env('SMTP_HOST', 'localhost'),
+        port: env.int('SMTP_PORT', 587),
+        secure: env.bool('SMTP_SECURE', false),
+        auth: {
+          user: env('SMTP_USERNAME', ''),
+          pass: env('SMTP_PASSWORD', ''),
+        },
+      },
+      settings: {
+        defaultFrom: env('EMAIL_FROM', 'noreply@oblak.local'),
+        defaultReplyTo: env('EMAIL_REPLY_TO', 'support@oblak.local'),
+      },
+    },
+  },
 
   // Graphql plugin (disabled for REST-only API)
   graphql: {

@@ -1,0 +1,137 @@
+# Oblak Observability Stack
+#
+# ClickHouse stores every signal (logs, metrics, traces) in one SQL database so
+# the Oblak dashboard can query all of them through a single API, the way
+# CloudWatch presents one console over many services.
+#
+# The OpenTelemetry Collector is the only ingest point. Services never talk to
+# ClickHouse directly - they speak OTLP to the collector, which batches and
+# writes. That keeps credentials in one place and lets us change storage later
+# without touching a single service.
+
+services:
+  # ---------------------------------------------------------------------------
+  # ClickHouse - unified telemetry store
+  # ---------------------------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    container_name: oblak-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-otel}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-oblak}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-oblak_clickhouse}
+      # Lets the bootstrap user create the schema the collector needs.
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./clickhouse/config/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro,z
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro,z
+    ports:
+      # HTTP interface - used by the Strapi query API and for ad-hoc curl/SQL.
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      # Native protocol. Deliberately NOT the default 9000, which MinIO/Spomen
+      # already publishes on this host.
+      - "${CLICKHOUSE_NATIVE_PORT:-9010}:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      # Read the body rather than using --spider: spider closes the socket
+      # early, which makes ClickHouse log a broken-pipe error on every probe.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping | grep -q Ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - observability
+
+  # ---------------------------------------------------------------------------
+  # OpenTelemetry Collector - the single ingest point for all signals
+  # ---------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    container_name: oblak-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel/config.yaml:ro,z
+      # Container-level CPU/memory/network metrics for every Oblak service,
+      # which is how the dashboard shows per-service resource usage without
+      # each service having to report it.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # hostmetrics reads the host's /proc and /sys through here; without it the
+      # collector would report the container's own resource usage as the host's.
+      - /:/hostfs:ro,rslave
+    environment:
+      OBLAK_ENV: ${OBLAK_ENV:-development}
+      CLICKHOUSE_ENDPOINT: tcp://clickhouse:9000?dial_timeout=10s&compress=lz4
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-otel}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-oblak}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-oblak_clickhouse}
+      OTEL_TTL: ${OTEL_TTL:-720h}
+      # Postgres metric scrape credentials, one set per Oblak database.
+      PG_DASHBOARD_USER: ${PG_DASHBOARD_USER:-oblak}
+      PG_DASHBOARD_PASSWORD: ${PG_DASHBOARD_PASSWORD:-oblak_password}
+      PG_DASHBOARD_DB: ${PG_DASHBOARD_DB:-oblak_dashboard}
+      PG_IMPULS_USER: ${PG_IMPULS_USER:-impuls}
+      PG_IMPULS_PASSWORD: ${PG_IMPULS_PASSWORD:-impuls123}
+      PG_IMPULS_DB: ${PG_IMPULS_DB:-impuls}
+      PG_POLAROID_USER: ${PG_POLAROID_USER:-polaroid}
+      PG_POLAROID_PASSWORD: ${PG_POLAROID_PASSWORD:-polaroid_password}
+      PG_POLAROID_DB: ${PG_POLAROID_DB:-polaroid}
+      # Browser RUM posts OTLP straight from the user's browser, so the
+      # collector must allow the dashboard's origin.
+      RUM_ALLOWED_ORIGINS: ${RUM_ALLOWED_ORIGINS:-http://localhost:5174}
+    # Container metrics require reading docker.sock, which needs two things on
+    # a SELinux host like Fedora:
+    #   1. the host's docker group (Unix permissions on the socket), and
+    #   2. an SELinux exception - confined container_t may not write to a
+    #      sock_file labelled container_var_run_t, and no boolean covers it.
+    #
+    # SECURITY NOTE: access to docker.sock is equivalent to root on the host,
+    # and label:disable removes this container's SELinux confinement. That is
+    # the usual trade for container metrics (cAdvisor and Portainer need the
+    # same), but if you would rather not make it, delete this group_add and
+    # security_opt block, drop the docker.sock volume, and remove the
+    # docker_stats receiver from otel-collector/config.yaml. Everything else
+    # in the stack keeps working; you only lose per-container CPU/memory for
+    # the services Oblak does not instrument directly (Postgres, MinIO,
+    # Immich, Redis).
+    group_add:
+      - "${DOCKER_GID:-989}"
+    security_opt:
+      - label:disable
+    ports:
+      - "${OTLP_GRPC_PORT:-4317}:4317"   # OTLP gRPC  - Go services, Strapi
+      - "${OTLP_HTTP_PORT:-4318}:4318"   # OTLP HTTP  - browser RUM
+      - "${OTEL_HEALTH_PORT:-13133}:13133"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - observability
+      # Reachable from the other Oblak compose projects.
+      - oblak-telemetry
+
+volumes:
+  clickhouse-data:
+  clickhouse-logs:
+
+networks:
+  observability:
+    driver: bridge
+  # Shared external network so impuls/spomen/izvor/backend can reach the
+  # collector by name from their own compose projects.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

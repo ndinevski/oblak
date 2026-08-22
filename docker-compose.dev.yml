@@ -7,12 +7,24 @@ services:
     image: postgres:16-alpine
     container_name: oblak-postgres-dev
     restart: unless-stopped
+    # pg_stat_statements must be preloaded at server start; it cannot be
+    # enabled at runtime. It is what turns "a query was slow" into "this
+    # query was slow".
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=top
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-oblak}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oblak_password}
       POSTGRES_DB: ${POSTGRES_DB:-oblak_dashboard}
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
+      # Enables pg_stat_statements on a fresh volume. `:z` is required on
+      # SELinux hosts or the container cannot read it.
+      - ./observability/postgres-init:/docker-entrypoint-initdb.d:ro,z
     ports:
       - "5432:5432"
     healthcheck:
@@ -22,6 +34,8 @@ services:
       retries: 5
     networks:
       - oblak-network-dev
+      # Lets the OpenTelemetry collector scrape Postgres internals.
+      - oblak-telemetry
 
   # Strapi Backend (Development)
   backend:
@@ -94,3 +108,7 @@ volumes:
 networks:
   oblak-network-dev:
     driver: bridge
+  # Shared with the observability stack.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

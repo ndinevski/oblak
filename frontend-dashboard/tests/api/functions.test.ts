@@ -14,6 +14,13 @@ vi.mock('@/lib/api/client', () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+  // functionsApi reads API_CONFIG.baseURL at module load, so the mock has to
+  // provide it or importing the module under test throws.
+  API_CONFIG: {
+    baseURL: 'http://localhost:1337/api',
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/json' },
+  },
 }));
 
 const mockFunction = {
@@ -62,10 +69,11 @@ describe('functionsApi', () => {
 
       await functionsApi.list({ page: 2, pageSize: 20 });
 
+      // api::function.function's find controller reads flat page/pageSize
+      // query params, not Strapi's default pagination[page] convention.
       const calledUrl = vi.mocked(apiClient.get).mock.calls[0][0];
-      expect(calledUrl).toContain('pagination');
-      expect(calledUrl).toContain('page');
-      expect(calledUrl).toContain('pageSize');
+      expect(calledUrl).toContain('page=2');
+      expect(calledUrl).toContain('pageSize=20');
     });
 
     it('should include filter params', async () => {
@@ -74,9 +82,9 @@ describe('functionsApi', () => {
       await functionsApi.list({ runtime: 'nodejs20', status: 'active', search: 'test' });
 
       const calledUrl = vi.mocked(apiClient.get).mock.calls[0][0];
-      expect(calledUrl).toContain('runtime');
-      expect(calledUrl).toContain('status');
-      expect(calledUrl).toContain('name');
+      expect(calledUrl).toContain('runtime=nodejs20');
+      expect(calledUrl).toContain('status=active');
+      expect(calledUrl).toContain('search=test');
     });
   });
 
@@ -178,7 +186,9 @@ describe('functionsApi', () => {
         execution_time_ms: 150,
         logs: ['Log line'],
       };
-      vi.mocked(apiClient.post).mockResolvedValue({ data: mockResult });
+      // The invoke controller responds with { data: <function body> }, which
+      // functionsApi.invoke unwraps.
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { data: mockResult } });
 
       const result = await functionsApi.invoke(1, { payload: { key: 'value' } });
 

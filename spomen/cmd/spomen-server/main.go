@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/n1xx1n/spomen/internal/api"
+	"github.com/n1xx1n/spomen/internal/telemetry"
 )
+
+// serviceVersion is stamped onto every signal so a regression can be tied to
+// a specific build. Override at build time with:
+//   -ldflags "-X main.serviceVersion=$(git describe --tags --always)"
+var serviceVersion = "dev"
 
 func main() {
 	// Command line flags
@@ -41,20 +49,49 @@ func main() {
 		log.Println("Warning: Minio credentials not set, using defaults")
 	}
 
-	log.Printf("Spomen Object Storage API")
-	log.Printf("  Port: %s", cfg.Port)
-	log.Printf("  Minio Endpoint: %s", cfg.MinioEndpoint)
-	log.Printf("  Minio SSL: %v", cfg.MinioUseSSL)
+	// Telemetry first, so that startup problems are visible in the Oblak
+	// dashboard rather than only in stdout.
+	telCtx, telCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	tel, telErr := telemetry.Init(telCtx, telemetry.ConfigFromEnv("spomen", serviceVersion))
+	telCancel()
+	if telErr != nil {
+		// A telemetry outage must never stop the service from serving traffic.
+		log.Printf("telemetry disabled: %v", telErr)
+	}
+	logger := tel.Logger
+
+	logger.Info("spomen object storage api starting",
+		"port", cfg.Port,
+		"minio_endpoint", cfg.MinioEndpoint,
+		"minio_ssl", cfg.MinioUseSSL,
+		"telemetry_enabled", tel.Enabled,
+	)
 
 	// Create and run server
 	server, err := api.NewServer(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+		logger.Error("failed to create server", "error", err)
+		flushTelemetry(tel)
 		os.Exit(1)
 	}
 
+	if err := server.UseTelemetry(tel, "spomen"); err != nil {
+		logger.Warn("could not install telemetry middleware", "error", err)
+	}
+
 	if err := server.Run(); err != nil {
-		log.Fatalf("Server error: %v", err)
+		logger.Error("server error", "error", err)
+		flushTelemetry(tel)
 		os.Exit(1)
+	}
+}
+
+// flushTelemetry drains buffered signals before the process exits, so the
+// error that caused the exit is not lost with the batch that held it.
+func flushTelemetry(tel *telemetry.Telemetry) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := tel.Shutdown(ctx); err != nil {
+		log.Printf("Error flushing telemetry: %v", err)
 	}
 }

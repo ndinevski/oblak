@@ -3,13 +3,14 @@
  * Handles business logic for function operations with Impuls sync
  */
 
-import { createImpulsClient, ImpulsClient } from './impuls-client';
+import { createImpulsClient, ImpulsClient } from "./impuls-client";
 
+import { recordAudit } from "../../../telemetry/audit";
 /**
  * Get configured Impuls client
  */
 function getImpulsClient(): ImpulsClient {
-  const baseUrl = process.env.IMPULS_URL || 'http://localhost:8080';
+  const baseUrl = process.env.IMPULS_URL || "http://localhost:8080";
   const apiKey = process.env.IMPULS_API_KEY;
 
   return createImpulsClient({
@@ -46,46 +47,49 @@ export default ({ strapi }: { strapi: any }) => ({
         description: data.description,
         runtime: data.runtime,
         handler: data.handler,
-        code: data.code || '',
+        code: data.code || "",
         memory_mb: data.memoryMB || 128,
         timeout_sec: data.timeoutSec || 30,
         environment: data.environment,
       });
     } catch (error) {
-      strapi.log.error('Failed to create function in Impuls:', error);
-      throw new Error(`Failed to create function in Impuls: ${(error as Error).message}`);
+      strapi.log.error("Failed to create function in Impuls:", error);
+      throw new Error(
+        `Failed to create function in Impuls: ${(error as Error).message}`,
+      );
     }
 
     // Create function record in Strapi
-    const functionRecord = await strapi.entityService.create('api::function.function', {
-      data: {
-        name: data.name,
-        description: data.description,
-        runtime: data.runtime,
-        handler: data.handler,
-        code: data.code,
-        memoryMB: data.memoryMB || 128,
-        timeoutSec: data.timeoutSec || 30,
-        environment: data.environment || {},
-        externalId: impulsFunction.id,
-        status: 'active',
-        owner: data.owner,
-        invocationCount: '0',
-        tags: data.tags || [],
+    const functionRecord = await strapi.entityService.create(
+      "api::function.function",
+      {
+        data: {
+          name: data.name,
+          description: data.description,
+          runtime: data.runtime,
+          handler: data.handler,
+          code: data.code,
+          memoryMB: data.memoryMB || 128,
+          timeoutSec: data.timeoutSec || 30,
+          environment: data.environment || {},
+          externalId: impulsFunction.id,
+          status: "active",
+          owner: data.owner,
+          invocationCount: "0",
+          tags: data.tags || [],
+        },
       },
-    });
+    );
 
     // Log activity
-    await strapi.entityService.create('api::activity-log.activity-log', {
-      data: {
-        action: 'function.create',
-        resourceType: 'function',
-        resourceId: String(functionRecord.documentId),
-        resourceName: data.name,
-        status: 'success',
-        user: data.owner,
-      },
-    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
+    recordAudit({
+      action: "function.create",
+      resourceType: "function",
+      resourceId: String(functionRecord.documentId),
+      resourceName: data.name,
+      status: "success",
+      userId: data.owner,
+    });
 
     return functionRecord;
   },
@@ -104,14 +108,17 @@ export default ({ strapi }: { strapi: any }) => ({
       timeoutSec?: number;
       environment?: Record<string, string>;
       tags?: string[];
-      status?: 'active' | 'inactive' | 'error' | 'deploying';
+      status?: "active" | "inactive" | "error" | "deploying";
     },
-    userId: number
+    userId: number,
   ) {
     // Get existing function
-    const existing = await strapi.entityService.findOne('api::function.function', documentId);
+    const existing = await strapi.entityService.findOne(
+      "api::function.function",
+      documentId,
+    );
     if (!existing) {
-      throw new Error('Function not found');
+      throw new Error("Function not found");
     }
 
     const impulsClient = getImpulsClient();
@@ -129,29 +136,33 @@ export default ({ strapi }: { strapi: any }) => ({
         environment: data.environment,
       });
     } catch (error) {
-      strapi.log.error('Failed to update function in Impuls:', error);
-      throw new Error(`Failed to update function in Impuls: ${(error as Error).message}`);
+      strapi.log.error("Failed to update function in Impuls:", error);
+      throw new Error(
+        `Failed to update function in Impuls: ${(error as Error).message}`,
+      );
     }
 
     // Update in Strapi
-    const updated = await strapi.entityService.update('api::function.function', documentId, {
-      data: {
-        ...data,
-      } as any,
-    });
+    const updated = await strapi.entityService.update(
+      "api::function.function",
+      documentId,
+      {
+        data: {
+          ...data,
+        } as any,
+      },
+    );
 
     // Log activity
-    await strapi.entityService.create('api::activity-log.activity-log', {
-      data: {
-        action: 'function.update',
-        resourceType: 'function',
-        resourceId: String(documentId),
-        resourceName: existing.name,
-        status: 'success',
-        user: userId,
-        details: { updatedFields: Object.keys(data) },
-      },
-    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
+    recordAudit({
+      action: "function.update",
+      resourceType: "function",
+      resourceId: String(documentId),
+      resourceName: existing.name,
+      status: "success",
+      userId: userId,
+      details: { updatedFields: Object.keys(data) },
+    });
 
     return updated;
   },
@@ -161,9 +172,12 @@ export default ({ strapi }: { strapi: any }) => ({
    */
   async deleteWithSync(documentId: string | number, userId: number) {
     // Get existing function
-    const existing = await strapi.entityService.findOne('api::function.function', documentId);
+    const existing = await strapi.entityService.findOne(
+      "api::function.function",
+      documentId,
+    );
     if (!existing) {
-      throw new Error('Function not found');
+      throw new Error("Function not found");
     }
 
     const impulsClient = getImpulsClient();
@@ -172,24 +186,22 @@ export default ({ strapi }: { strapi: any }) => ({
     try {
       await impulsClient.deleteFunction(existing.name);
     } catch (error) {
-      strapi.log.error('Failed to delete function in Impuls:', error);
+      strapi.log.error("Failed to delete function in Impuls:", error);
       // Continue with deletion in Strapi even if Impuls fails
     }
 
     // Delete from Strapi
-    await strapi.entityService.delete('api::function.function', documentId);
+    await strapi.entityService.delete("api::function.function", documentId);
 
     // Log activity
-    await strapi.entityService.create('api::activity-log.activity-log', {
-      data: {
-        action: 'function.delete',
-        resourceType: 'function',
-        resourceId: String(documentId),
-        resourceName: existing.name,
-        status: 'success',
-        user: userId,
-      },
-    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
+    recordAudit({
+      action: "function.delete",
+      resourceType: "function",
+      resourceId: String(documentId),
+      resourceName: existing.name,
+      status: "success",
+      userId: userId,
+    });
 
     return { success: true, name: existing.name };
   },
@@ -201,20 +213,24 @@ export default ({ strapi }: { strapi: any }) => ({
     documentId: string | number,
     payload: Record<string, unknown>,
     userId?: number,
-    options: { local?: boolean } = {}
+    options: { local?: boolean } = {},
   ) {
     // Get function
-    const fn = await strapi.entityService.findOne('api::function.function', documentId);
+    const fn = await strapi.entityService.findOne(
+      "api::function.function",
+      documentId,
+    );
     if (!fn) {
-      throw new Error('Function not found');
+      throw new Error("Function not found");
     }
 
-    if (fn.status === 'inactive') {
-      throw new Error('Function is inactive. Activate it before invoking.');
+    if (fn.status === "inactive") {
+      throw new Error("Function is inactive. Activate it before invoking.");
     }
 
     const impulsClient = getImpulsClient();
-    const invokeLocal = options.local ?? process.env.IMPULS_LOCAL_INVOKE_DEFAULT === 'true';
+    const invokeLocal =
+      options.local ?? process.env.IMPULS_LOCAL_INVOKE_DEFAULT === "true";
 
     // Invoke in Impuls
     let result;
@@ -224,10 +240,13 @@ export default ({ strapi }: { strapi: any }) => ({
         local: invokeLocal,
       });
     } catch (error) {
-      const message = (error as Error).message || '';
+      const message = (error as Error).message || "";
 
       // Some Impuls/runtime paths may return malformed headers; retry once in local mode.
-      if (!invokeLocal && /invalid header value char|parse error/i.test(message)) {
+      if (
+        !invokeLocal &&
+        /invalid header value char|parse error/i.test(message)
+      ) {
         result = await impulsClient.invokeFunction(fn.name, {
           payload,
           local: true,
@@ -243,9 +262,9 @@ export default ({ strapi }: { strapi: any }) => ({
     // { status_code, body, duration_ms, logs, ... } as JSON payload.
     if (
       rawBody &&
-      typeof rawBody === 'object' &&
-      'status_code' in rawBody &&
-      'body' in rawBody
+      typeof rawBody === "object" &&
+      "status_code" in rawBody &&
+      "body" in rawBody
     ) {
       return {
         statusCode: Number(rawBody.status_code) || result.status_code,
@@ -264,7 +283,7 @@ export default ({ strapi }: { strapi: any }) => ({
    */
   async recordInvocationReport(report: {
     functionName: string;
-    status: 'success' | 'failure';
+    status: "success" | "failure";
     providerStatusCode?: number;
     executionTimeMs?: number;
     runtimeLogs?: { stdout?: string[]; stderr?: string[] };
@@ -274,44 +293,54 @@ export default ({ strapi }: { strapi: any }) => ({
     local?: boolean;
     invokedAt?: string;
   }) {
-    const target = await strapi.service('api::function.function').findByName(report.functionName);
+    const target = await strapi
+      .service("api::function.function")
+      .findByName(report.functionName);
     if (!target) {
-      strapi.log.warn(`Invocation report ignored: function not found (${report.functionName})`);
-      return { success: false, reason: 'function_not_found' };
+      strapi.log.warn(
+        `Invocation report ignored: function not found (${report.functionName})`,
+      );
+      return { success: false, reason: "function_not_found" };
     }
 
-    const targetWithOwner = await strapi.entityService.findOne('api::function.function', target.id, {
-      populate: ['owner'],
-    });
+    const targetWithOwner = await strapi.entityService.findOne(
+      "api::function.function",
+      target.id,
+      {
+        populate: ["owner"],
+      },
+    );
 
-    const currentCount = BigInt(targetWithOwner?.invocationCount || target.invocationCount || '0');
-    await strapi.entityService.update('api::function.function', target.id, {
+    const currentCount = BigInt(
+      targetWithOwner?.invocationCount || target.invocationCount || "0",
+    );
+    await strapi.entityService.update("api::function.function", target.id, {
       data: {
         invocationCount: (currentCount + 1n).toString(),
         lastInvokedAt: report.invokedAt || new Date().toISOString(),
       } as any,
     });
 
-    await strapi.entityService.create('api::activity-log.activity-log', {
-      data: {
-        action: 'function.invoke',
-        resourceType: 'function',
-        resourceId: String(target.documentId || target.id),
-        resourceName: target.name,
-        status: report.status,
-        ...(targetWithOwner?.owner?.id ? { user: targetWithOwner.owner.id } : {}),
-        errorMessage: report.errorMessage,
-        details: {
-          executionTimeMs: report.executionTimeMs,
-          providerStatusCode: report.providerStatusCode,
-          runtimeLogs: report.runtimeLogs || null,
-          functionResponse: report.response,
-          memoryUsedMb: report.memoryUsedMb,
-          local: report.local === true,
-          source: 'impuls-report',
-        },
+    recordAudit({
+      action: "function.invoke",
+      resourceType: "function",
+      resourceId: String(target.documentId || target.id),
+      resourceName: target.name,
+      status: report.status,
+      ...(targetWithOwner?.owner?.id
+        ? { userId: targetWithOwner.owner.id }
+        : {}),
+      errorMessage: report.errorMessage,
+      details: {
+        executionTimeMs: report.executionTimeMs,
+        providerStatusCode: report.providerStatusCode,
+        runtimeLogs: report.runtimeLogs || null,
+        functionResponse: report.response,
+        memoryUsedMb: report.memoryUsedMb,
+        local: report.local === true,
+        source: "impuls-report",
       },
-    }).catch((err: any) => strapi.log.warn('Failed to log activity:', err));
+    });
 
     return { success: true };
   },
@@ -321,7 +350,13 @@ export default ({ strapi }: { strapi: any }) => ({
    */
   async findByOwner(
     ownerId: number,
-    params: { page?: number; pageSize?: number; search?: string; runtime?: string; status?: string } = {}
+    params: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      runtime?: string;
+      status?: string;
+    } = {},
   ) {
     const { page = 1, pageSize = 25, search, runtime, status } = params;
 
@@ -342,10 +377,10 @@ export default ({ strapi }: { strapi: any }) => ({
       filters.status = status;
     }
 
-    return strapi.entityService.findMany('api::function.function', {
+    return strapi.entityService.findMany("api::function.function", {
       filters,
-      sort: { createdAt: 'desc' },
-      populate: ['owner'],
+      sort: { createdAt: "desc" },
+      populate: ["owner"],
       limit: pageSize,
       offset: (page - 1) * pageSize,
     });
@@ -354,7 +389,10 @@ export default ({ strapi }: { strapi: any }) => ({
   /**
    * Count functions by owner
    */
-  async countByOwner(ownerId: number, params: { search?: string; runtime?: string; status?: string } = {}) {
+  async countByOwner(
+    ownerId: number,
+    params: { search?: string; runtime?: string; status?: string } = {},
+  ) {
     const { search, runtime, status } = params;
 
     const where: Record<string, unknown> = { owner: ownerId };
@@ -374,7 +412,7 @@ export default ({ strapi }: { strapi: any }) => ({
       where.status = status;
     }
 
-    const result = await strapi.db.query('api::function.function').count({
+    const result = await strapi.db.query("api::function.function").count({
       where,
     });
     return result;
@@ -384,10 +422,13 @@ export default ({ strapi }: { strapi: any }) => ({
    * Find function by name
    */
   async findByName(name: string) {
-    const results = await strapi.entityService.findMany('api::function.function', {
-      filters: { name },
-      limit: 1,
-    });
+    const results = await strapi.entityService.findMany(
+      "api::function.function",
+      {
+        filters: { name },
+        limit: 1,
+      },
+    );
     return (results as any[])?.[0] || null;
   },
 });

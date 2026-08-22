@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/oblak/izvor/internal/telemetry"
 	"github.com/oblak/izvor/internal/proxmox"
 	"github.com/rs/cors"
 )
@@ -62,6 +63,18 @@ func NewServer(cfg Config, proxmoxClient proxmox.ProxmoxClient) (*Server, error)
 
 	s.setupRoutes()
 	return s, nil
+}
+
+// UseTelemetry installs tracing, RED metrics and access logging on every
+// route. Called after NewServer so the service can still run untraced, which
+// is what the unit tests do.
+func (s *Server) UseTelemetry(tel *telemetry.Telemetry, serviceName string) error {
+	metrics, err := telemetry.NewHTTPMetrics(serviceName)
+	if err != nil {
+		return err
+	}
+	s.router.Use(tel.Middleware(serviceName, metrics))
+	return nil
 }
 
 // Router returns the HTTP router

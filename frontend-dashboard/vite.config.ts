@@ -11,7 +11,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // 5173 is taken by Strapi's admin HMR server in develop mode, so the
+    // dashboard is pinned to 5174 to keep the URL and CORS origin stable.
+    port: 5174,
+    strictPort: true,
     host: true,
     proxy: {
       '/api': {

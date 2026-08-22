@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -206,7 +207,7 @@ func (m *MockClient) addDefaultTestData() {
 // HealthCheck verifies connectivity
 func (m *MockClient) HealthCheck(ctx context.Context) error {
 	if m.ShouldFail {
-		return fmt.Errorf(m.FailMessage)
+		return errors.New(m.FailMessage)
 	}
 	return m.HealthStatus
 }
@@ -214,7 +215,7 @@ func (m *MockClient) HealthCheck(ctx context.Context) error {
 // GetVersion returns the mock Proxmox version
 func (m *MockClient) GetVersion(ctx context.Context) (string, error) {
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 	return "8.0.4", nil
 }
@@ -225,7 +226,7 @@ func (m *MockClient) GetDefaultNode(ctx context.Context) (string, error) {
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	if len(m.nodes) == 0 {
@@ -247,7 +248,7 @@ func (m *MockClient) ListNodes(ctx context.Context) ([]models.Node, error) {
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	return m.nodes, nil
@@ -259,7 +260,7 @@ func (m *MockClient) ListVMs(ctx context.Context, node string) ([]models.Virtual
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	var vms []models.VirtualMachine
@@ -278,7 +279,7 @@ func (m *MockClient) GetVM(ctx context.Context, node, vmid string) (*models.Virt
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	vm, exists := m.vms[vmid]
@@ -299,7 +300,7 @@ func (m *MockClient) CreateVM(ctx context.Context, req *models.CreateVMRequest) 
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return nil, "", fmt.Errorf(m.FailMessage)
+		return nil, "", errors.New(m.FailMessage)
 	}
 
 	// Apply size defaults
@@ -342,7 +343,7 @@ func (m *MockClient) DeleteVM(ctx context.Context, node, vmid string) error {
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return fmt.Errorf(m.FailMessage)
+		return errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {
@@ -361,7 +362,7 @@ func (m *MockClient) StartVM(ctx context.Context, node, vmid string) (string, er
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	vm, exists := m.vms[vmid]
@@ -379,7 +380,7 @@ func (m *MockClient) StopVM(ctx context.Context, node, vmid string, force bool) 
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	vm, exists := m.vms[vmid]
@@ -401,7 +402,7 @@ func (m *MockClient) RebootVM(ctx context.Context, node, vmid string) (string, e
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {
@@ -417,7 +418,7 @@ func (m *MockClient) ResetVM(ctx context.Context, node, vmid string) (string, er
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {
@@ -433,7 +434,7 @@ func (m *MockClient) SuspendVM(ctx context.Context, node, vmid string) (string, 
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	vm, exists := m.vms[vmid]
@@ -451,7 +452,7 @@ func (m *MockClient) ResumeVM(ctx context.Context, node, vmid string) (string, e
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return "", fmt.Errorf(m.FailMessage)
+		return "", errors.New(m.FailMessage)
 	}
 
 	vm, exists := m.vms[vmid]
@@ -469,7 +470,7 @@ func (m *MockClient) ListSnapshots(ctx context.Context, node, vmid string) ([]mo
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {
@@ -490,7 +491,7 @@ func (m *MockClient) CreateSnapshot(ctx context.Context, node, vmid string, req 
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {
@@ -516,7 +517,7 @@ func (m *MockClient) DeleteSnapshot(ctx context.Context, node, vmid, name string
 	defer m.mu.Unlock()
 
 	if m.ShouldFail {
-		return fmt.Errorf(m.FailMessage)
+		return errors.New(m.FailMessage)
 	}
 
 	snapshots := m.snapshots[vmid]
@@ -536,7 +537,7 @@ func (m *MockClient) RollbackSnapshot(ctx context.Context, node, vmid, name stri
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return fmt.Errorf(m.FailMessage)
+		return errors.New(m.FailMessage)
 	}
 
 	snapshots := m.snapshots[vmid]
@@ -555,7 +556,7 @@ func (m *MockClient) ListTemplates(ctx context.Context) ([]models.VMTemplate, er
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	return m.templates, nil
@@ -567,7 +568,7 @@ func (m *MockClient) ListStorages(ctx context.Context, node string) ([]models.St
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	var storages []models.Storage
@@ -586,7 +587,7 @@ func (m *MockClient) ListNetworks(ctx context.Context, node string) ([]models.Ne
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	var networks []models.Network
@@ -602,7 +603,7 @@ func (m *MockClient) ListNetworks(ctx context.Context, node string) ([]models.Ne
 // GetTask returns task status
 func (m *MockClient) GetTask(ctx context.Context, node, upid string) (*models.Task, error) {
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	return &models.Task{
@@ -623,7 +624,7 @@ func (m *MockClient) GetVNCConsole(ctx context.Context, node, vmid string) (*mod
 	defer m.mu.RUnlock()
 
 	if m.ShouldFail {
-		return nil, fmt.Errorf(m.FailMessage)
+		return nil, errors.New(m.FailMessage)
 	}
 
 	if _, exists := m.vms[vmid]; !exists {

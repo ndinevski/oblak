@@ -14,7 +14,13 @@ import (
 	"github.com/oblak/impuls/internal/firecracker"
 	"github.com/oblak/impuls/internal/function"
 	"github.com/oblak/impuls/internal/storage"
+	"github.com/oblak/impuls/internal/telemetry"
 )
+
+// serviceVersion is stamped onto every signal so a regression can be tied to
+// a specific build. Override at build time with:
+//   -ldflags "-X main.serviceVersion=$(git describe --tags --always)"
+var serviceVersion = "dev"
 
 func main() {
 	// Parse command line flags
@@ -26,6 +32,17 @@ func main() {
 	storageType := flag.String("storage", "file", "Storage type: file or postgres")
 	dbConnStr := flag.String("db-conn", "", "Database connection string (required for postgres storage)")
 	flag.Parse()
+
+	// Telemetry first, so that everything after this point (including startup
+	// failures) is visible in the Oblak dashboard rather than only in stdout.
+	telCtx, telCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	tel, telErr := telemetry.Init(telCtx, telemetry.ConfigFromEnv("impuls", serviceVersion))
+	telCancel()
+	if telErr != nil {
+		// A telemetry outage must never stop the service from serving traffic.
+		log.Printf("telemetry disabled: %v", telErr)
+	}
+	logger := tel.Logger
 
 	// Set default paths
 	if *kernelPath == "" {
@@ -76,6 +93,9 @@ func main() {
 
 	// Initialize API server
 	apiServer := api.NewServer(funcManager)
+	if err := apiServer.UseTelemetry(tel, "impuls"); err != nil {
+		logger.Warn("could not install telemetry middleware", "error", err)
+	}
 
 	// Create HTTP server
 	server := &http.Server{
@@ -88,9 +108,13 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Impuls server starting on port %s", *port)
-		log.Printf("Data directory: %s", *dataDir)
-		log.Printf("Firecracker binary: %s", *firecrackerBin)
+		logger.Info("impuls server starting",
+			"port", *port,
+			"data_dir", *dataDir,
+			"firecracker_bin", *firecrackerBin,
+			"storage_type", *storageType,
+			"telemetry_enabled", tel.Enabled,
+		)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
@@ -120,8 +144,12 @@ func main() {
 	}
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.Printf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server stopped")
+	// Flush buffered telemetry last, so the shutdown itself is recorded.
+	logger.Info("impuls server stopped")
+	if err := tel.Shutdown(ctx); err != nil {
+		log.Printf("Error flushing telemetry: %v", err)
+	}
 }

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+  ClickHouse defaults assume a dedicated analytics box. Oblak runs it alongside
+  Postgres, MinIO, Immich and the app services on one machine, so these caps
+  keep it to a predictable footprint instead of letting it claim most of RAM.
+-->
+<clickhouse>
+    <!-- Roughly 1 GB of marks/uncompressed cache instead of the multi-GB default. -->
+    <mark_cache_size>536870912</mark_cache_size>
+    <uncompressed_cache_size>536870912</uncompressed_cache_size>
+
+    <!-- Telemetry ingest is append-heavy and low-concurrency. -->
+    <max_concurrent_queries>64</max_concurrent_queries>
+    <!-- Leave background_pool_size at the default (16). Lowering it trips
+         ClickHouse's sanity check, because the mutation pool reservation
+         (20) must stay under background_pool_size * concurrency_ratio. -->
+
+    <profiles>
+        <default>
+            <!-- A runaway dashboard query must not take the whole node down. -->
+            <max_memory_usage>2000000000</max_memory_usage>
+            <max_execution_time>30</max_execution_time>
+            <!-- Telemetry reads are always time-bounded; fail loudly instead of
+                 silently scanning the entire retention window. -->
+            <max_rows_to_read>500000000</max_rows_to_read>
+            <readonly>0</readonly>
+        </default>
+    </profiles>
+
+    <!-- ClickHouse's own logs are not interesting once the stack is healthy and
+         would otherwise grow without bound on a long-running host. -->
+    <logger>
+        <level>warning</level>
+        <size>100M</size>
+        <count>3</count>
+    </logger>
+
+    <!-- Internal query/metric logging off: Oblak's telemetry lives in the otel
+         tables, and these system tables are pure overhead here. -->
+    <query_log remove="1"/>
+    <query_thread_log remove="1"/>
+    <trace_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <session_log remove="1"/>
+    <part_log remove="1"/>
+</clickhouse>

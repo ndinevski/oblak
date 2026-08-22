@@ -1,6 +1,7 @@
 .PHONY: all test test-impuls test-spomen test-izvor test-dashboard test-coverage build build-impuls build-spomen build-izvor build-dashboard clean help
 .PHONY: dev dev-dashboard up down logs ps
 .PHONY: up-polaroid down-polaroid logs-polaroid
+.PHONY: up-observability down-observability logs-observability observability-net
 
 # Default target
 help:
@@ -31,6 +32,11 @@ help:
 	@echo "  make up-polaroid       - Start Polaroid (Immich) containers"
 	@echo "  make down-polaroid     - Stop Polaroid containers"
 	@echo "  make logs-polaroid     - View Polaroid container logs"
+	@echo ""
+	@echo "Observability (OpenTelemetry + ClickHouse):"
+	@echo "  make up-observability   - Start ClickHouse and the OTel collector"
+	@echo "  make down-observability - Stop the observability stack"
+	@echo "  make logs-observability - View collector and ClickHouse logs"
 	@echo ""
 
 # Run all tests
@@ -161,3 +167,25 @@ down-polaroid:
 # View Polaroid logs
 logs-polaroid:
 	docker compose -f polaroid/docker-compose.yml logs -f
+
+# ============================================
+# Observability (OpenTelemetry + ClickHouse)
+# ============================================
+
+# The collector lives on a shared external network so each service's own
+# compose project can reach it by name. Creating it is idempotent.
+observability-net:
+	@docker network inspect oblak-telemetry >/dev/null 2>&1 || \
+		docker network create oblak-telemetry
+
+# Start the telemetry store and the collector
+up-observability: observability-net
+	docker compose -f observability/docker-compose.yml up -d
+
+# Stop the observability stack
+down-observability:
+	docker compose -f observability/docker-compose.yml down
+
+# View observability logs
+logs-observability:
+	docker compose -f observability/docker-compose.yml logs -f

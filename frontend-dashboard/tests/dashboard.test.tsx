@@ -195,8 +195,9 @@ describe('QuickActions', () => {
         <QuickActions />
       </RouterWrapper>
     );
-    expect(screen.getByRole('link', { name: /new function/i })).toHaveAttribute('href', '/functions/create');
-    expect(screen.getByRole('link', { name: /new vm/i })).toHaveAttribute('href', '/vms/create');
-    expect(screen.getByRole('link', { name: /new bucket/i })).toHaveAttribute('href', '/storage/create');
+    // The router registers the creation screens under 'new', not 'create'.
+    expect(screen.getByRole('link', { name: /new function/i })).toHaveAttribute('href', '/functions/new');
+    expect(screen.getByRole('link', { name: /new vm/i })).toHaveAttribute('href', '/vms/new');
+    expect(screen.getByRole('link', { name: /new bucket/i })).toHaveAttribute('href', '/storage/new');
   });
 });

@@ -27,6 +27,34 @@
     --scrollbar-track: 0 0% 94%;
     --scrollbar-thumb: 0 0% 72%;
     --scrollbar-thumb-hover: 0 0% 58%;
+
+    /* ---------------------------------------------------------------
+       Chart tokens (observability)
+
+       Categorical slots are assigned in fixed order and never cycled, so
+       a series keeps its colour when a filter changes the series count.
+       Validated for colour-vision deficiency against this surface; the
+       light steps of aqua/yellow/magenta sit below 3:1, which is why
+       every chart also ships a legend and a table view.
+       --------------------------------------------------------------- */
+    --chart-1: #2a78d6;  /* blue    */
+    --chart-2: #eb6834;  /* orange  */
+    --chart-3: #1baf7a;  /* aqua    */
+    --chart-4: #eda100;  /* yellow  */
+    --chart-5: #e87ba4;  /* magenta */
+    --chart-6: #008300;  /* green   */
+    --chart-7: #4a3aa7;  /* violet  */
+    --chart-8: #e34948;  /* red     */
+
+    /* Status colours are reserved: never reused as a series colour, and
+       always paired with an icon or label so meaning is not colour-only. */
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+
+    --chart-grid: #e1e0d9;
+    --chart-axis: #c3c2b7;
   }
 
   .dark {
@@ -52,6 +80,25 @@
     --scrollbar-track: 0 0% 12%;
     --scrollbar-thumb: 0 0% 34%;
     --scrollbar-thumb-hover: 0 0% 46%;
+
+    /* Dark steps of the same eight hues, re-stepped for the dark surface
+       rather than flipped. Validated as a set against this surface. */
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
   }
 }
 

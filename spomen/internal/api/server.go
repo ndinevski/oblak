@@ -5,10 +5,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/n1xx1n/spomen/internal/storage"
+	"github.com/n1xx1n/spomen/internal/telemetry"
 	"github.com/rs/cors"
 )
 
@@ -85,8 +85,20 @@ func (s *Server) setupRoutes() {
 	// POST /buckets/{bucket}/objects/{key}?action=copy for copy
 	api.HandleFunc("/buckets/{bucket}/objects/{key:.*}", s.handleObject).Methods("GET", "PUT", "DELETE", "POST")
 
-	// Logging middleware
-	s.router.Use(loggingMiddleware)
+	// Access logging is handled by the telemetry middleware (see
+	// UseTelemetry), which emits a trace-correlated record per request.
+}
+
+// UseTelemetry installs tracing, RED metrics and access logging on every
+// route. Called after NewServer so the service can still run untraced, which
+// is what the unit tests do.
+func (s *Server) UseTelemetry(tel *telemetry.Telemetry, serviceName string) error {
+	metrics, err := telemetry.NewHTTPMetrics(serviceName)
+	if err != nil {
+		return err
+	}
+	s.router.Use(tel.Middleware(serviceName, metrics))
+	return nil
 }
 
 // Run starts the server
@@ -103,15 +115,6 @@ func (s *Server) Run() error {
 
 	log.Printf("Spomen API server starting on port %s", s.port)
 	return http.ListenAndServe(":"+s.port, handler)
-}
-
-// loggingMiddleware logs all requests
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		next.ServeHTTP(w, r)
-		log.Printf("%s %s %s", r.Method, r.RequestURI, time.Since(start))
-	})
 }
 
 // =============================================================================

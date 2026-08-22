@@ -113,8 +113,7 @@ export default function AlbumDetailPage() {
   const [pickerSelectedIds, setPickerSelectedIds] = useState<Set<string>>(new Set());
   const { data: pickerBuckets } = useTimeBuckets({ size: 'MONTH' }, { enabled: pickerOpen });
 
-  const { data: fullAsset } = useAsset(selectedAsset?.id || '', { enabled: !!selectedAsset });
-  const assetWithExif = fullAsset || selectedAsset;
+  useAsset(selectedAsset?.id || '', { enabled: !!selectedAsset });
 
   const handleEditOpen = () => {
     if (album) {

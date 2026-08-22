@@ -52,6 +52,17 @@ const ProfilePage = lazy(() => import('@/pages/settings/ProfilePage'));
 const ActivityPage = lazy(() => import('@/pages/settings/ActivityPage'));
 const QuotaPage = lazy(() => import('@/pages/settings/QuotaPage'));
 
+// Observability pages
+const ObservabilityOverviewPage = lazy(
+  () => import('@/pages/observability/OverviewPage')
+);
+const LogsPage = lazy(() => import('@/pages/observability/LogsPage'));
+const TracesPage = lazy(() => import('@/pages/observability/TracesPage'));
+const TraceDetailPage = lazy(() => import('@/pages/observability/TraceDetailPage'));
+const MetricsPage = lazy(() => import('@/pages/observability/MetricsPage'));
+const ServiceMapPage = lazy(() => import('@/pages/observability/ServiceMapPage'));
+const AlertsPage = lazy(() => import('@/pages/observability/AlertsPage'));
+
 // Loading fallback
 const PageLoader = () => (
   <div className="flex h-screen w-full items-center justify-center">
@@ -191,6 +202,69 @@ export const router = createBrowserRouter([
             element: (
               <SuspenseWrapper>
                 <VMDetailPage />
+              </SuspenseWrapper>
+            ),
+          },
+        ],
+      },
+
+      // Observability routes
+      {
+        path: 'observability',
+        children: [
+          {
+            index: true,
+            element: (
+              <SuspenseWrapper>
+                <ObservabilityOverviewPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'logs',
+            element: (
+              <SuspenseWrapper>
+                <LogsPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'traces',
+            element: (
+              <SuspenseWrapper>
+                <TracesPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'traces/:traceId',
+            element: (
+              <SuspenseWrapper>
+                <TraceDetailPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'metrics',
+            element: (
+              <SuspenseWrapper>
+                <MetricsPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'services',
+            element: (
+              <SuspenseWrapper>
+                <ServiceMapPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'alerts',
+            element: (
+              <SuspenseWrapper>
+                <AlertsPage />
               </SuspenseWrapper>
             ),
           },

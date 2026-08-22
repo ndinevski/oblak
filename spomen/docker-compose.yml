@@ -11,7 +11,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-spomen-secret-key}
       MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-}
     volumes:
-      - ${MINIO_DATA_DIR:-./data}:/data
+      - ${MINIO_DATA_DIR:-./data}:/data:z
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 30s
@@ -37,12 +37,15 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spomen-admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-spomen-secret-key}
       MINIO_USE_SSL: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
     depends_on:
       minio:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - spomen-network
+      - oblak-telemetry
 
   # Initialization container - creates default buckets
   minio-init:
@@ -57,10 +60,14 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spomen-admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-spomen-secret-key}
     volumes:
-      - ./scripts/init-buckets.sh:/init/init-buckets.sh:ro
+      - ./scripts/init-buckets.sh:/init/init-buckets.sh:ro,z
     networks:
       - spomen-network
 
 networks:
   spomen-network:
     driver: bridge
+  # Shared with the observability stack so telemetry can reach the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

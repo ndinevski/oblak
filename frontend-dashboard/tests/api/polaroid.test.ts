@@ -204,22 +204,26 @@ describe('polaroid API', () => {
 
   describe('deleteAssets', () => {
     it('should delete assets by ids', async () => {
-      vi.mocked(api.delete).mockResolvedValue(undefined);
+      vi.mocked(api.post).mockResolvedValue(undefined);
 
       await polaroidApi.deleteAssets(['asset-1', 'asset-2']);
 
-      expect(api.delete).toHaveBeenCalledWith('/polaroid/assets', {
-        data: { ids: ['asset-1', 'asset-2'], force: undefined },
+      // Bulk delete is a POST to /polaroid/assets/delete - Immich takes the id
+      // list in the body, which a DELETE request cannot carry portably.
+      expect(api.post).toHaveBeenCalledWith('/polaroid/assets/delete', {
+        ids: ['asset-1', 'asset-2'],
+        force: undefined,
       });
     });
 
     it('should pass force flag when provided', async () => {
-      vi.mocked(api.delete).mockResolvedValue(undefined);
+      vi.mocked(api.post).mockResolvedValue(undefined);
 
       await polaroidApi.deleteAssets(['asset-1'], true);
 
-      expect(api.delete).toHaveBeenCalledWith('/polaroid/assets', {
-        data: { ids: ['asset-1'], force: true },
+      expect(api.post).toHaveBeenCalledWith('/polaroid/assets/delete', {
+        ids: ['asset-1'],
+        force: true,
       });
     });
   });

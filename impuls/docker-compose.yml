@@ -1,4 +1,35 @@
 services:
+  # PostgreSQL - metadata store for functions
+  postgres:
+    image: postgres:16-alpine
+    container_name: impuls-postgres
+    # pg_stat_statements must be preloaded at server start.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=top
+    environment:
+      - POSTGRES_DB=${IMPULS_DB_NAME:-impuls}
+      - POSTGRES_USER=${IMPULS_DB_USER:-impuls}
+      - POSTGRES_PASSWORD=${IMPULS_DB_PASSWORD:-impuls123}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./internal/storage/migrations.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro,z
+      # Enables pg_stat_statements on a fresh volume.
+      - ../observability/postgres-init/01-pg-stat-statements.sql:/docker-entrypoint-initdb.d/02-pg-stat-statements.sql:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${IMPULS_DB_USER:-impuls}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - default
+      # Lets the OpenTelemetry collector scrape Postgres internals.
+      - oblak-telemetry
+
   # Production mode - with Firecracker VM isolation
   impuls:
     build:
@@ -6,22 +37,31 @@ services:
       dockerfile: Dockerfile
     container_name: impuls
     ports:
-      - "8080:8080"
+      - "${IMPULS_API_PORT:-8080}:8080"
     volumes:
       # Persist function data
       - impuls-data:/var/lib/impuls
       # Cache downloaded images
       - impuls-images:/var/lib/impuls/images
     environment:
-      - DATA_DIR=/var/lib/impuls
-      - STORAGE_TYPE=postgres
-      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
-      - STRAPI_INVOCATION_REPORT_URL=http://backend-dashboard:1337/api/functions/invocation-report
-      - IMPULS_REPORT_SECRET=
+      - DATA_DIR=${IMPULS_DATA_DIR:-/var/lib/impuls}
+      - STORAGE_TYPE=${IMPULS_STORAGE_TYPE:-postgres}
+      - DB_CONN=postgres://${IMPULS_DB_USER:-impuls}:${IMPULS_DB_PASSWORD:-impuls123}@postgres:5432/${IMPULS_DB_NAME:-impuls}?sslmode=disable
+      - STRAPI_INVOCATION_REPORT_URL=${STRAPI_INVOCATION_REPORT_URL:-http://backend-dashboard:1337/api/functions/invocation-report}
+      - IMPULS_REPORT_SECRET=${IMPULS_REPORT_SECRET:-}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      - OBLAK_ENV=${OBLAK_ENV:-development}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
+      - oblak-telemetry
+    # Strapi runs on the host in the default dev layout, so the invocation
+    # report callback needs a name that resolves to the host gateway.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Required for Firecracker
     privileged: true
     devices:
@@ -41,22 +81,37 @@ services:
       dockerfile: Dockerfile.dev
     container_name: impuls-dev
     ports:
-      - "8080:8080"
+      - "${IMPULS_API_PORT:-8080}:8080"
     volumes:
       - impuls-data:/var/lib/impuls
     environment:
-      - DATA_DIR=/var/lib/impuls
+      - DATA_DIR=${IMPULS_DATA_DIR:-/var/lib/impuls}
       - IMPULS_LOCAL_MODE=true
-      - STORAGE_TYPE=postgres
-      - DB_CONN=postgres://impuls:impuls123@postgres:5432/impuls?sslmode=disable
-      - STRAPI_INVOCATION_REPORT_URL=http://backend-dashboard:1337/api/functions/invocation-report
-      - IMPULS_REPORT_SECRET=
+      - STORAGE_TYPE=${IMPULS_STORAGE_TYPE:-postgres}
+      - DB_CONN=postgres://${IMPULS_DB_USER:-impuls}:${IMPULS_DB_PASSWORD:-impuls123}@postgres:5432/${IMPULS_DB_NAME:-impuls}?sslmode=disable
+      - STRAPI_INVOCATION_REPORT_URL=${STRAPI_INVOCATION_REPORT_URL:-http://backend-dashboard:1337/api/functions/invocation-report}
+      - IMPULS_REPORT_SECRET=${IMPULS_REPORT_SECRET:-}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      - OBLAK_ENV=${OBLAK_ENV:-development}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
+      - oblak-telemetry
+    # Strapi runs on the host in the default dev layout, so the invocation
+    # report callback needs a name that resolves to the host gateway.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - dev
+
+networks:
+  # Shared with the observability stack so telemetry can reach the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true
 
 volumes:
   impuls-data:

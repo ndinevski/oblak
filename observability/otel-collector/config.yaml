@@ -1,0 +1,264 @@
+# OpenTelemetry Collector - Oblak
+#
+# Every signal from every Oblak service arrives here and is written to
+# ClickHouse. Services never hold ClickHouse credentials; they only speak OTLP.
+
+receivers:
+  # Application telemetry from the Go services, Strapi, and the browser.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+      http:
+        endpoint: 0.0.0.0:4318
+        # Browser RUM posts directly from the user's browser, so the dashboard
+        # origins must be allowed here or the preflight fails. Add any new
+        # origin you serve the dashboard from.
+        cors:
+          allowed_origins:
+            - http://localhost:5173
+            - http://localhost:5174
+            - http://127.0.0.1:5174
+            - http://192.168.1.83:5174
+          allowed_headers:
+            - "*"
+          max_age: 7200
+
+  # Host-level CPU/memory/disk/network for the machine running Oblak.
+  hostmetrics:
+    collection_interval: 20s
+    root_path: /hostfs
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      load:
+      disk:
+      filesystem:
+        exclude_mount_points:
+          mount_points: ["/hostfs/var/lib/docker/*", "/hostfs/proc/*", "/hostfs/sys/*"]
+          match_type: regexp
+        exclude_fs_types:
+          fs_types: ["autofs", "binfmt_misc", "cgroup", "cgroup2", "configfs", "debugfs", "devpts", "devtmpfs", "fusectl", "hugetlbfs", "mqueue", "overlay", "proc", "procfs", "pstore", "securityfs", "selinuxfs", "squashfs", "sysfs", "tracefs"]
+          match_type: strict
+      network:
+
+  # Postgres internals - connections, cache hit ratio, index and table stats.
+  # Container metrics only show CPU and memory; these are the numbers that
+  # actually explain a slow query or a connection pileup.
+  #
+  # One receiver instance per database, because each Oblak service runs its
+  # own Postgres with its own credentials. A database that is not running is
+  # reported as a scrape error and does not stop the other receivers.
+  postgresql/dashboard:
+    endpoint: oblak-postgres-dev:5432
+    username: ${env:PG_DASHBOARD_USER}
+    password: ${env:PG_DASHBOARD_PASSWORD}
+    databases: ["${env:PG_DASHBOARD_DB}"]
+    collection_interval: 30s
+    tls:
+      insecure: true
+
+  postgresql/impuls:
+    endpoint: impuls-postgres:5432
+    username: ${env:PG_IMPULS_USER}
+    password: ${env:PG_IMPULS_PASSWORD}
+    databases: ["${env:PG_IMPULS_DB}"]
+    collection_interval: 30s
+    tls:
+      insecure: true
+
+  postgresql/polaroid:
+    endpoint: polaroid-postgres:5432
+    username: ${env:PG_POLAROID_USER}
+    password: ${env:PG_POLAROID_PASSWORD}
+    databases: ["${env:PG_POLAROID_DB}"]
+    collection_interval: 30s
+    tls:
+      insecure: true
+
+  # Slow-query statistics from pg_stat_statements.
+  #
+  # The postgresql receiver does not expose these, so they are queried
+  # directly. Two numbers per database: how many distinct statements average
+  # over 100ms, and the slowest average of any statement. Together they answer
+  # "is something slow, and how slow".
+  #
+  # Requires shared_preload_libraries=pg_stat_statements plus the extension in
+  # the database; see observability/postgres-init. Where it is missing the
+  # scrape errors and the other receivers carry on.
+  sqlquery/dashboard:
+    driver: postgres
+    datasource: "host=oblak-postgres-dev port=5432 user=${env:PG_DASHBOARD_USER} password=${env:PG_DASHBOARD_PASSWORD} dbname=${env:PG_DASHBOARD_DB} sslmode=disable"
+    collection_interval: 60s
+    queries:
+      - sql: >
+          SELECT
+            count(*) FILTER (WHERE mean_exec_time > 100) AS slow_statements,
+            COALESCE(max(mean_exec_time), 0) AS slowest_mean_ms
+          FROM pg_stat_statements
+        metrics:
+          - metric_name: postgresql.slow_queries
+            value_column: slow_statements
+            value_type: int
+            data_type: gauge
+            unit: "{query}"
+            description: Statements whose mean execution time exceeds 100ms
+            static_attributes:
+              postgresql.database.name: oblak_dashboard
+          - metric_name: postgresql.slowest_query_mean_ms
+            value_column: slowest_mean_ms
+            value_type: double
+            data_type: gauge
+            unit: ms
+            description: Slowest mean execution time of any tracked statement
+            static_attributes:
+              postgresql.database.name: oblak_dashboard
+
+  sqlquery/impuls:
+    driver: postgres
+    datasource: "host=impuls-postgres port=5432 user=${env:PG_IMPULS_USER} password=${env:PG_IMPULS_PASSWORD} dbname=${env:PG_IMPULS_DB} sslmode=disable"
+    collection_interval: 60s
+    queries:
+      - sql: >
+          SELECT
+            count(*) FILTER (WHERE mean_exec_time > 100) AS slow_statements,
+            COALESCE(max(mean_exec_time), 0) AS slowest_mean_ms
+          FROM pg_stat_statements
+        metrics:
+          - metric_name: postgresql.slow_queries
+            value_column: slow_statements
+            value_type: int
+            data_type: gauge
+            unit: "{query}"
+            description: Statements whose mean execution time exceeds 100ms
+            static_attributes:
+              postgresql.database.name: impuls
+          - metric_name: postgresql.slowest_query_mean_ms
+            value_column: slowest_mean_ms
+            value_type: double
+            data_type: gauge
+            unit: ms
+            description: Slowest mean execution time of any tracked statement
+            static_attributes:
+              postgresql.database.name: impuls
+
+  # Per-container resource usage, so the dashboard can show CPU/memory for
+  # each Oblak service without every service reporting it itself.
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 20s
+    timeout: 20s
+    api_version: "1.44"
+    metrics:
+      container.cpu.utilization:
+        enabled: true
+      container.memory.usage.total:
+        enabled: true
+      container.network.io.usage.rx_bytes:
+        enabled: true
+      container.network.io.usage.tx_bytes:
+        enabled: true
+
+processors:
+  # Guard rail so a telemetry spike cannot OOM the host.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Stamp everything with which Oblak deployment it came from.
+  resource:
+    attributes:
+      - key: oblak.platform
+        value: oblak
+        action: upsert
+      - key: deployment.environment
+        value: ${env:OBLAK_ENV}
+        action: upsert
+
+  # Health checks are polled every few seconds by Docker and would otherwise
+  # drown out real traffic in the trace explorer.
+  filter/drop_health_checks:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/_health"'
+        - 'attributes["url.path"] == "/health"'
+        - 'attributes["url.path"] == "/_health"'
+        - 'attributes["url.path"] == "/api/server/ping"'
+
+exporters:
+  clickhouse:
+    endpoint: ${env:CLICKHOUSE_ENDPOINT}
+    database: ${env:CLICKHOUSE_DB}
+    username: ${env:CLICKHOUSE_USER}
+    password: ${env:CLICKHOUSE_PASSWORD}
+    # The collector owns the schema. It creates otel_logs, otel_traces and the
+    # otel_metrics_* family on first start.
+    create_schema: true
+    ttl: ${env:OTEL_TTL}
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    metrics_table_name: otel_metrics
+    timeout: 15s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 500
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: basic
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/drop_health_checks, resource, batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers:
+        - otlp
+        - hostmetrics
+        - docker_stats
+        - postgresql/dashboard
+        - postgresql/impuls
+        - postgresql/polaroid
+        - sqlquery/dashboard
+        - sqlquery/impuls
+      processors: [memory_limiter, resource, batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [clickhouse]

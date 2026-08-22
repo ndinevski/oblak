@@ -203,41 +203,52 @@ describe('ImpulsClient', () => {
       logs: ['Log line 1', 'Log line 2'],
     };
 
+    // invokeFunction passes validateStatus so that a non-2xx response from the
+    // invoked function is surfaced to the caller instead of throwing, and it
+    // returns the upstream status alongside the body.
     it('should invoke function with payload', async () => {
-      mockAxiosInstance.post.mockResolvedValue({ data: mockResult });
+      mockAxiosInstance.post.mockResolvedValue({ data: mockResult, status: 200 });
 
       const result = await client.invokeFunction('test-function', { payload: mockPayload });
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/functions/test-function/invoke',
         mockPayload,
-        { params: {} }
+        { params: {}, validateStatus: expect.any(Function) }
       );
-      expect(result).toEqual(mockResult);
+      expect(result).toEqual({ status_code: 200, body: mockResult });
     });
 
     it('should invoke function with local flag', async () => {
-      mockAxiosInstance.post.mockResolvedValue({ data: mockResult });
+      mockAxiosInstance.post.mockResolvedValue({ data: mockResult, status: 200 });
 
       await client.invokeFunction('test-function', { payload: mockPayload, local: true });
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/functions/test-function/invoke',
         mockPayload,
-        { params: { local: 'true' } }
+        { params: { local: 'true' }, validateStatus: expect.any(Function) }
       );
     });
 
     it('should invoke function without payload', async () => {
-      mockAxiosInstance.post.mockResolvedValue({ data: mockResult });
+      mockAxiosInstance.post.mockResolvedValue({ data: mockResult, status: 200 });
 
       await client.invokeFunction('test-function');
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/functions/test-function/invoke',
         {},
-        { params: {} }
+        { params: {}, validateStatus: expect.any(Function) }
       );
+    });
+
+    it('should surface a non-2xx status from the invoked function', async () => {
+      mockAxiosInstance.post.mockResolvedValue({ data: { error: 'boom' }, status: 500 });
+
+      const result = await client.invokeFunction('test-function');
+
+      expect(result).toEqual({ status_code: 500, body: { error: 'boom' } });
     });
   });
 

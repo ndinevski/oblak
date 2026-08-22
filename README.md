@@ -43,6 +43,22 @@ EC2-like VM provisioning and management service powered by Proxmox VE, enabling 
 
 📖 [Full Documentation](izvor/README.md)
 
+### 📊 Observability - Platform Telemetry
+
+CloudWatch-style observability across every Oblak service, built on
+OpenTelemetry with ClickHouse as the unified store for logs, metrics and traces.
+
+**Features:**
+- Log explorer with search, field filtering and live tail
+- Distributed tracing with span waterfalls and a service map
+- Metric catalogue covering application, host and container metrics
+- Audit trail correlated with the request traces that produced it
+- Browser telemetry (RUM) linked end to end with backend traces
+- Threshold alerting with webhook and email notifications
+- Postgres internals for every Oblak database
+
+📖 [Full Documentation](observability/README.md)
+
 ### 📸 Polaroid - Photo & Video Management
 
 Self-hosted photo and video management service powered by Immich, providing Google Photos-like experience with AI-powered search, facial recognition, and mobile app uploads.
@@ -76,20 +92,24 @@ Self-hosted photo and video management service powered by Immich, providing Goog
 # 1. Start the Oblak development database
 docker compose -f docker-compose.dev.yml up oblak-postgres-dev -d
 
-# 2. Start Polaroid/Immich containers (see polaroid/README.md for first-time setup)
+# 2. Start the observability stack (ClickHouse + OpenTelemetry collector)
+make up-observability
+
+# 3. Start Polaroid/Immich containers (see polaroid/README.md for first-time setup)
 make up-polaroid
 
-# 3. Start the Strapi backend
+# 4. Start the Strapi backend
 cd backend-dashboard
 npm install  # first time only
 npm run develop
 # Backend runs at http://localhost:1337
 
-# 4. Start the frontend
+# 5. Start the frontend
 cd frontend-dashboard
 npm install  # first time only
 npm run dev
-# Frontend runs at http://localhost:5173
+# Frontend runs at http://localhost:5174
+# (5173 is taken by Strapi's admin HMR server while `npm run develop` is up)
 ```
 
 Login with demo@oblak.local / DemoPass123!.
@@ -100,6 +120,7 @@ Login with demo@oblak.local / DemoPass123!.
 
 ```bash
 make down-polaroid                    # Stop Immich stack
+make down-observability               # Stop ClickHouse + collector
 docker compose -f docker-compose.dev.yml down  # Stop Oblak DB
 # Ctrl+C in backend/frontend terminals
 ```
@@ -144,8 +165,10 @@ For local development without KVM/Firecracker:
 ```bash
 cd impuls
 
-# Start PostgreSQL + Impuls API (dev mode)
-docker compose --profile dev up -d
+# Start PostgreSQL + Impuls API (dev mode).
+# Name the services explicitly: the production `impuls` service has no profile,
+# so a bare `--profile dev up` starts it too and both bind port 8080.
+docker compose --profile dev up -d postgres impuls-dev
 
 # Check status
 docker compose ps
@@ -177,7 +200,11 @@ curl http://localhost:8080/health
 
 ### Izvor (VM Provisioning)
 
-Izvor requires a Proxmox VE cluster to provision VMs:
+Izvor requires a reachable Proxmox VE cluster. Note that `proxmox.NewClient`
+authenticates eagerly when `PROXMOX_PASSWORD` is set, so a placeholder password
+with no reachable cluster makes the process exit at startup. Leave
+`PROXMOX_PASSWORD` empty to let the API boot in a degraded state (`/health`
+reports `unhealthy`) while you configure a real endpoint:
 
 ```bash
 cd izvor
@@ -309,6 +336,11 @@ make build-izvor
 | Polaroid (Immich) | 2283 | Photo & video management API |
 | MinIO S3 | 9000 | S3-compatible endpoint |
 | MinIO Console | 9001 | Web admin interface |
+| OTLP gRPC | 4317 | Telemetry ingest (services) |
+| OTLP HTTP | 4318 | Telemetry ingest (browser RUM) |
+| ClickHouse HTTP | 8123 | Telemetry store query interface |
+| ClickHouse native | 9010 | Remapped off 9000, which MinIO uses |
+| Collector health | 13133 | OpenTelemetry collector health |
 
 ## License
 

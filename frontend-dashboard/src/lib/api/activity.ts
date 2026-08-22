@@ -1,16 +1,22 @@
 /**
  * Activity API Client
- * Handles all activity log related API calls
+ *
+ * The audit trail is no longer a Strapi table. Audit events are OpenTelemetry
+ * log records in the telemetry store, served by `/telemetry/audit`. This module
+ * keeps the ActivityLog shape the dashboard already renders and maps the audit
+ * records onto it, so the activity views did not have to be rewritten around a
+ * new data model.
  */
 
-import api from './client';
+import { telemetryApi, type AuditRecord } from './telemetry';
 
 // =============================================================================
 // Types
 // =============================================================================
 
 export interface ActivityLog {
-  id: number;
+  /** Synthetic, stable within a result set. Audit records have no row id. */
+  id: string;
   action: string;
   resourceType: string;
   resourceId?: string;
@@ -21,6 +27,10 @@ export interface ActivityLog {
   userAgent?: string;
   createdAt: string;
   updatedAt: string;
+  /** Set when the action happened inside a traced request. */
+  traceId?: string;
+  errorMessage?: string;
+  durationMs?: number | null;
 }
 
 export interface ActivitySummary {
@@ -58,40 +68,111 @@ export interface PaginatedResponse<T> {
 // =============================================================================
 
 /**
+ * Maps how far back to look.
+ *
+ * The old endpoint took explicit start/end dates; the telemetry API takes a
+ * bounded window. Anything older than the telemetry retention period is gone,
+ * so an unbounded "all time" query is deliberately not offered.
+ */
+function resolveRange(filters: ActivityFilters): { from?: number; to?: number; range?: string } {
+  if (filters.startDate || filters.endDate) {
+    return {
+      from: filters.startDate ? new Date(filters.startDate).getTime() : undefined,
+      to: filters.endDate ? new Date(filters.endDate).getTime() : undefined,
+    };
+  }
+  return { range: '30d' };
+}
+
+function toActivityLog(record: AuditRecord, index: number): ActivityLog {
+  const iso = new Date(Number(record.timestampMs)).toISOString();
+  return {
+    // Audit records carry no row id, so one is synthesised from the fields
+    // that make a record unique. Used only as a React key.
+    id: `${record.timestampMs}-${record.action}-${record.resourceId ?? index}`,
+    action: record.action,
+    resourceType: record.resourceType ?? 'user',
+    resourceId: record.resourceId ?? undefined,
+    resourceName: record.resourceName ?? undefined,
+    details: record.details,
+    status: (record.status as ActivityLog['status']) ?? 'success',
+    ipAddress: record.ipAddress ?? undefined,
+    userAgent: record.userAgent ?? undefined,
+    createdAt: iso,
+    updatedAt: iso,
+    traceId: record.traceId ?? undefined,
+    errorMessage: record.errorMessage ?? undefined,
+    durationMs: record.durationMs,
+  };
+}
+
+/**
  * Get activity logs with optional filters
  */
-export async function getActivityLogs(filters: ActivityFilters = {}): Promise<PaginatedResponse<ActivityLog>> {
-  const params = new URLSearchParams();
-  
-  if (filters.resourceType) params.append('resourceType', filters.resourceType);
-  if (filters.action) params.append('action', filters.action);
-  if (filters.status) params.append('status', filters.status);
-  if (filters.startDate) params.append('startDate', filters.startDate);
-  if (filters.endDate) params.append('endDate', filters.endDate);
-  if (filters.page) params.append('page', String(filters.page));
-  if (filters.pageSize) params.append('pageSize', String(filters.pageSize));
+export async function getActivityLogs(
+  filters: ActivityFilters = {}
+): Promise<PaginatedResponse<ActivityLog>> {
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? 25;
 
-  const queryString = params.toString();
-  const url = `/activity-logs${queryString ? `?${queryString}` : ''}`;
-  
-  const response = await api.get(url);
-  return response.data;
+  const result = await telemetryApi.audit({
+    ...resolveRange(filters),
+    action: filters.action,
+    // resourceType and status are attributes on the audit record rather than
+    // first-class query parameters.
+    attributes: {
+      ...(filters.resourceType ? { 'oblak.audit.resource_type': filters.resourceType } : {}),
+      ...(filters.status ? { 'oblak.audit.status': filters.status } : {}),
+    },
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+
+  return {
+    data: result.rows.map(toActivityLog),
+    meta: {
+      pagination: {
+        page,
+        pageSize,
+        pageCount: Math.max(1, Math.ceil(result.total / pageSize)),
+        total: result.total,
+      },
+    },
+  };
 }
 
 /**
- * Get a single activity log by ID
- */
-export async function getActivityLog(id: number): Promise<ActivityLog> {
-  const response = await api.get(`/activity-logs/${id}`);
-  return response.data.data;
-}
-
-/**
- * Get activity summary statistics
+ * Summary statistics over the audit trail.
+ *
+ * Derived client-side from a capped sample rather than by a dedicated
+ * aggregate endpoint: the activity view only shows headline counts, and this
+ * avoids a second round of query surface for numbers nothing else consumes.
  */
 export async function getActivitySummary(days = 30): Promise<ActivitySummary> {
-  const response = await api.get(`/activity-logs/summary?days=${days}`);
-  return response.data.data;
+  const result = await telemetryApi.audit({
+    range: days <= 1 ? '24h' : days <= 7 ? '7d' : '30d',
+    limit: 1000,
+  });
+
+  const byAction: Record<string, number> = {};
+  const byResourceType: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
+
+  for (const row of result.rows) {
+    byAction[row.action] = (byAction[row.action] ?? 0) + 1;
+    const type = row.resourceType ?? 'unknown';
+    byResourceType[type] = (byResourceType[type] ?? 0) + 1;
+    byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+  }
+
+  return {
+    // The breakdowns come from the sample; the total is the true count.
+    totalActivities: result.total,
+    byAction,
+    byResourceType,
+    byStatus,
+    recentDays: days,
+  };
 }
 
 // =============================================================================

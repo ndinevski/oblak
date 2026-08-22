@@ -1,0 +1,138 @@
+{
+  "kind": "collectionType",
+  "collectionName": "alert_rules",
+  "info": {
+    "singularName": "alert-rule",
+    "pluralName": "alert-rules",
+    "displayName": "Alert Rule",
+    "description": "Threshold rules evaluated against the telemetry store. Rules are configuration, so they live in Postgres; the firing history they produce is emitted to the telemetry store."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "text"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "ruleType": {
+      "type": "enumeration",
+      "enum": [
+        "service.error_rate",
+        "service.latency_p95",
+        "service.request_rate",
+        "service.absent",
+        "log.error_count",
+        "host.cpu",
+        "host.memory",
+        "host.disk",
+        "container.memory",
+        "container.absent",
+        "postgres.connections"
+      ],
+      "required": true
+    },
+    "target": {
+      "type": "string",
+      "description": "Service, container, database or device the rule applies to. Empty means every target."
+    },
+    "comparison": {
+      "type": "enumeration",
+      "enum": [
+        "gt",
+        "lt"
+      ],
+      "default": "gt",
+      "required": true
+    },
+    "threshold": {
+      "type": "float",
+      "required": true
+    },
+    "windowMinutes": {
+      "type": "integer",
+      "default": 5,
+      "min": 1,
+      "max": 1440
+    },
+    "forMinutes": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "max": 1440,
+      "description": "How long the breach must persist before the rule fires. 0 fires on the first breach."
+    },
+    "severity": {
+      "type": "enumeration",
+      "enum": [
+        "warning",
+        "critical"
+      ],
+      "default": "warning",
+      "required": true
+    },
+    "notifyWebhook": {
+      "type": "string",
+      "description": "URL that receives a JSON POST on every state change."
+    },
+    "notifyEmail": {
+      "type": "string",
+      "description": "Address notified on every state change."
+    },
+    "notifyCooldownMinutes": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "max": 1440,
+      "description": "Minimum gap between notifications for this rule. Damps a flapping rule without silencing it. 0 notifies on every transition."
+    },
+    "mutedUntil": {
+      "type": "datetime",
+      "description": "While set and in the future, the rule still evaluates and shows its state but sends no notifications."
+    },
+    "state": {
+      "type": "enumeration",
+      "enum": [
+        "ok",
+        "pending",
+        "firing",
+        "unknown"
+      ],
+      "default": "ok"
+    },
+    "lastValue": {
+      "type": "float"
+    },
+    "lastError": {
+      "type": "text",
+      "description": "Why the last evaluation could not run, if it could not."
+    },
+    "breachingSince": {
+      "type": "datetime",
+      "description": "When the current uninterrupted breach began. Drives forMinutes."
+    },
+    "stateChangedAt": {
+      "type": "datetime"
+    },
+    "lastEvaluatedAt": {
+      "type": "datetime"
+    },
+    "lastNotifiedAt": {
+      "type": "datetime"
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

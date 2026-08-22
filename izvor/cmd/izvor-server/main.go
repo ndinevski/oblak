@@ -11,8 +11,14 @@ import (
 	"time"
 
 	"github.com/oblak/izvor/internal/api"
+	"github.com/oblak/izvor/internal/telemetry"
 	"github.com/oblak/izvor/internal/proxmox"
 )
+
+// serviceVersion is stamped onto every signal so a regression can be tied to
+// a specific build. Override at build time with:
+//   -ldflags "-X main.serviceVersion=$(git describe --tags --always)"
+var serviceVersion = "dev"
 
 func main() {
 	// Parse command line flags
@@ -59,10 +65,23 @@ func main() {
 		log.Fatal("Proxmox URL is required. Use --proxmox-url flag or PROXMOX_URL environment variable")
 	}
 
-	log.Printf("Izvor VM Service")
-	log.Printf("  Port: %s", cfg.Port)
-	log.Printf("  Proxmox URL: %s", cfg.ProxmoxURL)
-	log.Printf("  Default Node: %s", cfg.ProxmoxNode)
+	// Telemetry first, so that startup problems (including an unreachable
+	// Proxmox) are visible in the Oblak dashboard rather than only in stdout.
+	telCtx, telCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	tel, telErr := telemetry.Init(telCtx, telemetry.ConfigFromEnv("izvor", serviceVersion))
+	telCancel()
+	if telErr != nil {
+		// A telemetry outage must never stop the service from serving traffic.
+		log.Printf("telemetry disabled: %v", telErr)
+	}
+	logger := tel.Logger
+
+	logger.Info("izvor vm service starting",
+		"port", cfg.Port,
+		"proxmox_url", cfg.ProxmoxURL,
+		"default_node", cfg.ProxmoxNode,
+		"telemetry_enabled", tel.Enabled,
+	)
 
 	// Create Proxmox client
 	proxmoxClient, err := proxmox.NewClient(proxmox.Config{
@@ -85,6 +104,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := server.UseTelemetry(tel, "izvor"); err != nil {
+		logger.Warn("could not install telemetry middleware", "error", err)
+	}
+
 	// Create HTTP server
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -96,7 +119,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Izvor server starting on port %s", cfg.Port)
+		logger.Info("izvor server listening", "port", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
@@ -114,6 +137,12 @@ func main() {
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	// Flush buffered telemetry last, so the shutdown itself is recorded.
+	logger.Info("izvor server stopped")
+	if err := tel.Shutdown(ctx); err != nil {
+		log.Printf("Error flushing telemetry: %v", err)
 	}
 
 	log.Println("Server stopped")

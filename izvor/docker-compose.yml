@@ -16,9 +16,12 @@ services:
       PROXMOX_TOKEN_SECRET: ${PROXMOX_TOKEN_SECRET:-}
       PROXMOX_NODE: ${PROXMOX_NODE:-}
       PROXMOX_INSECURE: ${PROXMOX_INSECURE:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
     restart: unless-stopped
     networks:
       - izvor-network
+      - oblak-telemetry
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
       interval: 30s
@@ -29,3 +32,7 @@ services:
 networks:
   izvor-network:
     driver: bridge
+  # Shared with the observability stack so telemetry can reach the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

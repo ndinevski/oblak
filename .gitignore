@@ -1,0 +1,18 @@
+# ---------------------------------------------------------------------------
+# Environment files
+#
+# Real .env files hold credentials and machine-specific paths and must never be
+# committed. Only the .env.example templates are tracked. These rules are
+# repo-wide so a new service directory is covered without needing its own
+# .gitignore.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+*.env
+*.env.*
+
+# ...but always keep the templates.
+!.env.example
+!.env.*.example
+!*.env.example
+!*.env.*.example

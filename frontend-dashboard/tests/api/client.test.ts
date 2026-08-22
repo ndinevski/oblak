@@ -11,9 +11,11 @@ import {
 } from '@/lib/api/client';
 
 describe('API Configuration', () => {
-  it('should have correct default baseURL', () => {
-    // Default when VITE_API_URL is not set
-    expect(API_CONFIG.baseURL).toMatch(/http:\/\/localhost:\d+/);
+  it('should resolve a usable API baseURL', () => {
+    // VITE_API_URL is deployment-specific (localhost in a plain checkout, a LAN
+    // address when the dev server is reached from another machine), so assert
+    // the shape of the contract rather than a particular host.
+    expect(API_CONFIG.baseURL).toMatch(/^https?:\/\/[^\s/]+(:\d+)?\/api$/);
   });
 
   it('should have timeout configured', () => {

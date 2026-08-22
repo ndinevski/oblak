@@ -32,6 +32,12 @@ import {
   X,
   PanelLeft,
   PanelLeftClose,
+  Gauge,
+  ScrollText,
+  GitBranch,
+  LineChart,
+  Network,
+  BellRing,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -49,6 +55,12 @@ const servicesNavigation = [
 ];
 
 const monitoringNavigation = [
+  { name: 'Observability', href: '/observability', icon: Gauge },
+  { name: 'Logs', href: '/observability/logs', icon: ScrollText },
+  { name: 'Traces', href: '/observability/traces', icon: GitBranch },
+  { name: 'Metrics', href: '/observability/metrics', icon: LineChart },
+  { name: 'Service Map', href: '/observability/services', icon: Network },
+  { name: 'Alerts', href: '/observability/alerts', icon: BellRing },
   { name: 'Activity Log', href: '/settings/activity', icon: Activity },
   { name: 'Quota Usage', href: '/settings/quota', icon: PieChart },
 ];
@@ -56,6 +68,39 @@ const monitoringNavigation = [
 const bottomNavigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
+
+/** Every href the sidebar can highlight, used to resolve the active one. */
+export const ALL_NAV_HREFS = [
+  ...primaryNavigation,
+  ...servicesNavigation,
+  ...monitoringNavigation,
+  ...bottomNavigation,
+].map((item) => item.href);
+
+/**
+ * Resolves which single nav item should be highlighted.
+ *
+ * React Router's own `isActive` marks a link active for every descendant path,
+ * so a parent like /observability stayed highlighted alongside its own child
+ * (/observability/logs). Longest match wins here instead, which means a parent
+ * never steals a child's highlight and a child never leaves its parent lit.
+ *
+ * This also covers the case a parent has no nav entry of its own for a given
+ * sub-path: /settings/profile has no item, so /settings stays highlighted.
+ */
+export function resolveActiveHref(pathname: string, hrefs: string[]): string | null {
+  let best: string | null = null;
+
+  for (const href of hrefs) {
+    const isMatch =
+      pathname === href || pathname.startsWith(href.endsWith('/') ? href : `${href}/`);
+    if (isMatch && (best === null || href.length > best.length)) {
+      best = href;
+    }
+  }
+
+  return best;
+}
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -65,9 +110,9 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
 
-  const isSettingsActive =
-    location.pathname === '/settings' ||
-    location.pathname.startsWith('/settings/profile');
+  // One resolved winner rather than per-link matching, so exactly one sidebar
+  // item is ever highlighted.
+  const activeHref = resolveActiveHref(location.pathname, ALL_NAV_HREFS);
 
   // Enable Cmd+K global search shortcut
   useGlobalSearchShortcut();
@@ -150,16 +195,13 @@ export default function DashboardLayout() {
                   key={item.name}
                   to={item.href}
                   title={isCompact ? item.name : undefined}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
-                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    )
-                  }
-                  end={item.href === '/'}
+                  className={cn(
+                    'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                    isCompact ? 'justify-center px-2' : 'gap-3 px-3',
+                    activeHref === item.href
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
                 >
                   <item.icon className="h-5 w-5" />
                   <span
@@ -187,15 +229,13 @@ export default function DashboardLayout() {
                     key={item.name}
                     to={item.href}
                     title={isCompact ? item.name : undefined}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
-                        isCompact ? 'justify-center px-2' : 'gap-3 px-3',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      )
-                    }
+                    className={cn(
+                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
+                      activeHref === item.href
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
                   >
                     <item.icon className="h-5 w-5" />
                     <span
@@ -224,15 +264,13 @@ export default function DashboardLayout() {
                     key={item.name}
                     to={item.href}
                     title={isCompact ? item.name : undefined}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
-                        isCompact ? 'justify-center px-2' : 'gap-3 px-3',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      )
-                    }
+                    className={cn(
+                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
+                      activeHref === item.href
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
                   >
                     <item.icon className="h-5 w-5" />
                     <span
@@ -257,15 +295,13 @@ export default function DashboardLayout() {
                   key={item.name}
                   to={item.href}
                   title={isCompact ? item.name : undefined}
-                  className={() =>
-                    cn(
-                      'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
-                      isCompact ? 'justify-center px-2' : 'gap-3 px-3',
-                      isSettingsActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    )
-                  }
+                  className={cn(
+                    'flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
+                    isCompact ? 'justify-center px-2' : 'gap-3 px-3',
+                    activeHref === item.href
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
                 >
                   <item.icon className="h-5 w-5" />
                   <span
