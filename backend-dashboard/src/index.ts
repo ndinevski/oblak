@@ -396,22 +396,6 @@ async function seedDemoData(strapi: Core.Strapi): Promise<void> {
     }
   }
 
-  const existingPolaroid = await strapi.db.query('api::polaroid.polaroid').findOne({
-    where: { owner: ownerId },
-  });
-  if (!existingPolaroid) {
-    await strapi.db.query('api::polaroid.polaroid').create({
-      data: {
-        immichUserId: 'demo-immich-user',
-        immichUserEmail: DEMO_DEFAULTS.email,
-        storageUsed: '524288000',
-        photoCount: '247',
-        videoCount: '12',
-        owner: ownerId,
-      },
-    });
-  }
-
   const activityCount = await strapi.db.query('api::activity-log.activity-log').count({
     where: { user: ownerId },
   });

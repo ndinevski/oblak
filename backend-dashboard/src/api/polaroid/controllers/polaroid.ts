@@ -1,5 +1,8 @@
 import type { Core } from '@strapi/strapi';
-import { ImmichClientError } from '../services/immich-client';
+import {
+  ImmichClientError,
+  type ImmichUpdateAssetRequest,
+} from '../services/immich-client';
 
 // =============================================================================
 // Types
@@ -177,8 +180,22 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     const user = getAuthenticatedUser(ctx);
     try {
       const service = strapi.service('api::polaroid.polaroid');
-      const result = await service.updateAsset(user.id, ctx.params.assetId, ctx.request.body as Parameters<typeof service.updateAsset>[2]);
-      await logPolaroidActivity('polaroid.asset.update', user.id, { assetId: ctx.params.assetId });
+      const payload: ImmichUpdateAssetRequest =
+        (ctx.request.body as ImmichUpdateAssetRequest | undefined) ?? {};
+      const result = await service.updateAsset(user.id, ctx.params.assetId, payload);
+
+      if (typeof payload.isFavorite === 'boolean') {
+        await logPolaroidActivity('polaroid.favorite', user.id, {
+          assetId: ctx.params.assetId,
+          isFavorite: payload.isFavorite,
+        });
+      } else if (typeof payload.isArchived === 'boolean') {
+        await logPolaroidActivity('polaroid.archive', user.id, {
+          assetId: ctx.params.assetId,
+          isArchived: payload.isArchived,
+        });
+      }
+
       ctx.body = result;
     } catch (error) {
       handleError(ctx, error);

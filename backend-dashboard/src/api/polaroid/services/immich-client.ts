@@ -98,6 +98,15 @@ export interface ImmichAdminCreateUserRequest {
   storageLabel?: string | null;
 }
 
+export interface ImmichAdminUpdateUserRequest {
+  email?: string;
+  password?: string;
+  name?: string;
+  quotaSizeInBytes?: number | null;
+  shouldChangePassword?: boolean;
+  storageLabel?: string | null;
+}
+
 export interface ImmichAsset {
   id: string;
   deviceAssetId: string;
@@ -667,6 +676,14 @@ export function createImmichClient(config: ImmichClientConfig) {
 
     async adminCreateUser(data: ImmichAdminCreateUserRequest): Promise<ImmichUser> {
       return request('POST', '/api/admin/users', { body: data });
+    },
+
+    async getAdminUsers(): Promise<ImmichUser[]> {
+      return request('GET', '/api/admin/users');
+    },
+
+    async updateAdminUser(id: string, data: ImmichAdminUpdateUserRequest): Promise<ImmichUser> {
+      return request('PUT', `/api/admin/users/${id}`, { body: data });
     },
 
     async loginUser(email: string, password: string): Promise<ImmichLoginResponse> {

@@ -57,6 +57,76 @@ function scheduleMLJobs(strapi: Strapi.Strapi): void {
 }
 
 export default ({ strapi }: { strapi: Strapi.Strapi }) => {
+  async function provisionImmichUser(
+    strapiUser: { email: string; username?: string | null },
+    existing?: { immichUserId?: string | null } | null,
+  ) {
+    const adminClient = getAdminClient();
+    const password = randomBytes(32).toString('hex');
+    const name = strapiUser.username || strapiUser.email;
+
+    if (existing?.immichUserId && existing.immichUserId !== 'demo-immich-user') {
+      try {
+        const immichUser = await adminClient.updateAdminUser(existing.immichUserId, {
+          email: strapiUser.email,
+          name,
+          password,
+          shouldChangePassword: false,
+        });
+
+        return { immichUserId: immichUser.id, password };
+      } catch (error) {
+        if (!(error instanceof ImmichClientError) || error.statusCode !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    try {
+      const immichUser = await adminClient.adminCreateUser({
+        email: strapiUser.email,
+        password,
+        name,
+        shouldChangePassword: false,
+      });
+
+      return { immichUserId: immichUser.id, password };
+    } catch (error) {
+      if (!(error instanceof ImmichClientError) || error.statusCode !== 409) {
+        throw error;
+      }
+
+      const users = await adminClient.getAdminUsers();
+      const existingUser = users.find(
+        (user) => user.email.toLowerCase() === strapiUser.email.toLowerCase(),
+      );
+
+      if (!existingUser) {
+        throw error;
+      }
+
+      const immichUser = await adminClient.updateAdminUser(existingUser.id, {
+        email: strapiUser.email,
+        name,
+        password,
+        shouldChangePassword: false,
+      });
+
+      return { immichUserId: immichUser.id, password };
+    }
+  }
+
+  async function createUserApiKey(email: string, password: string) {
+    const adminClient = getAdminClient();
+    const loginResponse = await adminClient.loginUser(email, password);
+    const apiKey = await adminClient.createApiKeyWithToken(
+      loginResponse.accessToken,
+      'oblak-dashboard',
+    );
+
+    return { apiKey: apiKey.secret, userId: loginResponse.userId };
+  }
+
   async function findOrCreateInstance(userId: number) {
     const existing = await strapi.db.query('api::polaroid.polaroid').findOne({
       where: { owner: userId },
@@ -70,72 +140,33 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => {
       .query('plugin::users-permissions.user')
       .findOne({ where: { id: userId } });
 
-    const adminClient = getAdminClient();
+    if (!strapiUser?.email) {
+      throw new Error(`Polaroid provisioning failed: user ${userId} was not found`);
+    }
 
-    if (existing && !existing.apiKey) {
-      const password: string = existing.immichUserPassword || randomBytes(32).toString('hex');
-      let loginResponse;
-      try {
-        loginResponse = await adminClient.loginUser(strapiUser.email, password);
-      } catch {
-        const newPassword = randomBytes(32).toString('hex');
-        await adminClient.adminCreateUser({
-          email: strapiUser.email,
-          password: newPassword,
-          name: strapiUser.username || strapiUser.email,
-          shouldChangePassword: false,
-        });
-        loginResponse = await adminClient.loginUser(strapiUser.email, newPassword);
-        await strapi.db.query('api::polaroid.polaroid').update({
-          where: { id: existing.id },
-          data: { immichUserPassword: newPassword },
-        });
-      }
-      const apiKeyResult = await adminClient.createApiKeyWithToken(loginResponse.accessToken, 'oblak-dashboard');
+    const provisionedUser = await provisionImmichUser(strapiUser, existing);
+    const userApiKey = await createUserApiKey(
+      strapiUser.email,
+      provisionedUser.password,
+    );
+
+    const data = {
+      immichUserId: provisionedUser.immichUserId || userApiKey.userId,
+      immichUserEmail: strapiUser.email,
+      immichUserPassword: provisionedUser.password,
+      apiKey: userApiKey.apiKey,
+      owner: userId,
+    };
+
+    if (existing) {
       return strapi.db.query('api::polaroid.polaroid').update({
         where: { id: existing.id },
-        data: { apiKey: apiKeyResult.secret, immichUserId: loginResponse.userId },
+        data,
       });
     }
-
-    const password = randomBytes(32).toString('hex');
-
-    let immichUser;
-    try {
-      immichUser = await adminClient.adminCreateUser({
-        email: strapiUser.email,
-        password,
-        name: strapiUser.username || strapiUser.email,
-        shouldChangePassword: false,
-      });
-    } catch (err) {
-      if (err instanceof ImmichClientError && err.statusCode === 409) {
-        const loginResp = await adminClient.loginUser(strapiUser.email, password);
-        const apiKeyResult = await adminClient.createApiKeyWithToken(loginResp.accessToken, 'oblak-dashboard');
-        return strapi.db.query('api::polaroid.polaroid').create({
-          data: {
-            immichUserId: strapiUser.email,
-            immichUserEmail: strapiUser.email,
-            immichUserPassword: password,
-            apiKey: apiKeyResult.secret,
-            owner: userId,
-          },
-        });
-      }
-      throw err;
-    }
-
-    const loginResponse = await adminClient.loginUser(strapiUser.email, password);
-    const apiKeyResult = await adminClient.createApiKeyWithToken(loginResponse.accessToken, 'oblak-dashboard');
 
     return strapi.db.query('api::polaroid.polaroid').create({
-      data: {
-        immichUserId: immichUser.id,
-        immichUserEmail: strapiUser.email,
-        immichUserPassword: password,
-        apiKey: apiKeyResult.secret,
-        owner: userId,
-      },
+      data,
     });
   }
 
@@ -145,6 +176,33 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => {
 
     const instance = await findOrCreateInstance(userId);
     const client = createImmichClient({ baseUrl: IMMICH_BASE_URL, apiKey: instance.apiKey });
+
+    try {
+      await client.getMyUser();
+    } catch (error) {
+      if (
+        error instanceof ImmichClientError &&
+        (error.statusCode === 401 || error.statusCode === 403)
+      ) {
+        await strapi.db.query('api::polaroid.polaroid').update({
+          where: { id: instance.id },
+          data: { apiKey: null },
+        });
+
+        const reprovisioned = await findOrCreateInstance(userId);
+        const repairedClient = createImmichClient({
+          baseUrl: IMMICH_BASE_URL,
+          apiKey: reprovisioned.apiKey,
+        });
+
+        await repairedClient.getMyUser();
+        userClientCache.set(userId, repairedClient);
+        return repairedClient;
+      }
+
+      throw error;
+    }
+
     userClientCache.set(userId, client);
     return client;
   }

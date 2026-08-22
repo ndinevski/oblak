@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "impuls", "impuls", "{29B2F901-C052-C579-457B-63D7AEF103E3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "runtimes", "runtimes", "{24084DA9-4EFB-CF24-7B6B-DA84499DE0F3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dotnet", "dotnet", "{EED2C165-5BED-B86B-4BBE-BBCCE6CB0E23}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpulsRuntime", "impuls\runtimes\dotnet\ImpulsRuntime.csproj", "{D1A49624-56F5-CB8B-A9AA-C4AB925326BD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D1A49624-56F5-CB8B-A9AA-C4AB925326BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1A49624-56F5-CB8B-A9AA-C4AB925326BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1A49624-56F5-CB8B-A9AA-C4AB925326BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1A49624-56F5-CB8B-A9AA-C4AB925326BD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{24084DA9-4EFB-CF24-7B6B-DA84499DE0F3} = {29B2F901-C052-C579-457B-63D7AEF103E3}
+		{EED2C165-5BED-B86B-4BBE-BBCCE6CB0E23} = {24084DA9-4EFB-CF24-7B6B-DA84499DE0F3}
+		{D1A49624-56F5-CB8B-A9AA-C4AB925326BD} = {EED2C165-5BED-B86B-4BBE-BBCCE6CB0E23}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {35DF08D0-433F-4548-8A8D-8C58F9BA9434}
+	EndGlobalSection
+EndGlobal
