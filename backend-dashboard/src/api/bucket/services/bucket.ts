@@ -57,6 +57,15 @@ interface BucketStats {
   recentObjects: number;
 }
 
+interface IssuedBucketCredentials {
+  accessKey: string;
+  secretKey: string;
+  endpoint: string;
+  region: string;
+  buckets: string[];
+  expiresAt?: string;
+}
+
 // =============================================================================
 // Quota Management
 // =============================================================================
@@ -432,5 +441,40 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
       ...usage,
       limits: DEFAULT_QUOTAS,
     };
+  },
+
+  // ===========================================================================
+  // Issue Bucket Access Credentials
+  // ===========================================================================
+
+  async issueBucketCredentials(
+    bucketId: number,
+    userId: number,
+    readWrite = true
+  ): Promise<IssuedBucketCredentials> {
+    const bucket = await this.findOne(bucketId, userId);
+    const spomen = getSpomenClient();
+
+    try {
+      const issued = await spomen.issueCredentials({
+        user_id: userId,
+        buckets: [bucket.name],
+        read_write: readWrite,
+      });
+
+      return {
+        accessKey: issued.access_key,
+        secretKey: issued.secret_key,
+        endpoint: issued.endpoint,
+        region: issued.region,
+        buckets: issued.buckets,
+        expiresAt: issued.expires_at,
+      };
+    } catch (error) {
+      if (error instanceof SpomenClientError) {
+        throw new Error(`Failed to issue credentials: ${error.message}`);
+      }
+      throw error;
+    }
   },
 });

@@ -21,21 +21,25 @@ type Server struct {
 
 // Config holds server configuration
 type Config struct {
-	Port           string
-	MinioEndpoint  string
-	MinioAccessKey string
-	MinioSecretKey string
-	MinioUseSSL    bool
+	Port                string
+	MinioEndpoint       string
+	MinioPublicEndpoint string
+	MinioRegion         string
+	MinioAccessKey      string
+	MinioSecretKey      string
+	MinioUseSSL         bool
 }
 
 // NewServer creates a new API server
 func NewServer(cfg Config) (*Server, error) {
 	// Create storage client
 	storageClient, err := storage.NewClient(storage.Config{
-		Endpoint:  cfg.MinioEndpoint,
-		AccessKey: cfg.MinioAccessKey,
-		SecretKey: cfg.MinioSecretKey,
-		UseSSL:    cfg.MinioUseSSL,
+		Endpoint:       cfg.MinioEndpoint,
+		PublicEndpoint: cfg.MinioPublicEndpoint,
+		Region:         cfg.MinioRegion,
+		AccessKey:      cfg.MinioAccessKey,
+		SecretKey:      cfg.MinioSecretKey,
+		UseSSL:         cfg.MinioUseSSL,
 	})
 	if err != nil {
 		return nil, err
@@ -71,6 +75,7 @@ func (s *Server) setupRoutes() {
 
 	// Presigned URLs
 	api.HandleFunc("/buckets/{bucket}/presign", s.getPresignedURL).Methods("POST")
+	api.HandleFunc("/access/credentials", s.issueCredentials).Methods("POST")
 
 	// Object routes - list first (no key param)
 	api.HandleFunc("/buckets/{bucket}/objects", s.listObjects).Methods("GET")
@@ -173,10 +178,20 @@ func GetConfigFromEnv() Config {
 	}
 
 	return Config{
-		Port:           port,
-		MinioEndpoint:  endpoint,
-		MinioAccessKey: accessKey,
-		MinioSecretKey: secretKey,
-		MinioUseSSL:    os.Getenv("MINIO_USE_SSL") == "true",
+		Port:                port,
+		MinioEndpoint:       endpoint,
+		MinioPublicEndpoint: envOrDefault("MINIO_PUBLIC_ENDPOINT", endpoint),
+		MinioRegion:         envOrDefault("MINIO_REGION", "us-east-1"),
+		MinioAccessKey:      accessKey,
+		MinioSecretKey:      secretKey,
+		MinioUseSSL:         os.Getenv("MINIO_USE_SSL") == "true",
 	}
+}
+
+func envOrDefault(name, fallback string) string {
+	value := os.Getenv(name)
+	if value == "" {
+		return fallback
+	}
+	return value
 }

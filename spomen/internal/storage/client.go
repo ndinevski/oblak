@@ -1,13 +1,20 @@
 package storage
 
 import (
+	"crypto/rand"
+	"crypto/sha1"
 	"context"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/tags"
@@ -16,33 +23,57 @@ import (
 
 // Client wraps the Minio client with a simplified API
 type Client struct {
-	minio    *minio.Client
-	endpoint string
+	minio          *minio.Client
+	admin          *madmin.AdminClient
+	endpoint       string
+	publicEndpoint string
+	region         string
+	useSSL         bool
 }
 
 // Config holds the storage client configuration
 type Config struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	UseSSL    bool
-	Region    string
+	Endpoint       string
+	PublicEndpoint string
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
+	Region         string
 }
 
 // NewClient creates a new storage client
 func NewClient(cfg Config) (*Client, error) {
+	region := cfg.Region
+	if region == "" {
+		region = "us-east-1"
+	}
+
 	client, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
-		Region: cfg.Region,
+		Region: region,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create minio client: %w", err)
 	}
 
+	adminClient, err := madmin.New(cfg.Endpoint, cfg.AccessKey, cfg.SecretKey, cfg.UseSSL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create minio admin client: %w", err)
+	}
+
+	publicEndpoint := cfg.PublicEndpoint
+	if publicEndpoint == "" {
+		publicEndpoint = cfg.Endpoint
+	}
+
 	return &Client{
-		minio:    client,
-		endpoint: cfg.Endpoint,
+		minio:          client,
+		admin:          adminClient,
+		endpoint:       cfg.Endpoint,
+		publicEndpoint: publicEndpoint,
+		region:         region,
+		useSSL:         cfg.UseSSL,
 	}, nil
 }
 
@@ -571,4 +602,157 @@ func validateBucketName(name string) error {
 		}
 	}
 	return nil
+}
+
+// IssueScopedCredentials creates or rotates per-user credentials restricted to the requested buckets.
+func (c *Client) IssueScopedCredentials(ctx context.Context, req models.IssueCredentialsRequest) (*models.IssueCredentialsResponse, error) {
+	if req.UserID <= 0 {
+		return nil, fmt.Errorf("user_id must be greater than 0")
+	}
+	if len(req.Buckets) == 0 {
+		return nil, fmt.Errorf("at least one bucket is required")
+	}
+
+	bucketSet := make(map[string]struct{}, len(req.Buckets))
+	buckets := make([]string, 0, len(req.Buckets))
+	for _, raw := range req.Buckets {
+		bucket := strings.TrimSpace(raw)
+		if bucket == "" {
+			continue
+		}
+		if _, seen := bucketSet[bucket]; seen {
+			continue
+		}
+		exists, err := c.minio.BucketExists(ctx, bucket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify bucket %q: %w", bucket, err)
+		}
+		if !exists {
+			return nil, fmt.Errorf("bucket not found: %s", bucket)
+		}
+		bucketSet[bucket] = struct{}{}
+		buckets = append(buckets, bucket)
+	}
+
+	if len(buckets) == 0 {
+		return nil, fmt.Errorf("at least one valid bucket is required")
+	}
+
+	sort.Strings(buckets)
+
+	accessKey, err := buildAccessKey(req.UserID, buckets)
+	if err != nil {
+		return nil, err
+	}
+	secretKey, err := randomSecret(40)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating secret key: %w", err)
+	}
+
+	policyName := buildPolicyName(req.UserID, buckets)
+	policyDocument, err := buildPolicyDocument(buckets, req.ReadWrite)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = c.admin.RemoveCannedPolicy(ctx, policyName)
+	if err := c.admin.AddCannedPolicy(ctx, policyName, policyDocument); err != nil {
+		return nil, fmt.Errorf("failed to create policy: %w", err)
+	}
+
+	if err := c.admin.SetUser(ctx, accessKey, secretKey, madmin.AccountEnabled); err != nil {
+		return nil, fmt.Errorf("failed to create or update user: %w", err)
+	}
+
+	if err := c.admin.SetPolicy(ctx, policyName, accessKey, false); err != nil {
+		return nil, fmt.Errorf("failed to attach policy: %w", err)
+	}
+
+	scheme := "http"
+	if c.useSSL {
+		scheme = "https"
+	}
+
+	return &models.IssueCredentialsResponse{
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+		Endpoint:  fmt.Sprintf("%s://%s", scheme, c.publicEndpoint),
+		Region:    c.region,
+		Buckets:   buckets,
+	}, nil
+}
+
+func buildAccessKey(userID int, buckets []string) (string, error) {
+	h := sha1.Sum([]byte(strings.Join(buckets, ",")))
+	seed := hex.EncodeToString(h[:])[:8]
+	candidate := fmt.Sprintf("obu%04d%s", userID%10000, seed)
+	if len(candidate) > 20 {
+		candidate = candidate[:20]
+	}
+	if len(candidate) < 3 {
+		return "", fmt.Errorf("generated access key is invalid")
+	}
+	return candidate, nil
+}
+
+func buildPolicyName(userID int, buckets []string) string {
+	h := sha1.Sum([]byte(strings.Join(buckets, ",")))
+	seed := hex.EncodeToString(h[:])[:10]
+	name := fmt.Sprintf("oblak-u%d-%s", userID, seed)
+	if len(name) > 64 {
+		return name[:64]
+	}
+	return name
+}
+
+func randomSecret(length int) (string, error) {
+	if length <= 0 {
+		length = 40
+	}
+	raw := make([]byte, length)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(raw)
+	if len(encoded) < length {
+		return "", fmt.Errorf("failed to generate enough entropy")
+	}
+	return encoded[:length], nil
+}
+
+func buildPolicyDocument(buckets []string, readWrite bool) ([]byte, error) {
+	bucketResources := make([]string, 0, len(buckets))
+	objectResources := make([]string, 0, len(buckets))
+	for _, bucket := range buckets {
+		bucketResources = append(bucketResources, fmt.Sprintf("arn:aws:s3:::%s", bucket))
+		objectResources = append(objectResources, fmt.Sprintf("arn:aws:s3:::%s/*", bucket))
+	}
+
+	objectActions := []string{"s3:GetObject"}
+	if readWrite {
+		objectActions = append(objectActions, "s3:PutObject", "s3:DeleteObject")
+	}
+
+	policy := map[string]any{
+		"Version": "2012-10-17",
+		"Statement": []map[string]any{
+			{
+				"Effect":   "Allow",
+				"Action":   []string{"s3:ListBucket", "s3:GetBucketLocation"},
+				"Resource": bucketResources,
+			},
+			{
+				"Effect":   "Allow",
+				"Action":   objectActions,
+				"Resource": objectResources,
+			},
+		},
+	}
+
+	data, err := json.Marshal(policy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build policy document: %w", err)
+	}
+
+	return data, nil
 }

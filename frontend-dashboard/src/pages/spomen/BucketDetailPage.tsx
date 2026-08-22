@@ -50,6 +50,8 @@ import {
   ArrowLeft,
   Shield,
   History,
+  Key,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { 
   useBucket, 
@@ -63,6 +65,7 @@ import {
   usePresignedUrl,
   useUploadObject,
   useSyncBucket,
+  useIssueBucketAccessCredentials,
 } from '@/hooks/useStorage';
 import {
   formatBytes,
@@ -127,6 +130,15 @@ export default function BucketDetailPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMimeType, setPreviewMimeType] = useState<string>('');
+  const [generatedPresignedUrl, setGeneratedPresignedUrl] = useState<{ key: string; url: string; expiresAt: string } | null>(null);
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [issuedCredentials, setIssuedCredentials] = useState<{
+    accessKey: string;
+    secretKey: string;
+    endpoint: string;
+    region: string;
+    buckets: string[];
+  } | null>(null);
 
   const { data: bucket, isLoading: bucketLoading } = useBucket(id);
   const { data: objectsData, isLoading: objectsLoading, refetch } = useObjects(id, {
@@ -141,6 +153,7 @@ export default function BucketDetailPage() {
   const downloadMutation = useDownloadObject(id);
   const uploadObjectMutation = useUploadObject(id);
   const presignedUrlMutation = usePresignedUrl(id);
+  const issueCredentialsMutation = useIssueBucketAccessCredentials(id);
   const syncMutation = useSyncBucket();
   const { uploadFile, isUploading } = useFileUpload(id);
 
@@ -362,6 +375,34 @@ export default function BucketDetailPage() {
     return obj.contentType || inferContentTypeFromKey(obj.key) || 'Unknown';
   };
 
+  const handleGenerateObjectUrl = async (obj: StorageObject) => {
+    try {
+      const response = await presignedUrlMutation.mutateAsync({
+        key: obj.key,
+        method: 'GET',
+        expiresIn: 3600,
+      });
+
+      setGeneratedPresignedUrl({
+        key: obj.key,
+        url: response.url,
+        expiresAt: response.expiresAt,
+      });
+    } catch (error) {
+      console.error('Failed to generate presigned URL:', error);
+    }
+  };
+
+  const handleIssueCredentials = async () => {
+    try {
+      const creds = await issueCredentialsMutation.mutateAsync(true);
+      setIssuedCredentials(creds);
+      setCredentialsDialogOpen(true);
+    } catch (error) {
+      console.error('Failed to issue credentials:', error);
+    }
+  };
+
   useEffect(() => {
     if (!previewObject) {
       setPreviewUrl(null);
@@ -510,6 +551,10 @@ export default function BucketDetailPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void handleIssueCredentials()}>
+            <Key className="mr-2 h-4 w-4" />
+            Generate S3 Credentials
+          </Button>
           <Button variant="outline" onClick={() => syncMutation.mutate(id)}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Sync
@@ -812,6 +857,10 @@ export default function BucketDetailPage() {
                               <ExternalLink className="mr-2 h-4 w-4" />
                               Preview
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void handleGenerateObjectUrl(obj)}>
+                              <LinkIcon className="mr-2 h-4 w-4" />
+                              Generate GET URL
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => navigator.clipboard.writeText(obj.key)}
                             >
@@ -964,6 +1013,88 @@ export default function BucketDetailPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!generatedPresignedUrl} onOpenChange={() => setGeneratedPresignedUrl(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Generated Presigned GET URL</DialogTitle>
+            <DialogDescription>
+              Temporary download URL for {generatedPresignedUrl?.key}. Expires at{' '}
+              {generatedPresignedUrl ? new Date(generatedPresignedUrl.expiresAt).toLocaleString() : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          {generatedPresignedUrl && (
+            <div className="space-y-3">
+              <Input readOnly value={generatedPresignedUrl.url} />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigator.clipboard.writeText(generatedPresignedUrl.url)}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy URL
+                </Button>
+                <Button asChild>
+                  <a href={generatedPresignedUrl.url} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open URL
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>One-Time S3 Credentials</DialogTitle>
+            <DialogDescription>
+              Save these values now. The secret key is shown only once and cannot be retrieved later.
+            </DialogDescription>
+          </DialogHeader>
+          {issuedCredentials && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Endpoint</p>
+                <Input readOnly value={issuedCredentials.endpoint} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Region</p>
+                <Input readOnly value={issuedCredentials.region} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Access Key</p>
+                <div className="flex gap-2">
+                  <Input readOnly value={issuedCredentials.accessKey} />
+                  <Button
+                    variant="outline"
+                    onClick={() => navigator.clipboard.writeText(issuedCredentials.accessKey)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Secret Key</p>
+                <div className="flex gap-2">
+                  <Input readOnly value={issuedCredentials.secretKey} />
+                  <Button
+                    variant="outline"
+                    onClick={() => navigator.clipboard.writeText(issuedCredentials.secretKey)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Scoped buckets: {issuedCredentials.buckets.join(', ')}
+              </p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

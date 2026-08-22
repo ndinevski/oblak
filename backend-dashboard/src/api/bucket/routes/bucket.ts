@@ -220,5 +220,17 @@ export default {
         tags: ['Bucket'],
       },
     },
+    {
+      method: 'POST',
+      path: '/buckets/:id/access-credentials',
+      handler: 'bucket.issueCredentials',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+        description: 'Issue one-time S3 credentials scoped to this bucket',
+        tags: ['Bucket'],
+      },
+    },
   ],
 };

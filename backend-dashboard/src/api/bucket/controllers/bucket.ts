@@ -350,4 +350,29 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       handleError(ctx, error);
     }
   },
+
+  // ===========================================================================
+  // Issue One-Time S3 Credentials
+  // ===========================================================================
+
+  async issueCredentials(ctx: Context) {
+    const user = getAuthenticatedUser(ctx);
+    const bucketId = parseInt(ctx.params.id, 10);
+
+    try {
+      const bucketService = strapi.service('api::bucket.bucket');
+      const body = (ctx.request.body || {}) as { readWrite?: boolean };
+
+      const credentials = await bucketService.issueBucketCredentials(
+        bucketId,
+        user.id,
+        body.readWrite !== false
+      );
+
+      ctx.status = 201;
+      ctx.body = { data: credentials };
+    } catch (error) {
+      handleError(ctx, error);
+    }
+  },
 });

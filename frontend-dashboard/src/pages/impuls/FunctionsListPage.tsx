@@ -48,6 +48,7 @@ import {
   RefreshCw,
   AlertCircle,
   Power,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { useFunctions, useDeleteFunction, useSetFunctionStatus, FunctionData, FunctionFilters } from '@/hooks/useFunctions';
 import { Spinner } from '@/components/ui/spinner';
@@ -113,6 +114,8 @@ export default function FunctionsListPage() {
   const setFunctionStatus = useSetFunctionStatus();
   const functions = data?.data || [];
   const pagination = data?.meta?.pagination;
+  const impulsApiBase = import.meta.env.VITE_IMPULS_API_BASE_URL || 'http://localhost:8082/api/v1';
+  const impulsDocsUrl = import.meta.env.VITE_IMPULS_DOCS_URL || 'https://docs.oblak.local/impuls-api';
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -186,6 +189,27 @@ export default function FunctionsListPage() {
           </Button>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Impuls API</CardTitle>
+          <CardDescription>
+            Function runtime API endpoint and quick access to docs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Base Endpoint</p>
+            <p className="font-mono text-sm break-all">{impulsApiBase}</p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href={impulsDocsUrl} target="_blank" rel="noreferrer">
+              <LinkIcon className="mr-2 h-4 w-4" />
+              API Docs
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Search and View Toggle */}
       <div className="flex items-center justify-between gap-4">

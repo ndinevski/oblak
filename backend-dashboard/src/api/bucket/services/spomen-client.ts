@@ -70,6 +70,21 @@ export interface SpomenPresignedURLResponse {
   expires_at: string;
 }
 
+export interface SpomenIssueCredentialsRequest {
+  user_id: number;
+  buckets: string[];
+  read_write?: boolean;
+}
+
+export interface SpomenIssueCredentialsResponse {
+  access_key: string;
+  secret_key: string;
+  endpoint: string;
+  region: string;
+  buckets: string[];
+  expires_at?: string;
+}
+
 // =============================================================================
 // Error handling
 // =============================================================================
@@ -357,6 +372,18 @@ export function createSpomenClient(config: SpomenClientConfig) {
           body: data,
         }
       );
+    },
+
+    // =========================================================================
+    // Access Credentials
+    // =========================================================================
+
+    async issueCredentials(
+      data: SpomenIssueCredentialsRequest
+    ): Promise<SpomenIssueCredentialsResponse> {
+      return request('POST', '/api/v1/access/credentials', {
+        body: data,
+      });
     },
 
     // =========================================================================

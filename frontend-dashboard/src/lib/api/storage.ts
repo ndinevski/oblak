@@ -109,6 +109,15 @@ export interface QuotaUsage {
   };
 }
 
+export interface BucketAccessCredentials {
+  accessKey: string;
+  secretKey: string;
+  endpoint: string;
+  region: string;
+  buckets: string[];
+  expiresAt?: string;
+}
+
 interface StorageObjectApi {
   key: string;
   size: number;
@@ -296,6 +305,17 @@ export async function getPresignedUrl(bucketId: number, data: PresignedUrlReques
     method: result.method,
     expiresAt: result.expires_at,
   };
+}
+
+export async function issueBucketAccessCredentials(
+  bucketId: number,
+  readWrite = true
+): Promise<BucketAccessCredentials> {
+  const response = await api.post<{ data: BucketAccessCredentials }>(
+    `/buckets/${bucketId}/access-credentials`,
+    { readWrite }
+  );
+  return response.data;
 }
 
 // =============================================================================

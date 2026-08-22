@@ -17,6 +17,7 @@ import type {
   PresignedUrlRequest,
   PresignedUrl,
   QuotaUsage,
+  BucketAccessCredentials,
 } from '@/lib/api/storage';
 
 // =============================================================================
@@ -219,6 +220,13 @@ export function useCopyObject(bucketId: number) {
 export function usePresignedUrl(bucketId: number) {
   return useMutation({
     mutationFn: (data: PresignedUrlRequest) => storageApi.getPresignedUrl(bucketId, data),
+  });
+}
+
+export function useIssueBucketAccessCredentials(bucketId: number) {
+  return useMutation({
+    mutationFn: (readWrite = true): Promise<BucketAccessCredentials> =>
+      storageApi.issueBucketAccessCredentials(bucketId, readWrite),
   });
 }
 

@@ -36,6 +36,7 @@ import {
   RefreshCw,
   HardDrive,
   FileText,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBuckets, useDeleteBucket, useSyncBucket } from '@/hooks/useStorage';
@@ -65,6 +66,8 @@ export default function BucketsListPage() {
 
   const buckets = data?.data || [];
   const pagination = data?.meta?.pagination;
+  const spomenApiBase = import.meta.env.VITE_SPOMEN_API_BASE_URL || 'http://localhost:8083/api/v1';
+  const spomenDocsUrl = import.meta.env.VITE_SPOMEN_DOCS_URL || 'https://docs.oblak.local/spomen-api';
 
   const filteredBuckets = buckets.filter((bucket) =>
     bucket.name.toLowerCase().includes(search.toLowerCase())
@@ -104,6 +107,27 @@ export default function BucketsListPage() {
           </Button>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Spomen API</CardTitle>
+          <CardDescription>
+            Direct object storage API endpoint and documentation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Base Endpoint</p>
+            <p className="font-mono text-sm break-all">{spomenApiBase}</p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href={spomenDocsUrl} target="_blank" rel="noreferrer">
+              <LinkIcon className="mr-2 h-4 w-4" />
+              API Docs
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Search and View Toggle */}
       <div className="flex items-center justify-between gap-4">
