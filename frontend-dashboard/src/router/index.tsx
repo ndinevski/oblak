@@ -34,6 +34,18 @@ const BucketDetailPage = lazy(() => import('@/pages/spomen/BucketDetailPage'));
 const CreateBucketPage = lazy(() => import('@/pages/spomen/CreateBucketPage'));
 const EditBucketPage = lazy(() => import('@/pages/spomen/EditBucketPage'));
 
+// Polaroid (Photos) pages
+const PhotosTimelinePage = lazy(() => import('@/pages/polaroid/PhotosTimelinePage'));
+const AlbumsListPage = lazy(() => import('@/pages/polaroid/AlbumsListPage'));
+const AlbumDetailPage = lazy(() => import('@/pages/polaroid/AlbumDetailPage'));
+const PeoplePage = lazy(() => import('@/pages/polaroid/PeoplePage'));
+const PersonDetailPage = lazy(() => import('@/pages/polaroid/PersonDetailPage'));
+const MapPage = lazy(() => import('@/pages/polaroid/MapPage'));
+const SearchPage = lazy(() => import('@/pages/polaroid/SearchPage'));
+const SharingPage = lazy(() => import('@/pages/polaroid/SharingPage'));
+const PolaroidSettingsPage = lazy(() => import('@/pages/polaroid/PolaroidSettingsPage'));
+const SharedLinkViewPage = lazy(() => import('@/pages/polaroid/SharedLinkViewPage'));
+
 // Settings pages
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const ProfilePage = lazy(() => import('@/pages/settings/ProfilePage'));
@@ -224,6 +236,49 @@ export const router = createBrowserRouter([
         ],
       },
 
+      // Polaroid (Photos) routes
+      {
+        path: 'photos',
+        children: [
+          {
+            index: true,
+            element: <SuspenseWrapper><PhotosTimelinePage /></SuspenseWrapper>,
+          },
+          {
+            path: 'albums',
+            element: <SuspenseWrapper><AlbumsListPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'albums/:albumId',
+            element: <SuspenseWrapper><AlbumDetailPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'people',
+            element: <SuspenseWrapper><PeoplePage /></SuspenseWrapper>,
+          },
+          {
+            path: 'people/:personId',
+            element: <SuspenseWrapper><PersonDetailPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'map',
+            element: <SuspenseWrapper><MapPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'search',
+            element: <SuspenseWrapper><SearchPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'sharing',
+            element: <SuspenseWrapper><SharingPage /></SuspenseWrapper>,
+          },
+          {
+            path: 'settings',
+            element: <SuspenseWrapper><PolaroidSettingsPage /></SuspenseWrapper>,
+          },
+        ],
+      },
+
       // Settings routes
       {
         path: 'settings',
@@ -263,6 +318,16 @@ export const router = createBrowserRouter([
         ],
       },
     ],
+  },
+
+  // Public shared link route (no auth required)
+  {
+    path: '/share/:key',
+    element: (
+      <SuspenseWrapper>
+        <SharedLinkViewPage />
+      </SuspenseWrapper>
+    ),
   },
 
   // Catch all - redirect to home

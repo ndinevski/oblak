@@ -69,6 +69,8 @@ services:
       SPOMEN_URL: ${SPOMEN_URL:-http://spomen:8081}
       SPOMEN_ACCESS_KEY: ${SPOMEN_ACCESS_KEY:-}
       SPOMEN_SECRET_KEY: ${SPOMEN_SECRET_KEY:-}
+      POLAROID_URL: ${POLAROID_URL:-http://polaroid:2283}
+      POLAROID_API_KEY: ${POLAROID_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

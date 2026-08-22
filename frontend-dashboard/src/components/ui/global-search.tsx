@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Code, Server, Database, FileText, X } from 'lucide-react';
+import { Search, Code, Server, Database, FileText, X, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSearchStore, SearchResultType } from '@/stores/searchStore';
 import { Dialog, DialogContent } from './dialog';
@@ -20,6 +20,7 @@ const typeIcons: Record<SearchResultType, React.ComponentType<{ className?: stri
   vm: Server,
   bucket: Database,
   page: FileText,
+  polaroid: Camera,
 };
 
 const typeColors: Record<SearchResultType, string> = {
@@ -27,6 +28,7 @@ const typeColors: Record<SearchResultType, string> = {
   vm: 'text-blue-500',
   bucket: 'text-green-500',
   page: 'text-gray-500',
+  polaroid: 'text-orange-500',
 };
 
 // =============================================================================

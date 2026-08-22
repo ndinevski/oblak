@@ -1,5 +1,6 @@
 .PHONY: all test test-impuls test-spomen test-izvor test-dashboard test-coverage build build-impuls build-spomen build-izvor build-dashboard clean help
 .PHONY: dev dev-dashboard up down logs ps
+.PHONY: up-polaroid down-polaroid logs-polaroid
 
 # Default target
 help:
@@ -25,6 +26,11 @@ help:
 	@echo "  make down              - Stop all containers"
 	@echo "  make logs              - View container logs"
 	@echo "  make ps                - List running containers"
+	@echo ""
+	@echo "Polaroid (Photo Management):"
+	@echo "  make up-polaroid       - Start Polaroid (Immich) containers"
+	@echo "  make down-polaroid     - Stop Polaroid containers"
+	@echo "  make logs-polaroid     - View Polaroid container logs"
 	@echo ""
 
 # Run all tests
@@ -139,3 +145,19 @@ logs:
 ps:
 	docker compose ps
 	docker compose -f docker-compose.dev.yml ps
+
+# ============================================
+# Polaroid (Photo Management) Commands
+# ============================================
+
+# Start Polaroid (Immich) containers
+up-polaroid:
+	docker compose -f polaroid/docker-compose.yml up -d
+
+# Stop Polaroid containers
+down-polaroid:
+	docker compose -f polaroid/docker-compose.yml down
+
+# View Polaroid logs
+logs-polaroid:
+	docker compose -f polaroid/docker-compose.yml logs -f

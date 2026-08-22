@@ -50,6 +50,8 @@ services:
       IMPULS_URL: ${IMPULS_URL:-http://host.docker.internal:8080}
       IZVOR_URL: ${IZVOR_URL:-http://host.docker.internal:8082}
       SPOMEN_URL: ${SPOMEN_URL:-http://host.docker.internal:8081}
+      POLAROID_URL: ${POLAROID_URL:-http://host.docker.internal:2283}
+      POLAROID_API_KEY: ${POLAROID_API_KEY:-}
     volumes:
       - ./backend-dashboard:/app
       - /app/node_modules
@@ -74,6 +76,7 @@ services:
       VITE_IMPULS_URL: ${IMPULS_URL:-http://localhost:8080}
       VITE_IZVOR_URL: ${IZVOR_URL:-http://localhost:8082}
       VITE_SPOMEN_URL: ${SPOMEN_URL:-http://localhost:8081}
+      VITE_POLAROID_URL: ${POLAROID_URL:-http://localhost:2283}
     volumes:
       - ./frontend-dashboard:/app
       - /app/node_modules

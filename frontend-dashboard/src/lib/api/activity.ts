@@ -145,6 +145,17 @@ export function getActionLabel(action: string): string {
     'user.register': 'Registered',
     'user.update': 'Updated Profile',
     'user.password_change': 'Changed Password',
+
+    // Polaroid actions
+    'polaroid.upload': 'Uploaded Photo/Video',
+    'polaroid.delete': 'Deleted Photo/Video',
+    'polaroid.favorite': 'Favorited Photo/Video',
+    'polaroid.archive': 'Archived Photo/Video',
+    'polaroid.album.create': 'Created Album',
+    'polaroid.album.update': 'Updated Album',
+    'polaroid.album.delete': 'Deleted Album',
+    'polaroid.share.create': 'Created Shared Link',
+    'polaroid.share.delete': 'Deleted Shared Link',
   };
   
   return labels[action] || action.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -158,6 +169,8 @@ export function getActionType(action: string): 'create' | 'update' | 'delete' | 
   if (action.includes('update') || action.includes('deploy')) return 'update';
   if (action.includes('delete')) return 'delete';
   if (action.includes('invoke') || action.includes('download') || action.includes('login')) return 'read';
+  if (action.includes('upload')) return 'create';
+  if (action.includes('share') || action.includes('favorite') || action.includes('archive')) return 'update';
   return 'other';
 }
 
@@ -181,12 +194,13 @@ export function getActionColor(action: string): string {
  */
 export function getResourceTypeLabel(resourceType: string): string {
   const labels: Record<string, string> = {
-    function: 'Function',
+    function: 'Impuls Function',
     'virtual-machine': 'Virtual Machine',
-    vm: 'Virtual Machine',
-    bucket: 'Bucket',
+    vm: 'Izvor VM',
+    bucket: 'Spomen Bucket',
     object: 'Object',
     user: 'User',
+    polaroid: 'Polaroid',
   };
   return labels[resourceType] || resourceType;
 }
@@ -202,6 +216,7 @@ export function getResourceTypeIcon(resourceType: string): string {
     bucket: 'Database',
     object: 'File',
     user: 'User',
+    polaroid: 'Camera',
   };
   return icons[resourceType] || 'Activity';
 }
@@ -243,11 +258,12 @@ export function formatRelativeTime(dateString: string): string {
  */
 export function getResourceTypes(): { value: string; label: string }[] {
   return [
-    { value: 'function', label: 'Functions' },
-    { value: 'virtual-machine', label: 'Virtual Machines' },
-    { value: 'bucket', label: 'Buckets' },
+    { value: 'function', label: 'Impuls Functions' },
+    { value: 'virtual-machine', label: 'Izvor VMs' },
+    { value: 'bucket', label: 'Spomen Buckets' },
     { value: 'object', label: 'Objects' },
     { value: 'user', label: 'Users' },
+    { value: 'polaroid', label: 'Polaroid' },
   ];
 }
 

@@ -97,3 +97,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Constrain Leaflet's internal z-indexes to a single stacking context
+   so map panes (z-index 200-1000) don't render above Radix Dialog (z-50). */
+.leaflet-container {
+  z-index: 0 !important;
+}

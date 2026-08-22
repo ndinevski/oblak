@@ -39,9 +39,18 @@ type ActionType =
   | 'object.presign'
   | 'user.login'
   | 'user.logout'
-  | 'user.update';
+  | 'user.update'
+  | 'polaroid.upload'
+  | 'polaroid.delete'
+  | 'polaroid.favorite'
+  | 'polaroid.archive'
+  | 'polaroid.album.create'
+  | 'polaroid.album.update'
+  | 'polaroid.album.delete'
+  | 'polaroid.share.create'
+  | 'polaroid.share.delete';
 
-type ResourceType = 'function' | 'virtual-machine' | 'bucket' | 'object' | 'user';
+type ResourceType = 'function' | 'virtual-machine' | 'bucket' | 'object' | 'user' | 'polaroid';
 
 type StatusType = 'success' | 'failure' | 'pending';
 

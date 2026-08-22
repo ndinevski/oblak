@@ -24,6 +24,15 @@ export const queryKeys = {
   bucketDetail: (id: string) => [...queryKeys.buckets, 'detail', id] as const,
   bucketObjects: (id: string) => [...queryKeys.buckets, 'objects', id] as const,
   
+  // Polaroid (Photos)
+  polaroid: ['polaroid'] as const,
+  polaroidAssets: () => [...queryKeys.polaroid, 'assets'] as const,
+  polaroidAsset: (id: string) => [...queryKeys.polaroid, 'asset', id] as const,
+  polaroidAlbums: () => [...queryKeys.polaroid, 'albums'] as const,
+  polaroidAlbum: (id: string) => [...queryKeys.polaroid, 'album', id] as const,
+  polaroidPeople: () => [...queryKeys.polaroid, 'people'] as const,
+  polaroidPerson: (id: string) => [...queryKeys.polaroid, 'person', id] as const,
+
   // Dashboard
   dashboard: ['dashboard'] as const,
   overview: () => [...queryKeys.dashboard, 'overview'] as const,
@@ -47,6 +56,7 @@ export function useInvalidateQueries() {
     invalidateFunctions: () => queryClient.invalidateQueries({ queryKey: queryKeys.functions }),
     invalidateVMs: () => queryClient.invalidateQueries({ queryKey: queryKeys.vms }),
     invalidateBuckets: () => queryClient.invalidateQueries({ queryKey: queryKeys.buckets }),
+    invalidatePolaroid: () => queryClient.invalidateQueries({ queryKey: queryKeys.polaroid }),
     invalidateDashboard: () => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
     invalidateAll: () => queryClient.invalidateQueries(),
   };

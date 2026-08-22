@@ -26,13 +26,14 @@
 
 ### 1.1 Project Overview
 
-**Oblak Cloud Dashboard** is a unified management interface for a private cloud infrastructure, providing users with an AWS-like experience for managing cloud resources. The dashboard integrates three core services:
+**Oblak Cloud Dashboard** is a unified management interface for a private cloud infrastructure, providing users with an AWS-like experience for managing cloud resources. The dashboard integrates four core services:
 
 | Service | Purpose | Equivalent |
 |---------|---------|------------|
 | **Impuls** | Serverless Functions (FaaS) | AWS Lambda |
 | **Izvor** | Virtual Machine Provisioning | AWS EC2 |
 | **Spomen** | Object Storage | AWS S3 |
+| **Polaroid** | Photo & Video Management | Google Photos |
 
 ### 1.2 Goals
 
@@ -79,17 +80,18 @@
 │                           PostgreSQL DB                                       │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
-           ┌───────────────────────┼───────────────────────┐
-           │                       │                       │
-           ▼                       ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│      Impuls      │    │      Izvor       │    │      Spomen      │
-│   (Port 8080)    │    │   (Port 8082)    │    │   (Port 8081)    │
-│  ┌────────────┐  │    │  ┌────────────┐  │    │  ┌────────────┐  │
-│  │ Firecracker│  │    │  │  Proxmox   │  │    │  │   MinIO    │  │
-│  │   MicroVMs │  │    │  │  Cluster   │  │    │  │  Storage   │  │
-│  └────────────┘  │    │  └────────────┘  │    │  └────────────┘  │
-└──────────────────┘    └──────────────────┘    └──────────────────┘
+       ┌──────────────────┬────────┼────────┬──────────────────┐
+       │                  │        │        │                  │
+       ▼                  ▼        ▼        ▼                  ▼
+┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────────┐
+│   Impuls   │  │   Izvor    │  │   Spomen   │  │    Polaroid      │
+│ (Port 8080)│  │ (Port 8082)│  │ (Port 8081)│  │  (Port 2283)     │
+│ ┌────────┐ │  │ ┌────────┐ │  │ ┌────────┐ │  │ ┌──────────────┐ │
+│ │Firecrckr│ │  │ │Proxmox │ │  │ │ MinIO  │ │  │ │Immich Server │ │
+│ │MicroVMs │ │  │ │Cluster │ │  │ │Storage │ │  │ │+ ML + Redis  │ │
+│ └────────┘ │  │ └────────┘ │  │ └────────┘ │  │ │+ Postgres    │ │
+└────────────┘  └────────────┘  └────────────┘  │ └──────────────┘ │
+                                                 └──────────────────┘
 ```
 
 ### 2.2 Communication Flow
@@ -115,6 +117,7 @@ oblak/
 │   │   │   ├── virtual-machine/ # Izvor integration
 │   │   │   ├── bucket/          # Spomen integration
 │   │   │   ├── object/          # Spomen objects
+│   │   │   ├── polaroid/        # Polaroid integration (Immich)
 │   │   │   └── activity-log/    # Audit logging
 │   │   ├── components/
 │   │   ├── extensions/
@@ -134,12 +137,14 @@ oblak/
 │   │   │   ├── dashboard/       # Dashboard widgets
 │   │   │   ├── functions/       # Impuls components
 │   │   │   ├── vms/             # Izvor components
-│   │   │   └── storage/         # Spomen components
+│   │   │   ├── storage/         # Spomen components
+│   │   │   └── polaroid/        # Polaroid components
 │   │   ├── pages/
 │   │   │   ├── Dashboard.tsx
 │   │   │   ├── Functions/
 │   │   │   ├── VirtualMachines/
 │   │   │   ├── Storage/
+│   │   │   ├── polaroid/
 │   │   │   └── Settings/
 │   │   ├── hooks/
 │   │   ├── lib/
@@ -157,7 +162,10 @@ oblak/
 │
 ├── impuls/                      # Existing service
 ├── izvor/                       # Existing service
-└── spomen/                      # Existing service
+├── spomen/                      # Existing service
+└── polaroid/                    # Photo & video management (Immich)
+    ├── docker-compose.yml       # Immich stack
+    └── .env.example
 ```
 
 ---
@@ -205,11 +213,13 @@ DATABASE_PASSWORD=oblak
 IMPULS_URL=http://localhost:8080
 IZVOR_URL=http://localhost:8082
 SPOMEN_URL=http://localhost:8081
+POLAROID_URL=http://localhost:2283
 
 # Service API Keys (optional)
 IMPULS_API_KEY=
 IZVOR_API_KEY=
 SPOMEN_API_KEY=
+POLAROID_API_KEY=
 ```
 
 ### 3.2 Content Types (Collections)
@@ -533,7 +543,57 @@ Extends Strapi's built-in `users-permissions` plugin:
 }
 ```
 
-#### 3.2.6 Activity Log
+#### 3.2.6 Polaroid (Immich Integration)
+
+```javascript
+// src/api/polaroid/content-types/polaroid/schema.json
+{
+  "kind": "collectionType",
+  "collectionName": "polaroids",
+  "info": {
+    "singularName": "polaroid",
+    "pluralName": "polaroids",
+    "displayName": "Polaroid",
+    "description": "Photo & video management via Immich"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "immichUserId": {
+      "type": "string",
+      "required": true
+    },
+    "immichUserEmail": {
+      "type": "string",
+      "required": true
+    },
+    "apiKey": {
+      "type": "string",
+      "private": true
+    },
+    "storageUsed": {
+      "type": "biginteger",
+      "default": 0
+    },
+    "photoCount": {
+      "type": "integer",
+      "default": 0
+    },
+    "videoCount": {
+      "type": "integer",
+      "default": 0
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}
+```
+
+#### 3.2.7 Activity Log
 
 ```javascript
 // src/api/activity-log/content-types/activity-log/schema.json
@@ -1100,6 +1160,17 @@ const router = createBrowserRouter([
       { path: "/storage/:id", element: <BucketDetail /> },
       { path: "/storage/:id/objects/*", element: <ObjectBrowser /> },
       
+      // Photos (Polaroid / Immich)
+      { path: "/photos", element: <PhotosTimelinePage /> },
+      { path: "/photos/albums", element: <AlbumsListPage /> },
+      { path: "/photos/albums/:albumId", element: <AlbumDetailPage /> },
+      { path: "/photos/people", element: <PeoplePage /> },
+      { path: "/photos/people/:personId", element: <PersonDetailPage /> },
+      { path: "/photos/map", element: <MapPage /> },
+      { path: "/photos/search", element: <SearchPage /> },
+      { path: "/photos/sharing", element: <SharingPage /> },
+      { path: "/photos/settings", element: <PolaroidSettingsPage /> },
+      
       // Settings
       { path: "/settings", element: <Settings /> },
       { path: "/settings/profile", element: <Profile /> },
@@ -1137,6 +1208,7 @@ const navigation: NavItem[] = [
   { title: "Functions", href: "/functions", icon: Zap },
   { title: "Virtual Machines", href: "/vms", icon: Server },
   { title: "Storage", href: "/storage", icon: Database },
+  { title: "Polaroid", href: "/photos", icon: Camera },
 ];
 
 const settingsNav: NavItem[] = [
@@ -1225,6 +1297,22 @@ interface QuotaProgress {
 // ObjectUpload.tsx - Drag & drop with progress
 // ObjectPreview.tsx - Preview images, text, JSON
 // PresignedUrlGenerator.tsx - Generate shareable links
+```
+
+#### 4.6.4 Photos (Polaroid)
+
+```typescript
+// Components for photo & video management
+
+// PhotosTimelinePage.tsx - Main timeline with stats, time bucket grid, upload
+// AlbumsListPage.tsx - Album grid with create/delete
+// AlbumDetailPage.tsx - Album detail with photo grid, edit, add/remove
+// PeoplePage.tsx - People grid with hidden toggle, inline rename
+// PersonDetailPage.tsx - Person detail with photos, edit, merge
+// MapPage.tsx - Location-grouped photo view with markers
+// SearchPage.tsx - AI smart search (CLIP) + metadata filters
+// SharingPage.tsx - Shared links with password, expiry, permissions
+// PolaroidSettingsPage.tsx - Server info, storage stats, API key management
 ```
 
 ### 4.7 API Client
@@ -1329,20 +1417,20 @@ export function useInvokeFunction() {
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                    Service Gateway                       │   │
-│  │  ┌─────────────┬─────────────┬─────────────┐            │   │
-│  │  │   Impuls    │    Izvor    │   Spomen    │            │   │
-│  │  │   Client    │   Client    │   Client    │            │   │
-│  │  └──────┬──────┴──────┬──────┴──────┬──────┘            │   │
-│  │         │             │             │                    │   │
-│  └─────────┼─────────────┼─────────────┼────────────────────┘   │
-│            │             │             │                         │
-└────────────┼─────────────┼─────────────┼─────────────────────────┘
-             │             │             │
-             ▼             ▼             ▼
-      ┌──────────┐   ┌──────────┐   ┌──────────┐
-      │  Impuls  │   │  Izvor   │   │  Spomen  │
-      │  :8080   │   │  :8082   │   │  :8081   │
-      └──────────┘   └──────────┘   └──────────┘
+│  │  ┌─────────────┬─────────────┬─────────────┬──────────┐ │   │
+│  │  │   Impuls    │    Izvor    │   Spomen    │ Polaroid │ │   │
+│  │  │   Client    │   Client    │   Client    │  Client  │ │   │
+│  │  └──────┬──────┴──────┬──────┴──────┬──────┴────┬─────┘ │   │
+│  │         │             │             │           │        │   │
+│  └─────────┼─────────────┼─────────────┼───────────┼────────┘   │
+│            │             │             │           │             │
+└────────────┼─────────────┼─────────────┼───────────┼─────────────┘
+             │             │             │           │
+             ▼             ▼             ▼           ▼
+      ┌──────────┐   ┌──────────┐   ┌──────────┐ ┌──────────┐
+      │  Impuls  │   │  Izvor   │   │  Spomen  │ │ Polaroid │
+      │  :8080   │   │  :8082   │   │  :8081   │ │  :2283   │
+      └──────────┘   └──────────┘   └──────────┘ └──────────┘
 ```
 
 ### 5.2 Service Client Implementation
@@ -1402,6 +1490,7 @@ To ensure multi-tenancy and resource isolation:
 | Impuls | Function | `{user_id}-{function_name}` |
 | Izvor | VM | `{user_id}-{vm_name}` |
 | Spomen | Bucket | `user-{user_id}-{bucket_name}` |
+| Polaroid | Immich User | `oblak-{user_id}` (auto-provisioned) |
 
 ### 5.4 Status Synchronization
 
@@ -1702,6 +1791,52 @@ All endpoints are prefixed with `/api`.
 | GET | `/buckets/:id/objects` | List objects |
 | POST | `/buckets/:id/presign` | Get presigned URL |
 | DELETE | `/buckets/:id/objects/:key` | Delete object |
+
+#### Polaroid (Photos)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/polaroid/server/about` | Server info & statistics |
+| GET | `/polaroid/server/ping` | Health check |
+| GET | `/polaroid/assets` | List assets (photos/videos) |
+| POST | `/polaroid/assets` | Upload asset (multipart) |
+| GET | `/polaroid/assets/statistics` | Asset count statistics |
+| GET | `/polaroid/assets/:assetId` | Get asset details |
+| PUT | `/polaroid/assets/:assetId` | Update asset metadata |
+| DELETE | `/polaroid/assets` | Delete assets (bulk) |
+| GET | `/polaroid/assets/:assetId/thumbnail` | Get asset thumbnail |
+| GET | `/polaroid/assets/:assetId/original` | Download original asset |
+| GET | `/polaroid/timeline/buckets` | Get timeline buckets |
+| GET | `/polaroid/timeline/bucket` | Get assets in a time bucket |
+| GET | `/polaroid/albums` | List albums |
+| POST | `/polaroid/albums` | Create album |
+| GET | `/polaroid/albums/:albumId` | Get album details |
+| PATCH | `/polaroid/albums/:albumId` | Update album |
+| DELETE | `/polaroid/albums/:albumId` | Delete album |
+| PUT | `/polaroid/albums/:albumId/assets` | Add assets to album |
+| DELETE | `/polaroid/albums/:albumId/assets` | Remove assets from album |
+| GET | `/polaroid/people` | List people (faces) |
+| GET | `/polaroid/people/:personId` | Get person details |
+| PUT | `/polaroid/people/:personId` | Update person (rename) |
+| POST | `/polaroid/people/:personId/merge` | Merge people |
+| GET | `/polaroid/people/:personId/thumbnail` | Get person thumbnail |
+| POST | `/polaroid/search/metadata` | Search by metadata |
+| POST | `/polaroid/search/smart` | AI-powered smart search |
+| GET | `/polaroid/map/markers` | Get map markers |
+| GET | `/polaroid/map/reverse-geocode` | Reverse geocode coordinates |
+| GET | `/polaroid/shared-links` | List shared links |
+| POST | `/polaroid/shared-links` | Create shared link |
+| PATCH | `/polaroid/shared-links/:id` | Update shared link |
+| DELETE | `/polaroid/shared-links/:id` | Delete shared link |
+| GET | `/polaroid/tags` | List tags |
+| POST | `/polaroid/tags` | Create tag |
+| PUT | `/polaroid/tags/:id` | Update tag |
+| DELETE | `/polaroid/tags/:id` | Delete tag |
+| PUT | `/polaroid/tags/:id/assets` | Tag assets |
+| DELETE | `/polaroid/tags/:id/assets` | Untag assets |
+| GET | `/polaroid/api-keys` | List API keys |
+| POST | `/polaroid/api-keys` | Create API key |
+| DELETE | `/polaroid/api-keys/:id` | Delete API key |
 
 #### Activity & Settings
 
@@ -2163,6 +2298,8 @@ services:
       IMPULS_URL: http://impuls:8080
       IZVOR_URL: http://izvor:8082
       SPOMEN_URL: http://spomen:8081
+      POLAROID_URL: http://immich-server:2283
+      POLAROID_API_KEY: ${POLAROID_API_KEY}
       APP_KEYS: ${APP_KEYS}
       API_TOKEN_SALT: ${API_TOKEN_SALT}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
@@ -2374,6 +2511,8 @@ DATABASE_SSL=false
 IMPULS_URL=http://localhost:8080
 IZVOR_URL=http://localhost:8082
 SPOMEN_URL=http://localhost:8081
+POLAROID_URL=http://localhost:2283
+POLAROID_API_KEY=
 
 # Frontend
 VITE_API_URL=http://localhost:1337/api

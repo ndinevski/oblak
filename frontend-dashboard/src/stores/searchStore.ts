@@ -9,7 +9,7 @@ import { create } from 'zustand';
 // Types
 // =============================================================================
 
-export type SearchResultType = 'function' | 'vm' | 'bucket' | 'page';
+export type SearchResultType = 'function' | 'vm' | 'bucket' | 'polaroid' | 'page';
 
 export interface SearchResult {
   id: string;
@@ -50,6 +50,12 @@ export const staticPages: SearchResult[] = [
   { id: 'page-vms-new', type: 'page', title: 'Create VM', description: 'Create a new virtual machine', url: '/vms/new' },
   { id: 'page-storage', type: 'page', title: 'Spomen', description: 'Manage storage buckets', url: '/storage' },
   { id: 'page-storage-new', type: 'page', title: 'Create Spomen Bucket', description: 'Create a new storage bucket', url: '/storage/new' },
+  { id: 'page-photos', type: 'page', title: 'Polaroid', description: 'Manage photos and videos', url: '/photos' },
+  { id: 'page-albums', type: 'page', title: 'Photo Albums', description: 'Manage photo albums', url: '/photos/albums' },
+  { id: 'page-people', type: 'page', title: 'People', description: 'Face recognition and people', url: '/photos/people' },
+  { id: 'page-photo-map', type: 'page', title: 'Photo Map', description: 'View photos on map', url: '/photos/map' },
+  { id: 'page-photo-search', type: 'page', title: 'Photo Search', description: 'Search photos with AI', url: '/photos/search' },
+  { id: 'page-photo-sharing', type: 'page', title: 'Photo Sharing', description: 'Manage shared links', url: '/photos/sharing' },
   { id: 'page-settings', type: 'page', title: 'Settings', description: 'Account settings', url: '/settings' },
   { id: 'page-profile', type: 'page', title: 'Profile', description: 'Manage your profile', url: '/settings/profile' },
   { id: 'page-activity', type: 'page', title: 'Activity Log', description: 'View recent activity', url: '/settings/activity' },

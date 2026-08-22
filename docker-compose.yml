@@ -50,6 +50,8 @@ services:
       IMPULS_URL: ${IMPULS_URL:-http://impuls:8080}
       IZVOR_URL: ${IZVOR_URL:-http://izvor:8082}
       SPOMEN_URL: ${SPOMEN_URL:-http://spomen:8081}
+      POLAROID_URL: ${POLAROID_URL:-http://polaroid:2283}
+      POLAROID_API_KEY: ${POLAROID_API_KEY:-}
     ports:
       - "1337:1337"
     depends_on:

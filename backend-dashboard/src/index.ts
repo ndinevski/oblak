@@ -93,6 +93,51 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::bucket.object.deleteFolder',
     'api::bucket.object.copy',
     'api::bucket.object.presignedUrl',
+    'api::polaroid.polaroid.serverInfo',
+    'api::polaroid.polaroid.serverPing',
+    'api::polaroid.polaroid.getAssets',
+    'api::polaroid.polaroid.getAsset',
+    'api::polaroid.polaroid.uploadAsset',
+    'api::polaroid.polaroid.deleteAssets',
+    'api::polaroid.polaroid.updateAsset',
+    'api::polaroid.polaroid.getAssetThumbnail',
+    'api::polaroid.polaroid.downloadAsset',
+    'api::polaroid.polaroid.getAssetStatistics',
+    'api::polaroid.polaroid.checkExistingAssets',
+    'api::polaroid.polaroid.getTimeBuckets',
+    'api::polaroid.polaroid.getTimeBucket',
+    'api::polaroid.polaroid.getAlbums',
+    'api::polaroid.polaroid.getAlbum',
+    'api::polaroid.polaroid.createAlbum',
+    'api::polaroid.polaroid.updateAlbum',
+    'api::polaroid.polaroid.deleteAlbum',
+    'api::polaroid.polaroid.addAlbumAssets',
+    'api::polaroid.polaroid.removeAlbumAssets',
+    'api::polaroid.polaroid.getPeople',
+    'api::polaroid.polaroid.getPerson',
+    'api::polaroid.polaroid.updatePerson',
+    'api::polaroid.polaroid.getPersonThumbnail',
+    'api::polaroid.polaroid.mergePeople',
+    'api::polaroid.polaroid.searchMetadata',
+    'api::polaroid.polaroid.searchSmart',
+    'api::polaroid.polaroid.getMapMarkers',
+    'api::polaroid.polaroid.reverseGeocode',
+    'api::polaroid.polaroid.getSharedLinks',
+    'api::polaroid.polaroid.getSharedLink',
+    'api::polaroid.polaroid.createSharedLink',
+    'api::polaroid.polaroid.updateSharedLink',
+    'api::polaroid.polaroid.deleteSharedLink',
+    'api::polaroid.polaroid.getTags',
+    'api::polaroid.polaroid.createTag',
+    'api::polaroid.polaroid.updateTag',
+    'api::polaroid.polaroid.deleteTag',
+    'api::polaroid.polaroid.tagAssets',
+    'api::polaroid.polaroid.untagAssets',
+    'api::polaroid.polaroid.getApiKeys',
+    'api::polaroid.polaroid.createApiKey',
+    'api::polaroid.polaroid.deleteApiKey',
+    'api::polaroid.polaroid.runJob',
+    'api::polaroid.polaroid.restoreAssets',
   ];
 
   for (const action of requiredActions) {
@@ -351,6 +396,22 @@ async function seedDemoData(strapi: Core.Strapi): Promise<void> {
     }
   }
 
+  const existingPolaroid = await strapi.db.query('api::polaroid.polaroid').findOne({
+    where: { owner: ownerId },
+  });
+  if (!existingPolaroid) {
+    await strapi.db.query('api::polaroid.polaroid').create({
+      data: {
+        immichUserId: 'demo-immich-user',
+        immichUserEmail: DEMO_DEFAULTS.email,
+        storageUsed: '524288000',
+        photoCount: '247',
+        videoCount: '12',
+        owner: ownerId,
+      },
+    });
+  }
+
   const activityCount = await strapi.db.query('api::activity-log.activity-log').count({
     where: { user: ownerId },
   });
@@ -379,6 +440,12 @@ async function seedDemoData(strapi: Core.Strapi): Promise<void> {
         action: 'bucket.create',
         resourceType: 'bucket',
         resourceName: 'demo-assets',
+        status: 'success',
+      },
+      {
+        action: 'polaroid.upload',
+        resourceType: 'polaroid',
+        resourceName: 'photo-upload',
         status: 'success',
       },
       {

@@ -22,6 +22,7 @@ import {
   Zap,
   Server,
   Database,
+  Camera,
   Activity,
   PieChart,
   Settings,
@@ -44,6 +45,7 @@ const servicesNavigation = [
   { name: 'Impuls', href: '/functions', icon: Zap },
   { name: 'Izvor', href: '/vms', icon: Server },
   { name: 'Spomen', href: '/storage', icon: Database },
+  { name: 'Polaroid', href: '/photos', icon: Camera },
 ];
 
 const monitoringNavigation = [

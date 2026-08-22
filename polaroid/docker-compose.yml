@@ -1,0 +1,98 @@
+# Polaroid - Photo & Video Management Service
+# Wraps Immich for the Oblak private cloud platform
+# Requires its own PostgreSQL with pgvecto.rs extension (cannot share Oblak's Postgres)
+
+services:
+  # Immich Server (API + Microservices)
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    container_name: polaroid
+    ports:
+      - "${POLAROID_PORT:-2283}:2283"
+    volumes:
+      - ${UPLOAD_LOCATION:-~/.oblak/polaroid/library}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_PORT: "5432"
+      DB_USERNAME: ${DB_USERNAME:-polaroid}
+      DB_PASSWORD: ${DB_PASSWORD:-polaroid_password}
+      DB_DATABASE_NAME: ${DB_DATABASE_NAME:-polaroid}
+      REDIS_HOSTNAME: immich-redis
+      REDIS_PORT: "6379"
+    depends_on:
+      immich-redis:
+        condition: service_healthy
+      immich-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:2283/api/server/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - polaroid-network
+
+  # Immich Machine Learning
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    container_name: polaroid-ml
+    volumes:
+      - model-cache:/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3003/ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - polaroid-network
+
+  # Redis for Immich job queue
+  immich-redis:
+    image: docker.io/redis:7-alpine
+    container_name: polaroid-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - polaroid-network
+
+  # PostgreSQL with pgvecto.rs for Immich
+  # Cannot use Oblak's Postgres - requires pgvecto.rs vector extension
+  immich-postgres:
+    image: docker.io/tensorchord/pgvecto-rs:pg16-v0.2.0
+    container_name: polaroid-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-polaroid}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-polaroid_password}
+      POSTGRES_DB: ${DB_DATABASE_NAME:-polaroid}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-polaroid} -d ${DB_DATABASE_NAME:-polaroid}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - polaroid-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  model-cache:
+
+networks:
+  polaroid-network:
+    driver: bridge

@@ -474,6 +474,15 @@ export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
         'user.login',
         'user.logout',
         'user.update',
+        'polaroid.upload',
+        'polaroid.delete',
+        'polaroid.favorite',
+        'polaroid.archive',
+        'polaroid.album.create',
+        'polaroid.album.update',
+        'polaroid.album.delete',
+        'polaroid.share.create',
+        'polaroid.share.delete',
       ]
     > &
       Schema.Attribute.Required;
@@ -493,7 +502,7 @@ export interface ApiActivityLogActivityLog extends Struct.CollectionTypeSchema {
     resourceId: Schema.Attribute.String;
     resourceName: Schema.Attribute.String;
     resourceType: Schema.Attribute.Enumeration<
-      ['function', 'virtual-machine', 'bucket', 'object', 'user']
+      ['function', 'virtual-machine', 'bucket', 'object', 'user', 'polaroid']
     > &
       Schema.Attribute.Required;
     status: Schema.Attribute.Enumeration<['success', 'failure', 'pending']> &
@@ -639,6 +648,46 @@ export interface ApiFunctionFunction extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiPolaroidPolaroid extends Struct.CollectionTypeSchema {
+  collectionName: 'polaroids';
+  info: {
+    description: 'Polaroid photo service instance for Immich integration';
+    displayName: 'Polaroid';
+    pluralName: 'polaroids';
+    singularName: 'polaroid';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    apiKey: Schema.Attribute.String & Schema.Attribute.Private;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    immichUserEmail: Schema.Attribute.String;
+    immichUserId: Schema.Attribute.String & Schema.Attribute.Required;
+    immichUserPassword: Schema.Attribute.String & Schema.Attribute.Private;
+    lastSyncedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::polaroid.polaroid'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    photoCount: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    publishedAt: Schema.Attribute.DateTime;
+    storageUsed: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    videoCount: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
   };
 }
 
@@ -1275,6 +1324,7 @@ declare module '@strapi/strapi' {
       'api::activity-log.activity-log': ApiActivityLogActivityLog;
       'api::bucket.bucket': ApiBucketBucket;
       'api::function.function': ApiFunctionFunction;
+      'api::polaroid.polaroid': ApiPolaroidPolaroid;
       'api::virtual-machine.virtual-machine': ApiVirtualMachineVirtualMachine;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

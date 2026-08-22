@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "polaroids",
+  "info": {
+    "singularName": "polaroid",
+    "pluralName": "polaroids",
+    "displayName": "Polaroid",
+    "description": "Polaroid photo service instance for Immich integration"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "immichUserId": { "type": "string", "required": true },
+    "immichUserEmail": { "type": "string" },
+    "apiKey": { "type": "string", "private": true },
+    "immichUserPassword": { "type": "string", "private": true },
+    "storageUsed": { "type": "biginteger", "default": "0" },
+    "photoCount": { "type": "biginteger", "default": "0" },
+    "videoCount": { "type": "biginteger", "default": "0" },
+    "lastSyncedAt": { "type": "datetime", "private": true },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}
