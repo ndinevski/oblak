@@ -220,7 +220,11 @@ export function usePresignedUrl(bucketId: number) {
 
 export function useIssueBucketAccessCredentials(bucketId: number) {
   return useMutation({
-    mutationFn: (readWrite = true): Promise<BucketAccessCredentials> =>
+    // Typed rather than defaulted: a default parameter makes the function
+    // callable with no arguments, so React Query infers TVariables as `void`
+    // and rejects the mutateAsync(true) call site. storageApi already
+    // defaults readWrite, so nothing is lost.
+    mutationFn: (readWrite: boolean): Promise<BucketAccessCredentials> =>
       storageApi.issueBucketAccessCredentials(bucketId, readWrite),
   });
 }
