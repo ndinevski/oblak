@@ -2,21 +2,28 @@
  * Tefter API.
  *
  * Proxies the Tefter managed database service for the dashboard, adding
- * authentication, audit records and consistent error shaping. Tefter itself
- * has no notion of Oblak users, so ownership and auditing live here.
+ * authentication, Identitet access control, audit records and consistent error
+ * shaping. Tefter itself has no notion of Oblak users, so ownership, access
+ * control and auditing live here.
+ *
+ * Identitet: gated on the `databases` service. Instances (primaries and replicas) are
+ * owned resources; backups are governed by their instance. Engines and sizes
+ * are catalogue reads available to anyone with read access.
  */
 
 import type { Context } from 'koa';
 import { getTefterClient, TefterError } from '../services/tefter-client';
 import { recordAuditFromContext } from '../../../telemetry/audit';
+import {
+  requireAccess,
+  requireOwnership,
+  recordOwnership,
+  dropOwnership,
+  filterOwned,
+  isRoot,
+} from '../../../identitet/authz';
 
-function getAuthenticatedUser(ctx: Context) {
-  const user = ctx.state.user;
-  if (!user) {
-    return ctx.unauthorized('You must be logged in');
-  }
-  return user;
-}
+const SERVICE = 'databases';
 
 /**
  * Runs a Tefter call, mapping its failures onto the same status codes Tefter
@@ -45,43 +52,54 @@ export default {
   // --- Service ---------------------------------------------------------------
 
   async health(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return { data: await getTefterClient().health() };
   },
 
   async engines(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return handle(ctx, () => getTefterClient().listEngines());
   },
 
   async sizes(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return handle(ctx, () => getTefterClient().listSizes());
   },
 
   // --- Instances -------------------------------------------------------------
 
   async listInstances(ctx: Context) {
-    getAuthenticatedUser(ctx);
-    return handle(ctx, () => getTefterClient().listInstances());
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const all = await getTefterClient().listInstances();
+    if (isRoot(user)) return { data: all };
+    const owned = await filterOwned(strapi, user, SERVICE, all.map((i) => i.name));
+    return { data: all.filter((i) => owned.has(i.name)) };
   },
 
   async getInstance(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, ctx.params.name))) return;
     return handle(ctx, () => getTefterClient().getInstance(ctx.params.name));
   },
 
   async createInstance(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const body = (ctx.request.body ?? {}) as Record<string, unknown>;
 
     if (!body.name || !body.engine) {
       return ctx.badRequest('name and engine are required');
     }
 
+    const quota = await strapi.service('api::quota.quota').checkDatabaseQuota();
+    if (!quota.allowed) return ctx.forbidden(quota.message);
+
     const result = await handle(ctx, () => getTefterClient().createInstance(body as any));
 
     if (result && 'data' in result) {
+      await recordOwnership(strapi, SERVICE, 'instance', String(body.name), user.id);
       recordAuditFromContext(ctx, {
         action: 'database.instance.create',
         resourceType: 'database',
@@ -97,8 +115,10 @@ export default {
   },
 
   async deleteInstance(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const name = ctx.params.name;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, name))) return;
 
     const result = await handle(ctx, async () => {
       await getTefterClient().deleteInstance(name);
@@ -106,6 +126,7 @@ export default {
     });
 
     if (result && 'data' in result) {
+      await dropOwnership(strapi, SERVICE, name);
       recordAuditFromContext(ctx, {
         action: 'database.instance.delete',
         resourceType: 'database',
@@ -126,13 +147,18 @@ export default {
   // --- Replicas --------------------------------------------------------------
 
   async listReplicas(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, ctx.params.name))) return;
     return handle(ctx, () => getTefterClient().listReplicas(ctx.params.name));
   },
 
   async createReplica(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const source = ctx.params.name;
+    // A member can only replicate an instance it owns; the replica it owns too.
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, source))) return;
     const body = (ctx.request.body ?? {}) as { name?: string; size?: string };
 
     if (!body.name) {
@@ -144,6 +170,7 @@ export default {
     );
 
     if (result && 'data' in result) {
+      await recordOwnership(strapi, SERVICE, 'instance', String(body.name), user.id);
       recordAuditFromContext(ctx, {
         action: 'database.replica.create',
         resourceType: 'database',
@@ -156,13 +183,17 @@ export default {
   },
 
   async replicationStatus(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, ctx.params.name))) return;
     return handle(ctx, () => getTefterClient().replicationStatus(ctx.params.name));
   },
 
   async promoteReplica(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const name = ctx.params.name;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, name))) return;
 
     const result = await handle(ctx, () => getTefterClient().promoteReplica(name));
 
@@ -181,19 +212,27 @@ export default {
   // --- Backups ---------------------------------------------------------------
 
   async listBackups(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
     const instance = typeof ctx.query.instance === 'string' ? ctx.query.instance : undefined;
-    return handle(ctx, () => getTefterClient().listBackups(instance));
+    const all = await getTefterClient().listBackups(instance);
+    if (isRoot(user)) return { data: all };
+    const owned = await filterOwned(strapi, user, SERVICE, all.map((b) => b.instance));
+    return { data: all.filter((b) => owned.has(b.instance)) };
   },
 
   async listInstanceBackups(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, ctx.params.name))) return;
     return handle(ctx, () => getTefterClient().listBackups(ctx.params.name));
   },
 
   async createBackup(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const name = ctx.params.name;
+    if (!(await requireOwnership(strapi, ctx, user, SERVICE, name))) return;
     const body = (ctx.request.body ?? {}) as { description?: string };
 
     const result = await handle(ctx, () => getTefterClient().createBackup(name, body.description));
@@ -211,13 +250,26 @@ export default {
   },
 
   async getBackup(ctx: Context) {
-    getAuthenticatedUser(ctx);
-    return handle(ctx, () => getTefterClient().getBackup(ctx.params.id));
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const backup = await handle(ctx, () => getTefterClient().getBackup(ctx.params.id));
+    if (backup && 'data' in backup && !isRoot(user)) {
+      const inst = (backup.data as any)?.instance;
+      const owned = await filterOwned(strapi, user, SERVICE, inst ? [inst] : []);
+      if (!inst || !owned.has(inst)) return ctx.notFound('backup not found');
+    }
+    return backup;
   },
 
   async deleteBackup(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const id = ctx.params.id;
+    if (!isRoot(user)) {
+      const found = await getTefterClient().getBackup(id).catch(() => null);
+      if (!found) return ctx.notFound('backup not found');
+      if (!(await requireOwnership(strapi, ctx, user, SERVICE, (found as any).instance))) return;
+    }
 
     const result = await handle(ctx, async () => {
       await getTefterClient().deleteBackup(id);
@@ -235,7 +287,8 @@ export default {
   },
 
   async restoreBackup(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const body = (ctx.request.body ?? {}) as {
       backup_id?: string;
       target_instance?: string;
@@ -245,6 +298,15 @@ export default {
 
     if (!body.backup_id) {
       return ctx.badRequest('backup_id is required');
+    }
+
+    if (!isRoot(user)) {
+      const found = await getTefterClient().getBackup(body.backup_id).catch(() => null);
+      if (!found) return ctx.notFound('backup not found');
+      if (!(await requireOwnership(strapi, ctx, user, SERVICE, (found as any).instance))) return;
+      if (body.target_instance && !(await requireOwnership(strapi, ctx, user, SERVICE, body.target_instance))) {
+        return;
+      }
     }
 
     const result = await handle(ctx, () =>
@@ -280,12 +342,11 @@ export default {
  * client method they call and what they audit.
  */
 async function lifecycleHandler(ctx: Context, action: 'start' | 'stop') {
-  const user = ctx.state.user;
-  if (!user) {
-    return ctx.unauthorized('You must be logged in');
-  }
+  const user = requireAccess(ctx, SERVICE, 'write');
+  if (!user) return;
 
   const name = ctx.params.name;
+  if (!(await requireOwnership(strapi, ctx, user, SERVICE, name))) return;
   const client = getTefterClient();
 
   const result = await handle(ctx, () =>

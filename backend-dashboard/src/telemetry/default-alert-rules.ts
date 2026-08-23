@@ -68,7 +68,7 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   // --- Services ------------------------------------------------------------
   {
     name: 'Impuls not reporting',
-    description: 'No traces received from Impuls. The service may be down.',
+    description: 'No telemetry received from Impuls. The service may be down.',
     ruleType: 'service.absent',
     target: 'impuls',
     comparison: 'lt',
@@ -79,7 +79,7 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   },
   {
     name: 'Spomen not reporting',
-    description: 'No traces received from Spomen. The service may be down.',
+    description: 'No telemetry received from Spomen. The service may be down.',
     ruleType: 'service.absent',
     target: 'spomen',
     comparison: 'lt',
@@ -90,7 +90,7 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   },
   {
     name: 'Izvor not reporting',
-    description: 'No traces received from Izvor. The service may be down.',
+    description: 'No telemetry received from Izvor. The service may be down.',
     ruleType: 'service.absent',
     target: 'izvor',
     comparison: 'lt',
@@ -101,7 +101,7 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   },
   {
     name: 'Dashboard backend not reporting',
-    description: 'No traces received from the Strapi backend.',
+    description: 'No telemetry received from the Strapi backend.',
     ruleType: 'service.absent',
     target: 'oblak-backend',
     comparison: 'lt',
@@ -174,12 +174,12 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
     severity: 'warning',
   },
 
-  // --- Brod, Tefter, Vrata (added after the originals) ----------------------
+  // --- Pristaniste, Tefter, Vrata (added after the originals) ----------------------
   {
-    name: 'Brod not reporting',
-    description: 'No traces received from Brod. The container service may be down.',
+    name: 'Pristaniste not reporting',
+    description: 'No telemetry received from Pristaniste. The container service may be down.',
     ruleType: 'service.absent',
-    target: 'brod',
+    target: 'pristaniste',
     comparison: 'lt',
     threshold: 1,
     windowMinutes: 10,
@@ -188,7 +188,7 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   },
   {
     name: 'Tefter not reporting',
-    description: 'No traces received from Tefter. The database service may be down.',
+    description: 'No telemetry received from Tefter. The database service may be down.',
     ruleType: 'service.absent',
     target: 'tefter',
     comparison: 'lt',
@@ -199,9 +199,31 @@ export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   },
   {
     name: 'Vrata not reporting',
-    description: 'No traces received from Vrata. The gateway may be down, which also means workload traffic is going unobserved.',
+    description: 'No telemetry received from Vrata. The gateway may be down, which also means workload traffic is going unobserved.',
     ruleType: 'service.absent',
     target: 'vrata',
+    comparison: 'lt',
+    threshold: 1,
+    windowMinutes: 10,
+    forMinutes: 0,
+    severity: 'critical',
+  },
+  {
+    name: 'Indeks not reporting',
+    description: 'No telemetry received from Indeks. The key/value store may be down.',
+    ruleType: 'service.absent',
+    target: 'indeks',
+    comparison: 'lt',
+    threshold: 1,
+    windowMinutes: 10,
+    forMinutes: 0,
+    severity: 'critical',
+  },
+  {
+    name: 'Red not reporting',
+    description: 'No telemetry received from Red. The message queue may be down, which stalls any triggers that consume from it.',
+    ruleType: 'service.absent',
+    target: 'red',
     comparison: 'lt',
     threshold: 1,
     windowMinutes: 10,

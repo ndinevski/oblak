@@ -1,0 +1,5 @@
+red-server
+.env
+red.db
+backups/
+*.db

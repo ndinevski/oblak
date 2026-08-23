@@ -92,7 +92,7 @@ func (t *Table) Delete(name string) error {
 // Reconcile makes the routes owned by one source exactly match desired.
 //
 // This is how auto-discovery keeps the route table in step with the world: a
-// discoverer (e.g. the Brod poller) computes the routes that should exist for
+// discoverer (e.g. the Pristaniste poller) computes the routes that should exist for
 // the containers it can see and calls Reconcile with them. Routes of that
 // source not in the desired set are removed (their container is gone); new
 // ones are added; changed ones are updated in place.

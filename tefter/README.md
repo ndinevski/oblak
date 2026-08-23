@@ -5,7 +5,7 @@ read replicas and backups, in the shape of Amazon RDS.
 
 Tefter supplies the management API and the dashboard integration. The databases
 themselves are stock engine images, the same way Spomen wraps MinIO, Izvor wraps
-Proxmox and Brod wraps Docker:
+Proxmox and Pristaniste wraps Docker:
 
 | Concept | Shaped like | Backed by |
 |---|---|---|

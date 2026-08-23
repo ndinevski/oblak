@@ -18,12 +18,21 @@ export const API_CONFIG = {
 };
 
 /**
- * API error response structure
+ * API error.
+ *
+ * A real Error subclass (not a plain object) so callers doing
+ * `error instanceof Error ? error.message : ...` see the parsed backend message
+ * rather than "[object Object]".
  */
-export interface ApiError {
+export class ApiError extends Error {
   status: number;
-  message: string;
   details?: Record<string, unknown>;
+  constructor(status: number, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
 }
 
 /**
@@ -92,28 +101,25 @@ function parseApiError(error: AxiosError<StrapiErrorResponse>): ApiError {
   if (error.response) {
     // Server responded with error
     const { status, data } = error.response;
-    const message = 
-      data?.error?.message || 
-      data?.message || 
+    let message =
+      data?.error?.message ||
+      data?.message ||
       getDefaultErrorMessage(status);
-    
-    return {
-      status,
-      message,
-      details: data?.error?.details,
-    };
+
+    // Make permission failures actionable: the backend says exactly what access
+    // is missing (e.g. "You do not have write access to Queues (Red)"); we add
+    // where to turn for it.
+    if (status === 403 && !/administrator/i.test(message)) {
+      message = `${message} Contact your administrator if you need access.`;
+    }
+
+    return new ApiError(status, message, data?.error?.details);
   } else if (error.request) {
     // Request made but no response
-    return {
-      status: 0,
-      message: 'Network error. Please check your connection.',
-    };
+    return new ApiError(0, 'Network error. Please check your connection.');
   } else {
     // Request setup error
-    return {
-      status: 0,
-      message: error.message || 'An unexpected error occurred.',
-    };
+    return new ApiError(0, error.message || 'An unexpected error occurred.');
   }
 }
 

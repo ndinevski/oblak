@@ -4,6 +4,44 @@
  */
 
 import type { Core } from '@strapi/strapi';
+import { DEFAULT_MEMBER_GRANTS } from '../../identitet/authz';
+
+/**
+ * The user whose email matches OBLAK_ROOT_EMAIL is the root account: full
+ * access to everything. It is asserted from the environment (not the database)
+ * so it survives a reset and cannot be locked out by an errant grant edit.
+ */
+function rootEmail(): string | null {
+  const value = (process.env.OBLAK_ROOT_EMAIL ?? '').trim().toLowerCase();
+  return value || null;
+}
+
+/**
+ * Promotes the env-root user and demotes anyone else who is marked root,
+ * keeping exactly one root that matches the environment. Also backfills default
+ * grants for any member that has none yet. Safe to call on every login.
+ */
+async function reconcileRole(strapi: Core.Strapi | undefined, user: any): Promise<any> {
+  if (!strapi || !user) return user;
+  const root = rootEmail();
+  const email = (user.email ?? '').trim().toLowerCase();
+  const shouldBeRoot = root !== null && email === root;
+  // `identitetRole`, not `role`: `role` is the reserved users-permissions relation.
+  const currentRole = user.identitetRole ?? 'member';
+  const desiredRole = shouldBeRoot ? 'root' : currentRole === 'root' ? 'member' : currentRole;
+
+  const patch: Record<string, unknown> = {};
+  if (desiredRole !== currentRole) patch.identitetRole = desiredRole;
+  if (!shouldBeRoot && (!user.grants || Object.keys(user.grants).length === 0)) {
+    patch.grants = DEFAULT_MEMBER_GRANTS;
+  }
+  if (Object.keys(patch).length === 0) return user;
+
+  const updated = await strapi.db
+    .query('plugin::users-permissions.user')
+    .update({ where: { id: user.id }, data: patch });
+  return { ...user, ...updated };
+}
 
 export default (plugin: any) => {
   // Store original controller methods
@@ -26,9 +64,11 @@ export default (plugin: any) => {
 
         // If successful, add additional info
         if (ctx.body?.user) {
-          const user = ctx.body.user;
+          let user = ctx.body.user;
 
-          // Add user's created resource counts (will be populated when resources are created)
+          // Assert the env-root and backfill member grants on login.
+          user = await reconcileRole(controllerCtx?.strapi, user);
+
           ctx.body.user = {
             ...user,
             meta: {
@@ -53,8 +93,9 @@ export default (plugin: any) => {
         // Call original register
         await original.register(ctx);
 
-        // Log registration for audit
+        // Assign role (env-root or member) and default grants at registration.
         if (ctx.body?.user) {
+          ctx.body.user = await reconcileRole(controllerCtx?.strapi, ctx.body.user);
           controllerCtx?.strapi?.log?.info?.(`New user registered: ${ctx.body.user.email}`);
         }
       },
@@ -84,6 +125,19 @@ export default (plugin: any) => {
     // Last login timestamp
     lastLoginAt: {
       type: 'datetime',
+    },
+    // Identitet role: 'root' (full access) or 'member' (scoped by grants). The
+    // env-root user is reconciled to 'root' on login regardless of this value.
+    // Named identitetRole to avoid shadowing the reserved users-permissions `role`.
+    identitetRole: {
+      type: 'enumeration',
+      enum: ['root', 'member'],
+      default: 'member',
+    },
+    // Identitet grants: per-service access level for a member. { queues: 'write', ... }
+    grants: {
+      type: 'json',
+      default: {},
     },
   };
 

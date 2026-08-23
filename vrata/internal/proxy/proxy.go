@@ -1,4 +1,4 @@
-// Package proxy is Vrata's data plane: the reverse proxy that fronts Brod
+// Package proxy is Vrata's data plane: the reverse proxy that fronts Pristaniste
 // containers and Izvor VMs and, crucially, records a trace, an access log and
 // RED metrics for every request that passes through it. That per-request record
 // is the whole point of Vrata: without it, traffic to a workload is invisible,

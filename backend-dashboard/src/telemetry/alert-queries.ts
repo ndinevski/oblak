@@ -67,11 +67,11 @@ export const RULE_TYPES: Record<RuleType, RuleTypeMeta> = {
   },
   "service.absent": {
     label: "Service not reporting",
-    unit: "spans",
+    unit: "datapoints",
     targetLabel: "Service",
     targetOptional: false,
     description:
-      'Spans received from the service in the window. Use with "below" and a threshold of 1 to detect a service that has stopped reporting.',
+      'Metric datapoints exported by the service in the window. A healthy service exports these on a timer even when idle, so use with "below" and a threshold of 1 to detect a service that has stopped reporting.',
   },
   "log.error_count": {
     label: "Error log count",
@@ -238,13 +238,18 @@ export async function evaluateRuleType(
     }
 
     case "service.absent":
-      // Counts always return a row, so zero is reported rather than null. That
-      // is the point: zero spans is the condition being detected.
+      // Liveness is measured from exported metric datapoints, not trace spans.
+      // A service's periodic metric reader exports on a timer (every ~15s)
+      // whether or not it is serving traffic, so an idle-but-healthy service
+      // still reports. Trace spans, by contrast, only appear when a request
+      // arrives, which would make a quiet service look absent and page someone
+      // for nothing. Counts always return a row, so zero (the "not reporting"
+      // signal being detected) is reported rather than null.
       return scalar(
         ch,
-        `SELECT count() AS value FROM otel_traces
-         WHERE Timestamp >= {from:DateTime64(9)} AND Timestamp <= {to:DateTime64(9)}
-           AND ServiceName = {target:String}`,
+        `SELECT count() AS value FROM otel_metrics_sum
+         WHERE TimeUnix >= {from:DateTime64(9)} AND TimeUnix <= {to:DateTime64(9)}
+           AND ResourceAttributes['service.name'] = {target:String}`,
         { ...base, target: target ?? "" },
       );
 

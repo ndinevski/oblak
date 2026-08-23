@@ -1,0 +1,8 @@
+# Compiled binary
+pristaniste-server
+
+# Local environment
+.env
+
+# Registry data when run outside Docker
+data/

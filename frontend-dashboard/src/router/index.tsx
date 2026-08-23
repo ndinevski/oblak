@@ -34,9 +34,9 @@ const BucketDetailPage = lazy(() => import('@/pages/spomen/BucketDetailPage'));
 const CreateBucketPage = lazy(() => import('@/pages/spomen/CreateBucketPage'));
 const EditBucketPage = lazy(() => import('@/pages/spomen/EditBucketPage'));
 
-// Brod (Containers) pages
-const ContainersPage = lazy(() => import('@/pages/brod/ContainersPage'));
-const RepositoriesPage = lazy(() => import('@/pages/brod/RepositoriesPage'));
+// Pristaniste (Containers) pages
+const ContainersPage = lazy(() => import('@/pages/pristaniste/ContainersPage'));
+const RepositoriesPage = lazy(() => import('@/pages/pristaniste/RepositoriesPage'));
 
 // Tefter (Databases) pages
 const DatabasesPage = lazy(() => import('@/pages/tefter/DatabasesPage'));
@@ -44,6 +44,15 @@ const DatabaseDetailPage = lazy(() => import('@/pages/tefter/DatabaseDetailPage'
 
 // Vrata (Gateway) pages
 const RoutesPage = lazy(() => import('@/pages/vrata/RoutesPage'));
+
+// Indeks (Key/Value) pages
+const TablesPage = lazy(() => import('@/pages/indeks/TablesPage'));
+const TableDetailPage = lazy(() => import('@/pages/indeks/TableDetailPage'));
+
+// Red (Message Queue) pages
+const QueuesPage = lazy(() => import('@/pages/red/QueuesPage'));
+const QueueDetailPage = lazy(() => import('@/pages/red/QueueDetailPage'));
+const TriggersPage = lazy(() => import('@/pages/red/TriggersPage'));
 
 // Polaroid (Photos) pages
 const PhotosTimelinePage = lazy(() => import('@/pages/polaroid/PhotosTimelinePage'));
@@ -62,6 +71,8 @@ const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const ProfilePage = lazy(() => import('@/pages/settings/ProfilePage'));
 const ActivityPage = lazy(() => import('@/pages/settings/ActivityPage'));
 const QuotaPage = lazy(() => import('@/pages/settings/QuotaPage'));
+const UsersPage = lazy(() => import('@/pages/settings/UsersPage'));
+const ApiKeysPage = lazy(() => import('@/pages/settings/ApiKeysPage'));
 
 // Observability pages
 const ObservabilityOverviewPage = lazy(
@@ -219,7 +230,7 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Brod (Containers) routes
+      // Pristaniste (Containers) routes
       {
         path: 'containers',
         element: (
@@ -261,6 +272,50 @@ export const router = createBrowserRouter([
         element: (
           <SuspenseWrapper>
             <RoutesPage />
+          </SuspenseWrapper>
+        ),
+      },
+
+      // Indeks (Key/Value) routes
+      {
+        path: 'keyvalue',
+        element: (
+          <SuspenseWrapper>
+            <TablesPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'keyvalue/:name',
+        element: (
+          <SuspenseWrapper>
+            <TableDetailPage />
+          </SuspenseWrapper>
+        ),
+      },
+
+      // Red (Message Queue) routes
+      {
+        path: 'queues',
+        element: (
+          <SuspenseWrapper>
+            <QueuesPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'queues/:name',
+        element: (
+          <SuspenseWrapper>
+            <QueueDetailPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'triggers',
+        element: (
+          <SuspenseWrapper>
+            <TriggersPage />
           </SuspenseWrapper>
         ),
       },
@@ -443,6 +498,22 @@ export const router = createBrowserRouter([
             element: (
               <SuspenseWrapper>
                 <QuotaPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'users',
+            element: (
+              <SuspenseWrapper>
+                <UsersPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'api-keys',
+            element: (
+              <SuspenseWrapper>
+                <ApiKeysPage />
               </SuspenseWrapper>
             ),
           },

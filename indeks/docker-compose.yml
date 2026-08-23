@@ -1,0 +1,34 @@
+# Indeks - key/value and document store for Oblak (DynamoDB-shaped).
+#
+# Unlike Tefter or Spomen, Indeks needs no external engine: it stores tables and
+# items in an embedded bbolt database, so this file starts only the API. Data and
+# backups live in a named volume so they survive the container being rebuilt.
+
+services:
+  indeks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: indeks
+    restart: unless-stopped
+    environment:
+      INDEKS_PORT: "8086"
+      INDEKS_DATA_FILE: /var/lib/indeks/indeks.db
+      INDEKS_BACKUP_DIR: /var/lib/indeks/backups
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
+    ports:
+      - "${INDEKS_API_PORT:-8086}:8086"
+    volumes:
+      - indeks-data:/var/lib/indeks
+    networks:
+      - oblak-telemetry
+
+volumes:
+  indeks-data:
+
+networks:
+  # Shared with the observability stack so telemetry reaches the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

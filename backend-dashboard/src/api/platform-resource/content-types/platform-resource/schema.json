@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "platform_resources",
+  "info": {
+    "singularName": "platform-resource",
+    "pluralName": "platform-resources",
+    "displayName": "Platform Resource",
+    "description": "Ownership registry for platform-service resources (Pristaniste containers, Tefter databases, Indeks tables, Red queues). Internal only, no public API."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-api": {
+      "enabled": false
+    }
+  },
+  "attributes": {
+    "service": {
+      "type": "string",
+      "required": true
+    },
+    "resourceType": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

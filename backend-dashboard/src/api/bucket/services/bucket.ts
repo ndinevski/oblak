@@ -176,15 +176,16 @@ export default ({ strapi }: { strapi: Strapi.Strapi }) => ({
   // CRUD Operations
   // ===========================================================================
 
-  async find(userId: number, params: Record<string, unknown> = {}) {
+  async find(userId: number | null, params: Record<string, unknown> = {}) {
     const { pagination, sort, filters } = params as {
       pagination?: { page?: number; pageSize?: number };
       sort?: string | string[];
       filters?: Record<string, unknown>;
     };
 
+    // A null userId means "all owners" (root); otherwise scope to the owner.
     const where = {
-      owner: userId,
+      ...(userId === null ? {} : { owner: userId }),
       ...filters,
     };
 

@@ -1166,10 +1166,14 @@
 | Phase 9: Testing | 7 | 7 | 100% |
 | Phase 10: Deploy | 5 | 5 | 100% |
 | Phase 11: Observability | 6 | 6 | 100% |
-| Phase 12: Brod (Containers) | 5 | 5 | 100% |
+| Phase 12: Pristaniste (Containers) | 5 | 5 | 100% |
 | Phase 13: Tefter (Databases) | 6 | 6 | 100% |
 | Phase 14: Vrata (Gateway) | 4 | 4 | 100% |
-| **Total** | **123** | **123** | **100%** |
+| Phase 15: Indeks (Key/Value) | 5 | 5 | 100% |
+| Phase 16: Red (Message Queue) | 6 | 6 | 100% |
+| Phase 17: Identitet (Access Control) | 6 | 6 | 100% |
+| Phase 18: API Keys (CLI/SDK credentials) | 4 | 4 | 100% |
+| **Total** | **144** | **144** | **100%** |
 
 ---
 
@@ -1189,12 +1193,12 @@ telemetry wiring.
 - [x] **11.5** Alerting: rule types, evaluator, default rules, notifications ✅
 - [x] **11.6** Backing-system metrics (Redis, MinIO, ClickHouse) + container log tailing ✅
 
-### Phase 12: Brod (Container Service)
+### Phase 12: Pristaniste (Container Service)
 
 - [x] **12.1** Go service wrapping the Docker Engine + a `registry:2` registry ✅
 - [x] **12.2** Repositories, images, container lifecycle, logs, stats ✅
 - [x] **12.3** Managed-label isolation; `ContainerEngine` interface + mock ✅
-- [x] **12.4** Strapi proxy (`api/brod`) with audit; permissions ✅
+- [x] **12.4** Strapi proxy (`api/pristaniste`) with audit; permissions ✅
 - [x] **12.5** Frontend: Containers and Repositories pages, nav, routes ✅
 
 ### Phase 13: Tefter (Database Service)
@@ -1208,10 +1212,43 @@ telemetry wiring.
 
 ### Phase 14: Vrata (Gateway)
 
-- [x] **14.1** Instrumented reverse proxy fronting Brod containers and Izvor VMs ✅
+- [x] **14.1** Instrumented reverse proxy fronting Pristaniste containers and Izvor VMs ✅
 - [x] **14.2** Route table (host + path matching), persistence ✅
 - [x] **14.3** Per-request trace, access log and RED metrics ✅
 - [x] **14.4** Strapi proxy (`api/vrata`) for route management ✅
+
+### Phase 15: Indeks (Key/Value Store)
+
+- [x] **15.1** Go service, DynamoDB-shaped, backed by embedded bbolt ✅
+- [x] **15.2** Tables with partition + optional sort key; order-preserving numeric keys ✅
+- [x] **15.3** Put/get/delete items, query a partition (sort conditions), scan ✅
+- [x] **15.4** Backups that outlive their table, and restore ✅
+- [x] **15.5** Strapi proxy (`api/indeks`) with audit + frontend (tables, detail) ✅
+
+### Phase 16: Red (Message Queue)
+
+- [x] **16.1** Go service, SQS-shaped, backed by embedded bbolt ✅
+- [x] **16.2** At-least-once delivery via visibility timeouts + a background sweeper ✅
+- [x] **16.3** Dead-letter queues and message retention ✅
+- [x] **16.4** Impuls triggers: a dispatcher invokes a function per message ✅
+- [x] **16.5** Strapi proxy (`api/red`) with audit + frontend (queues, triggers) ✅
+- [x] **16.6** Runtime-editable queue policy and trigger enable/pause from the dashboard ✅
+
+### Phase 17: Identitet (Access Control)
+
+- [x] **17.1** Root/member roles; env-root via `OBLAK_ROOT_EMAIL`, reconciled on login and boot ✅
+- [x] **17.2** Per-service grants (none/read/write) on the user; ownership registry for platform services ✅
+- [x] **17.3** Service-level gate + owner-isolation + root bypass across every proxy controller ✅
+- [x] **17.4** Identitet admin API (`api/identitet`): me, list/create/update/delete users (root only) ✅
+- [x] **17.5** Frontend: Users admin page with grants editor, nav gating by grants ✅
+- [x] **17.6** Docs (`docs/IDENTITET.md`) and config reference ✅
+
+### Phase 18: API Keys (CLI/SDK credentials)
+
+- [x] **18.1** `credential` content-type (hashed secret, expiry, revoke); `oblak_<id>_<secret>` format ✅
+- [x] **18.2** Content-api auth strategy: a key authenticates as its owner, inheriting the owner's access ✅
+- [x] **18.3** Self-service key API + UI (create/reveal-once/revoke); `Authorization: Bearer` and `X-API-Key` ✅
+- [x] **18.4** Docs (`docs/IDENTITET.md` API keys section) ✅
 
 ---
 

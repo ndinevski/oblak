@@ -27,7 +27,7 @@ RUN apk --no-cache add ca-certificates curl
 # Copy the binary
 COPY --from=builder /app/tefter-server .
 
-# Run as a non-root user. Brod reaches docker.sock through the host's docker
+# Run as a non-root user. Pristaniste reaches docker.sock through the host's docker
 # group (see group_add in docker-compose.yml) rather than by running as root.
 # Backups are written here, so the directory must exist and be writable by the
 # non-root user before the volume is mounted over it.

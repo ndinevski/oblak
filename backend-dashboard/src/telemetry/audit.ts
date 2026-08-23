@@ -28,6 +28,8 @@ export type AuditResourceType =
   | "container"
   | "database"
   | "gateway"
+  | "keyvalue"
+  | "queue"
   | "telemetry";
 
 export interface AuditEvent {

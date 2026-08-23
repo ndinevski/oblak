@@ -7,6 +7,9 @@ import type { Core } from "@strapi/strapi";
 import { SpomenClientError } from "../services/spomen-client";
 
 import { recordAudit } from "../../../telemetry/audit";
+import { isRoot, requireAccess } from "../../../identitet/authz";
+
+const SERVICE = "storage";
 // =============================================================================
 // Types
 // =============================================================================
@@ -103,11 +106,13 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async find(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     try {
       const bucketService = strapi.service("api::bucket.bucket");
 
-      const result = await bucketService.find(user.id, {
+      // Root lists across all owners (null); a member sees only its own.
+      const result = await bucketService.find(isRoot(user) ? null : user.id, {
         pagination: {
           page: Number(ctx.query.page) || 1,
           pageSize: Number(ctx.query.pageSize) || 25,
@@ -127,7 +132,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async findOne(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
       const bucketService = strapi.service("api::bucket.bucket");
@@ -145,7 +151,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async create(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     try {
       const bucketService = strapi.service("api::bucket.bucket");
 
@@ -214,7 +221,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async update(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
       const bucketService = strapi.service("api::bucket.bucket");
@@ -266,7 +274,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async delete(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
       const force = ctx.query.force === "true";
@@ -307,7 +316,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async stats(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
       const bucketService = strapi.service("api::bucket.bucket");
@@ -325,7 +335,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async sync(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
       const bucketService = strapi.service("api::bucket.bucket");
@@ -343,7 +354,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async quota(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     try {
       const bucketService = strapi.service("api::bucket.bucket");
 
@@ -360,7 +372,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async issueCredentials(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
 
     try {

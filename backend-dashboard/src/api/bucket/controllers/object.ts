@@ -7,6 +7,9 @@ import type { Core } from "@strapi/strapi";
 import { SpomenClientError } from "../services/spomen-client";
 
 import { recordAudit } from "../../../telemetry/audit";
+import { requireAccess } from "../../../identitet/authz";
+
+const SERVICE = "storage";
 // =============================================================================
 // Types
 // =============================================================================
@@ -126,9 +129,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async list(ctx: Context) {
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const result = await objectService.list(bucketId, user.id, {
@@ -149,11 +153,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async get(ctx: Context) {
-    const userId = ctx.state.user?.id;
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     const key = getObjectKey(ctx);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       if (!key) {
@@ -192,10 +196,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async upload(ctx: Context) {
-    const userId = ctx.state.user?.id;
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
+    const userId = user.id;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const body = ctx.request.body as {
@@ -321,11 +326,12 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async delete(ctx: Context) {
-    const userId = ctx.state.user?.id;
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
+    const userId = user.id;
     const bucketId = parseInt(ctx.params.id, 10);
     const key = getObjectKey(ctx);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       if (!key) {
@@ -366,10 +372,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async deleteMany(ctx: Context) {
-    const userId = ctx.state.user?.id;
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
+    const userId = user.id;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const body = ctx.request.body as { keys: string[] };
@@ -422,10 +429,11 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async deleteFolder(ctx: Context) {
-    const userId = ctx.state.user?.id;
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
+    const userId = user.id;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const body = ctx.request.body as { prefix: string };
@@ -476,9 +484,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async copy(ctx: Context) {
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const body = ctx.request.body as {
@@ -510,9 +519,10 @@ export default ({ strapi }: { strapi: Strapi }) => ({
   // ===========================================================================
 
   async presignedUrl(ctx: Context) {
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
     const bucketId = parseInt(ctx.params.id, 10);
     try {
-      const user = getAuthenticatedUser(ctx);
       const objectService = strapi.service("api::bucket.object");
 
       const body = ctx.request.body as {

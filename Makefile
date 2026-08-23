@@ -1,10 +1,12 @@
-.PHONY: all test test-impuls test-spomen test-izvor test-brod test-tefter test-vrata test-dashboard test-coverage build build-impuls build-spomen build-izvor build-brod build-tefter build-vrata build-dashboard clean help
+.PHONY: all test test-impuls test-spomen test-izvor test-pristaniste test-tefter test-vrata test-indeks test-red test-dashboard test-coverage build build-impuls build-spomen build-izvor build-pristaniste build-tefter build-vrata build-indeks build-red build-dashboard clean help
 .PHONY: dev dev-dashboard up down logs ps
 .PHONY: up-polaroid down-polaroid logs-polaroid
 .PHONY: up-observability down-observability logs-observability observability-net
-.PHONY: up-brod down-brod logs-brod
+.PHONY: up-pristaniste down-pristaniste logs-pristaniste
 .PHONY: up-tefter down-tefter logs-tefter
 .PHONY: up-vrata down-vrata logs-vrata
+.PHONY: up-indeks down-indeks logs-indeks
+.PHONY: up-red down-red logs-red
 
 # Default target
 help:
@@ -15,18 +17,22 @@ help:
 	@echo "  make test-impuls       - Run Impuls tests only"
 	@echo "  make test-spomen       - Run Spomen tests only"
 	@echo "  make test-izvor        - Run Izvor tests only"
-	@echo "  make test-brod         - Run Brod tests only"
+	@echo "  make test-pristaniste         - Run Pristaniste tests only"
 	@echo "  make test-tefter       - Run Tefter tests only"
 	@echo "  make test-vrata        - Run Vrata tests only"
+	@echo "  make test-indeks       - Run Indeks tests only"
+	@echo "  make test-red          - Run Red tests only"
 	@echo "  make test-dashboard    - Run Dashboard tests (frontend + backend)"
 	@echo "  make test-coverage     - Run all tests with coverage"
 	@echo "  make build             - Build all services"
 	@echo "  make build-impuls      - Build Impuls server"
 	@echo "  make build-spomen      - Build Spomen server"
 	@echo "  make build-izvor       - Build Izvor server"
-	@echo "  make build-brod        - Build Brod server"
+	@echo "  make build-pristaniste        - Build Pristaniste server"
 	@echo "  make build-tefter      - Build Tefter server"
 	@echo "  make build-vrata       - Build Vrata gateway"
+	@echo "  make build-indeks      - Build Indeks store"
+	@echo "  make build-red         - Build Red queue"
 	@echo "  make build-dashboard   - Build Dashboard (frontend + backend)"
 	@echo "  make clean             - Clean build artifacts"
 	@echo ""
@@ -42,16 +48,22 @@ help:
 	@echo "  make down-polaroid     - Stop Polaroid containers"
 	@echo "  make logs-polaroid     - View Polaroid container logs"
 	@echo ""
-	@echo "Brod (Containers):"
-	@echo "  make up-brod           - Start Brod API and image registry"
-	@echo "  make down-brod         - Stop Brod"
-	@echo "  make logs-brod         - View Brod logs"
+	@echo "Pristaniste (Containers):"
+	@echo "  make up-pristaniste           - Start Pristaniste API and image registry"
+	@echo "  make down-pristaniste         - Stop Pristaniste"
+	@echo "  make logs-pristaniste         - View Pristaniste logs"
 	@echo "  make up-tefter         - Start the Tefter database API"
 	@echo "  make down-tefter       - Stop Tefter"
 	@echo "  make logs-tefter       - View Tefter logs"
 	@echo "  make up-vrata          - Start the Vrata gateway"
 	@echo "  make down-vrata        - Stop Vrata"
 	@echo "  make logs-vrata        - View Vrata logs"
+	@echo "  make up-indeks         - Start the Indeks key/value store"
+	@echo "  make down-indeks       - Stop Indeks"
+	@echo "  make logs-indeks       - View Indeks logs"
+	@echo "  make up-red            - Start the Red message queue"
+	@echo "  make down-red          - Stop Red"
+	@echo "  make logs-red          - View Red logs"
 	@echo ""
 	@echo "Observability (OpenTelemetry + ClickHouse):"
 	@echo "  make up-observability   - Start ClickHouse and the OTel collector"
@@ -60,7 +72,7 @@ help:
 	@echo ""
 
 # Run all tests
-test: test-impuls test-spomen test-izvor test-brod test-tefter test-vrata test-dashboard
+test: test-impuls test-spomen test-izvor test-pristaniste test-tefter test-vrata test-indeks test-red test-dashboard
 	@echo ""
 	@echo "✓ All tests completed"
 
@@ -79,10 +91,10 @@ test-izvor:
 	@echo "Running Izvor tests..."
 	@cd izvor && go test -v ./...
 
-# Run Brod tests
-test-brod:
-	@echo "Running Brod tests..."
-	@cd brod && go test -v ./...
+# Run Pristaniste tests
+test-pristaniste:
+	@echo "Running Pristaniste tests..."
+	@cd pristaniste && go test -v ./...
 
 # Run Tefter tests
 test-tefter:
@@ -93,6 +105,16 @@ test-tefter:
 test-vrata:
 	@echo "Running Vrata tests..."
 	@cd vrata && go test -v ./...
+
+# Run Indeks tests
+test-indeks:
+	@echo "Running Indeks tests..."
+	@cd indeks && go test -v ./...
+
+# Run Red tests
+test-red:
+	@echo "Running Red tests..."
+	@cd red && go test -v ./...
 
 # Run Dashboard tests
 test-dashboard:
@@ -117,13 +139,15 @@ test-coverage:
 	@echo "=== Izvor Coverage ==="
 	@cd izvor && go test -cover ./...
 	@echo ""
-	@echo "=== Brod Coverage ==="
-	@cd brod && go test -cover ./...
+	@echo "=== Pristaniste Coverage ==="
+	@cd pristaniste && go test -cover ./...
 	@cd tefter && go test -cover ./...
 	@cd vrata && go test -cover ./...
+	@cd indeks && go test -cover ./...
+	@cd red && go test -cover ./...
 
 # Build all services
-build: build-impuls build-spomen build-izvor build-brod build-tefter build-vrata build-dashboard
+build: build-impuls build-spomen build-izvor build-pristaniste build-tefter build-vrata build-indeks build-red build-dashboard
 	@echo ""
 	@echo "✓ All services built"
 
@@ -142,10 +166,10 @@ build-izvor:
 	@echo "Building Izvor..."
 	@cd izvor && make build
 
-# Build Brod
-build-brod:
-	@echo "Building Brod..."
-	@cd brod && make build
+# Build Pristaniste
+build-pristaniste:
+	@echo "Building Pristaniste..."
+	@cd pristaniste && make build
 
 # Build Tefter
 build-tefter:
@@ -156,6 +180,16 @@ build-tefter:
 build-vrata:
 	@echo "Building Vrata..."
 	@cd vrata && make build
+
+# Build Indeks
+build-indeks:
+	@echo "Building Indeks..."
+	@cd indeks && make build
+
+# Build Red
+build-red:
+	@echo "Building Red..."
+	@cd red && make build
 
 # Build Dashboard
 build-dashboard:
@@ -173,9 +207,11 @@ clean:
 	@cd impuls && make clean
 	@cd spomen && rm -f spomen-server
 	@cd izvor && rm -f izvor-server
-	@cd brod && rm -f brod-server
+	@cd pristaniste && rm -f pristaniste-server
 	@cd tefter && rm -f tefter-server
 	@cd vrata && rm -f vrata-server
+	@cd indeks && rm -f indeks-server
+	@cd red && rm -f red-server
 	@cd backend-dashboard && rm -rf dist .cache
 	@cd frontend-dashboard && rm -rf dist
 	@echo "✓ Clean complete"
@@ -249,21 +285,21 @@ logs-observability:
 	docker compose -f observability/docker-compose.yml logs -f
 
 # ============================================
-# Brod (Container Service) Commands
+# Pristaniste (Container Service) Commands
 # ============================================
 
-# Start Brod. Depends on the shared telemetry network, which the observability
+# Start Pristaniste. Depends on the shared telemetry network, which the observability
 # target creates.
-up-brod: observability-net
-	docker compose -f brod/docker-compose.yml up -d --build
+up-pristaniste: observability-net
+	docker compose -f pristaniste/docker-compose.yml up -d --build
 
-# Stop Brod
-down-brod:
-	docker compose -f brod/docker-compose.yml down
+# Stop Pristaniste
+down-pristaniste:
+	docker compose -f pristaniste/docker-compose.yml down
 
-# View Brod logs
-logs-brod:
-	docker compose -f brod/docker-compose.yml logs -f
+# View Pristaniste logs
+logs-pristaniste:
+	docker compose -f pristaniste/docker-compose.yml logs -f
 
 # ============================================
 # Tefter (Database Service) Commands
@@ -290,7 +326,7 @@ logs-tefter:
 # ============================================
 
 # Start Vrata. Depends on the shared telemetry network, which the observability
-# target creates. Vrata is the instrumented reverse proxy in front of Brod
+# target creates. Vrata is the instrumented reverse proxy in front of Pristaniste
 # containers and Izvor VMs, so requests to workloads are traced and logged.
 up-vrata: observability-net
 	docker compose -f vrata/docker-compose.yml up -d --build
@@ -302,3 +338,37 @@ down-vrata:
 # View Vrata logs
 logs-vrata:
 	docker compose -f vrata/docker-compose.yml logs -f
+
+# ============================================
+# Indeks (Key/Value Store) Commands
+# ============================================
+
+# Start Indeks. Depends on the shared telemetry network. Indeks needs no
+# external engine: it stores data in an embedded bbolt file in its volume.
+up-indeks: observability-net
+	docker compose -f indeks/docker-compose.yml up -d --build
+
+# Stop Indeks
+down-indeks:
+	docker compose -f indeks/docker-compose.yml down
+
+# View Indeks logs
+logs-indeks:
+	docker compose -f indeks/docker-compose.yml logs -f
+
+# ============================================
+# Red (Message Queue) Commands
+# ============================================
+
+# Start Red. Depends on the shared telemetry network. Red needs no external
+# engine: queues and messages live in an embedded bbolt file in its volume.
+up-red: observability-net
+	docker compose -f red/docker-compose.yml up -d --build
+
+# Stop Red
+down-red:
+	docker compose -f red/docker-compose.yml down
+
+# View Red logs
+logs-red:
+	docker compose -f red/docker-compose.yml logs -f

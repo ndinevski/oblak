@@ -9,14 +9,11 @@
 import type { Context } from 'koa';
 import { getVrataClient, VrataError } from '../services/vrata-client';
 import { recordAuditFromContext } from '../../../telemetry/audit';
+import { requireAccess } from '../../../identitet/authz';
 
-function getAuthenticatedUser(ctx: Context) {
-  const user = ctx.state.user;
-  if (!user) {
-    return ctx.unauthorized('You must be logged in');
-  }
-  return user;
-}
+// The gateway is shared infrastructure (routes front the whole deployment), so
+// it is gated by service level only, not owner-isolated.
+const SERVICE = 'gateway';
 
 async function handle<T>(ctx: Context, fn: () => Promise<T>) {
   try {
@@ -36,22 +33,23 @@ async function handle<T>(ctx: Context, fn: () => Promise<T>) {
 
 export default {
   async health(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return { data: await getVrataClient().health() };
   },
 
   async listRoutes(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return handle(ctx, () => getVrataClient().listRoutes());
   },
 
   async getRoute(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
     return handle(ctx, () => getVrataClient().getRoute(ctx.params.name));
   },
 
   async createRoute(ctx: Context) {
-    const user = getAuthenticatedUser(ctx);
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
     const body = (ctx.request.body ?? {}) as Record<string, unknown>;
 
     if (!body.name || !body.upstream) {
@@ -73,7 +71,7 @@ export default {
   },
 
   async deleteRoute(ctx: Context) {
-    getAuthenticatedUser(ctx);
+    if (!requireAccess(ctx, SERVICE, 'write')) return;
     const name = ctx.params.name;
 
     const result = await handle(ctx, async () => {

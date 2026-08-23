@@ -31,7 +31,7 @@ so the frontend talks to one authenticated origin:
 | `/api/functions` | Impuls | Serverless functions |
 | `/api/virtual-machines` | Izvor | VMs |
 | `/api/buckets`, `/api/objects` | Spomen | Object storage |
-| `/api/brod/*` | Brod | Containers (registry + runtime) |
+| `/api/pristaniste/*` | Pristaniste | Containers (registry + runtime) |
 | `/api/tefter/*` | Tefter | Managed databases |
 | `/api/vrata/*` | Vrata | Observability gateway |
 | `/api/telemetry/*`, `/api/alert-rules/*` | ClickHouse | Observability & alerting |
@@ -46,5 +46,5 @@ Telemetry (traces, logs, metrics, audit) is emitted via OpenTelemetry from
 ## Environment Variables
 
 See `.env.example` for all required environment variables, including the URL of
-each proxied service (`IMPULS_URL`, `IZVOR_URL`, `SPOMEN_URL`, `BROD_URL`,
+each proxied service (`IMPULS_URL`, `IZVOR_URL`, `SPOMEN_URL`, `PRISTANISTE_URL`,
 `TEFTER_URL`, `VRATA_URL`) and the telemetry endpoint.

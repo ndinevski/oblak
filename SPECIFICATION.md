@@ -33,9 +33,11 @@
 | **Impuls** | Serverless Functions (FaaS) | AWS Lambda |
 | **Izvor** | Virtual Machine Provisioning | AWS EC2 |
 | **Spomen** | Object Storage | AWS S3 |
-| **Brod** | Containers: image registry + runtime | AWS ECR + ECS |
+| **Pristaniste** | Containers: image registry + runtime | AWS ECR + ECS |
 | **Tefter** | Managed databases: PostgreSQL & MySQL | AWS RDS |
 | **Vrata** | Observability gateway (reverse proxy) | AWS ALB access logs |
+| **Indeks** | Key/Value & document store | AWS DynamoDB |
+| **Red** | Message queue | AWS SQS |
 | **Polaroid** | Photo & Video Management | Google Photos |
 
 A cross-cutting **Observability** stack (OpenTelemetry Collector + ClickHouse)
@@ -91,7 +93,7 @@ and the backing data stores. See `observability/README.md`.
        │          │          │      │      │          │          │
        ▼          ▼          ▼      ▼      ▼          ▼          ▼
 ┌──────────┐┌──────────┐┌────────┐┌──────┐┌────────┐┌────────┐┌──────────┐
-│  Impuls  ││  Izvor   ││ Spomen ││ Brod ││ Tefter ││ Vrata  ││ Polaroid │
+│  Impuls  ││  Izvor   ││ Spomen ││ Pristaniste ││ Tefter ││ Vrata  ││ Polaroid │
 │  :8080   ││  :8082   ││ :8081  ││:8083 ││ :8084  ││:8085/  ││  :2283   │
 │          ││          ││        ││      ││        ││ 8090   ││          │
 │Firecracker││ Proxmox  ││ MinIO  ││Docker││PG/MySQL││reverse ││ Immich   │
@@ -118,7 +120,7 @@ and the backing data stores. See `observability/README.md`.
 5. **All services → Collector**: Every service exports OpenTelemetry traces, logs
    and metrics to the OTel Collector, which writes them to ClickHouse; the
    dashboard reads telemetry back from there
-6. **Workload traffic → Vrata**: HTTP traffic to Brod containers and Izvor VMs is
+6. **Workload traffic → Vrata**: HTTP traffic to Pristaniste containers and Izvor VMs is
    routed through the Vrata gateway so it is traced and logged like a service
 
 ### 2.3 Directory Structure
@@ -137,9 +139,11 @@ oblak/
 │   │   │   ├── virtual-machine/ # Izvor integration
 │   │   │   ├── bucket/          # Spomen integration
 │   │   │   ├── object/          # Spomen objects
-│   │   │   ├── brod/            # Brod (containers) integration
+│   │   │   ├── pristaniste/            # Pristaniste (containers) integration
 │   │   │   ├── tefter/          # Tefter (databases) integration
 │   │   │   ├── vrata/           # Vrata (gateway) integration
+│   │   │   ├── indeks/          # Indeks (key/value) integration
+│   │   │   ├── red/             # Red (message queue) integration
 │   │   │   ├── telemetry/       # Observability queries (ClickHouse)
 │   │   │   ├── alert-rule/      # Alerting
 │   │   │   ├── polaroid/        # Polaroid integration (Immich)
@@ -188,9 +192,11 @@ oblak/
 ├── impuls/                      # Serverless functions (Go)
 ├── izvor/                       # VM provisioning (Go)
 ├── spomen/                      # Object storage (Go)
-├── brod/                        # Containers: registry + runtime (Go)
+├── pristaniste/                        # Containers: registry + runtime (Go)
 ├── tefter/                      # Managed databases: Postgres/MySQL (Go)
 ├── vrata/                       # Observability gateway (Go)
+├── indeks/                      # Key/value store, DynamoDB-shaped (Go)
+├── red/                         # Message queue, SQS-shaped (Go)
 ├── observability/               # OTel Collector + ClickHouse
 │   ├── otel-collector/config.yaml
 │   ├── clickhouse/config/
@@ -245,16 +251,18 @@ DATABASE_PASSWORD=oblak
 IMPULS_URL=http://localhost:8080
 IZVOR_URL=http://localhost:8082
 SPOMEN_URL=http://localhost:8081
-BROD_URL=http://localhost:8083
+PRISTANISTE_URL=http://localhost:8083
 TEFTER_URL=http://localhost:8084
 VRATA_URL=http://localhost:8085
+INDEKS_URL=http://localhost:8086
+RED_URL=http://localhost:8087
 POLAROID_URL=http://localhost:2283
 
 # Service API Keys (optional)
 IMPULS_API_KEY=
 IZVOR_API_KEY=
 SPOMEN_API_KEY=
-BROD_API_KEY=
+PRISTANISTE_API_KEY=
 TEFTER_API_KEY=
 POLAROID_API_KEY=
 

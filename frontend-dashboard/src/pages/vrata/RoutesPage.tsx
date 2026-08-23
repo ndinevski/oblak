@@ -2,8 +2,8 @@
  * Gateway routes.
  *
  * Vrata's route table: each route sends traffic for a name or hostname to a
- * Brod container or Izvor VM, so that traffic is traced and logged. Routes come
- * from two places - created here by hand, or auto-discovered from Brod - and
+ * Pristaniste container or Izvor VM, so that traffic is traced and logged. Routes come
+ * from two places - created here by hand, or auto-discovered from Pristaniste - and
  * the list shows both, distinguished by source.
  */
 
@@ -126,7 +126,7 @@ export default function RoutesPage() {
               <p className="font-medium">No routes yet</p>
               <p className="max-w-md text-sm text-muted-foreground">
                 Add a route to send traffic for a container or VM through the gateway, so its
-                requests are traced and logged. Containers deployed through Brod are discovered
+                requests are traced and logged. Containers deployed through Pristaniste are discovered
                 automatically.
               </p>
             </div>
@@ -158,7 +158,7 @@ export default function RoutesPage() {
               observability.
               {confirmDelete && isAutoManaged(confirmDelete) && (
                 <>
-                  {' '}This route was discovered automatically from a Brod container, so it will
+                  {' '}This route was discovered automatically from a Pristaniste container, so it will
                   reappear on the next discovery poll while that container is running.
                 </>
               )}
@@ -408,7 +408,7 @@ function CreateDialog({
               onChange={(e) => setUpstream(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Where requests go. A bare <code>host:port</code> is assumed http. For a Brod container,
+              Where requests go. A bare <code>host:port</code> is assumed http. For a Pristaniste container,
               use <code>http://host.docker.internal:&lt;published-port&gt;</code>; for a VM, its LAN
               address.
             </p>

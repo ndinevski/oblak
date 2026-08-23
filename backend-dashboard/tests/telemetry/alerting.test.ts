@@ -239,7 +239,7 @@ describe('describeCondition', () => {
           windowMinutes: 10,
         })
       )
-    ).toBe('Service not reporting for izvor below 1 spans over 10m');
+    ).toBe('Service not reporting for izvor below 1 datapoints over 10m');
   });
 
   it('omits the target when the rule applies to everything', () => {

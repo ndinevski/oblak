@@ -2,6 +2,45 @@ import type { Core } from '@strapi/strapi';
 import { recordAudit, type AuditResourceType } from './telemetry/audit';
 import { startAlertEvaluator, stopAlertEvaluator } from './telemetry/alerting';
 import { DEFAULT_ALERT_RULES } from './telemetry/default-alert-rules';
+import { DEFAULT_MEMBER_GRANTS } from './identitet/authz';
+import { apiKeyStrategy } from './identitet/credentials';
+
+/**
+ * Provisions Identitet fields on every existing user at boot, so access control does
+ * not depend on each user logging in again first. The env-root is set to
+ * 'root' and anyone else marked root is demoted; members with no grants yet get
+ * the default set. Runs on every start and is cheap and idempotent.
+ */
+async function reconcileAllUsers(strapi: Core.Strapi): Promise<void> {
+  const root = (process.env.OBLAK_ROOT_EMAIL ?? '').trim().toLowerCase();
+  const users = await strapi.db
+    .query('plugin::users-permissions.user')
+    .findMany({ select: ['id', 'email', 'identitetRole', 'grants'] });
+
+  for (const u of users) {
+    const email = (u.email ?? '').trim().toLowerCase();
+    const shouldBeRoot = root !== '' && email === root;
+    const patch: Record<string, unknown> = {};
+
+    const desiredRole = shouldBeRoot ? 'root' : u.identitetRole === 'root' ? 'member' : u.identitetRole ?? 'member';
+    if (desiredRole !== u.identitetRole) patch.identitetRole = desiredRole;
+
+    const hasGrants = u.grants && typeof u.grants === 'object' && Object.keys(u.grants).length > 0;
+    if (!shouldBeRoot && !hasGrants) patch.grants = DEFAULT_MEMBER_GRANTS;
+
+    if (Object.keys(patch).length > 0) {
+      await strapi.db
+        .query('plugin::users-permissions.user')
+        .update({ where: { id: u.id }, data: patch });
+    }
+  }
+
+  if (root === '') {
+    strapi.log.warn(
+      'OBLAK_ROOT_EMAIL is not set: no account has root access. Set it in .env and restart.',
+    );
+  }
+}
 
 const DEMO_DEFAULTS = {
   username: process.env.SEED_DEMO_USERNAME || 'demo',
@@ -32,7 +71,7 @@ function shouldSeedDemoData(): boolean {
 async function seedDefaultAlertRules(strapi: Core.Strapi): Promise<void> {
   // Idempotent by name: create any default rule that is not already present.
   // On a fresh install this seeds the whole set; on an upgrade it tops up rules
-  // added since the last version (for example the Brod/Tefter/Vrata rules)
+  // added since the last version (for example the Pristaniste/Tefter/Vrata rules)
   // without disturbing rules the operator has edited. A default the operator
   // deletes can reappear after an upgrade that ships new defaults; deleting it
   // again is a one-time cost, which is the price of getting new coverage
@@ -190,23 +229,23 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::alert-rule.alert-rule.update',
     'api::alert-rule.alert-rule.delete',
     'api::alert-rule.alert-rule.mute',
-    'api::brod.brod.health',
-    'api::brod.brod.registry',
-    'api::brod.brod.listRepositories',
-    'api::brod.brod.getRepository',
-    'api::brod.brod.createRepository',
-    'api::brod.brod.deleteRepository',
-    'api::brod.brod.listImages',
-    'api::brod.brod.deleteImage',
-    'api::brod.brod.listContainers',
-    'api::brod.brod.getContainer',
-    'api::brod.brod.createContainer',
-    'api::brod.brod.deleteContainer',
-    'api::brod.brod.startContainer',
-    'api::brod.brod.stopContainer',
-    'api::brod.brod.restartContainer',
-    'api::brod.brod.containerLogs',
-    'api::brod.brod.containerStats',
+    'api::pristaniste.pristaniste.health',
+    'api::pristaniste.pristaniste.registry',
+    'api::pristaniste.pristaniste.listRepositories',
+    'api::pristaniste.pristaniste.getRepository',
+    'api::pristaniste.pristaniste.createRepository',
+    'api::pristaniste.pristaniste.deleteRepository',
+    'api::pristaniste.pristaniste.listImages',
+    'api::pristaniste.pristaniste.deleteImage',
+    'api::pristaniste.pristaniste.listContainers',
+    'api::pristaniste.pristaniste.getContainer',
+    'api::pristaniste.pristaniste.createContainer',
+    'api::pristaniste.pristaniste.deleteContainer',
+    'api::pristaniste.pristaniste.startContainer',
+    'api::pristaniste.pristaniste.stopContainer',
+    'api::pristaniste.pristaniste.restartContainer',
+    'api::pristaniste.pristaniste.containerLogs',
+    'api::pristaniste.pristaniste.containerStats',
     'api::tefter.tefter.health',
     'api::tefter.tefter.engines',
     'api::tefter.tefter.sizes',
@@ -231,6 +270,54 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::vrata.vrata.getRoute',
     'api::vrata.vrata.createRoute',
     'api::vrata.vrata.deleteRoute',
+    'api::indeks.indeks.health',
+    'api::indeks.indeks.listTables',
+    'api::indeks.indeks.getTable',
+    'api::indeks.indeks.createTable',
+    'api::indeks.indeks.deleteTable',
+    'api::indeks.indeks.putItem',
+    'api::indeks.indeks.getItem',
+    'api::indeks.indeks.deleteItem',
+    'api::indeks.indeks.query',
+    'api::indeks.indeks.scan',
+    'api::indeks.indeks.listBackups',
+    'api::indeks.indeks.listTableBackups',
+    'api::indeks.indeks.getBackup',
+    'api::indeks.indeks.createBackup',
+    'api::indeks.indeks.deleteBackup',
+    'api::indeks.indeks.restoreBackup',
+    'api::red.red.health',
+    'api::red.red.listQueues',
+    'api::red.red.getQueue',
+    'api::red.red.createQueue',
+    'api::red.red.updateQueue',
+    'api::red.red.deleteQueue',
+    'api::red.red.stats',
+    'api::red.red.purge',
+    'api::red.red.sendMessage',
+    'api::red.red.receive',
+    'api::red.red.deleteMessage',
+    'api::red.red.listBackups',
+    'api::red.red.listQueueBackups',
+    'api::red.red.getBackup',
+    'api::red.red.createBackup',
+    'api::red.red.deleteBackup',
+    'api::red.red.restoreBackup',
+    'api::red.red.listSubscriptions',
+    'api::red.red.createSubscription',
+    'api::red.red.updateSubscription',
+    'api::red.red.deleteSubscription',
+    // Identitet: every authenticated user may call these; the controller restricts
+    // management actions to the root account and `me` to the caller.
+    'api::identitet.identitet.me',
+    'api::identitet.identitet.services',
+    'api::identitet.identitet.listUsers',
+    'api::identitet.identitet.createUser',
+    'api::identitet.identitet.updateUser',
+    'api::identitet.identitet.deleteUser',
+    'api::identitet.identitet.listKeys',
+    'api::identitet.identitet.createKey',
+    'api::identitet.identitet.deleteKey',
   ];
 
   for (const action of requiredActions) {
@@ -525,8 +612,16 @@ export default {
    * An asynchronous register function that runs before
    * your application is initialized.
    */
-  register(/* { strapi }: { strapi: Core.Strapi } */) {
-    // Register custom services, hooks, etc.
+  register({ strapi }: { strapi: Core.Strapi }) {
+    // Register the API-key auth strategy alongside the users-permissions JWT
+    // strategy, so a request bearing an `oblak_...` key authenticates as the
+    // key's owner. Registered here (register phase) so it is in place before
+    // any request is routed.
+    try {
+      strapi.get('auth').register('content-api', apiKeyStrategy(strapi));
+    } catch (error) {
+      strapi.log.error('Could not register the API-key auth strategy:', error);
+    }
   },
 
   /**
@@ -579,6 +674,12 @@ export default {
       await seedDefaultAlertRules(strapi);
     } catch (error) {
       strapi.log.warn('Could not seed default alert rules:', error);
+    }
+
+    try {
+      await reconcileAllUsers(strapi);
+    } catch (error) {
+      strapi.log.warn('Could not reconcile Identitet roles:', error);
     }
 
     // Alert evaluation runs on a timer rather than per-request. Started last so

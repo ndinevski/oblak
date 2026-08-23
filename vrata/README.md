@@ -6,9 +6,9 @@ logged**. ("Vrata" is Croatian for "gate".)
 
 ## Why it exists
 
-Oblak's services (Impuls, Spomen, Izvor, Brod, Tefter) are all instrumented:
+Oblak's services (Impuls, Spomen, Izvor, Pristaniste, Tefter) are all instrumented:
 their management APIs emit traces, logs and RED metrics. But the *workloads*
-they run are not. A Brod container runs the operator's own image; an Izvor VM
+they run are not. A Pristaniste container runs the operator's own image; an Izvor VM
 runs a whole guest OS. Neither carries Oblak telemetry, so once a container or
 VM is running, HTTP traffic to it is invisible: you cannot see a request, its
 status, or its latency anywhere in the dashboard.
@@ -23,7 +23,7 @@ the route and whether the upstream is a container or a VM.
 |---|---|---|
 | Service management APIs | yes | - |
 | Impuls function invocations | yes (via the invoke API) | - |
-| Traffic to Brod containers | no | yes |
+| Traffic to Pristaniste containers | no | yes |
 | Traffic to Izvor VMs | no | yes |
 
 ## How it works
@@ -46,24 +46,24 @@ route in one of two ways:
 
 A Host match always wins over a path match.
 
-### Auto-discovery of Brod containers
+### Auto-discovery of Pristaniste containers
 
-Vrata can register routes on its own. When `VRATA_BROD_URL` is set, a background
-poller asks Brod for its running containers and keeps one route per container
+Vrata can register routes on its own. When `VRATA_PRISTANISTE_URL` is set, a background
+poller asks Pristaniste for its running containers and keeps one route per container
 that publishes a port: a container named `webapp` becomes a route `webapp`
 reachable at `<proxy>/webapp/...`. Containers with more than one published port
 get one route each, suffixed with the container port (`webapp-80`, `webapp-9090`).
 
-This means a container deployed through Brod is observable through Vrata with no
+This means a container deployed through Pristaniste is observable through Vrata with no
 manual step: run it, and its traffic shows up in the dashboard. When the
 container stops or is deleted, its route is removed on the next poll.
 
-Discovered routes carry `source: "brod"`. Reconciliation only ever touches
+Discovered routes carry `source: "pristaniste"`. Reconciliation only ever touches
 routes it owns: a route you created by hand (`source: "manual"`) is never
 modified or removed, and if a container happens to share a manual route's name,
 the manual route wins.
 
-Only Brod containers are auto-discovered. Izvor VMs are not: a VM's address
+Only Pristaniste containers are auto-discovered. Izvor VMs are not: a VM's address
 alone does not say whether it serves HTTP or on what port, so VM routes are
 created manually (the `vm` kind). Tefter databases are never routed through
 Vrata at all, since they speak the Postgres/MySQL wire protocol, not HTTP.
@@ -75,7 +75,7 @@ make up-vrata
 curl http://localhost:8085/health
 ```
 
-Register a route to a Brod container published on host port 80:
+Register a route to a Pristaniste container published on host port 80:
 
 ```bash
 curl -X POST http://localhost:8085/api/v1/routes \
@@ -151,15 +151,15 @@ A route:
 | `VRATA_API_PORT` | `8085` | Management API port |
 | `VRATA_PROXY_PORT` | `8090` | Data-plane proxy port |
 | `VRATA_ROUTE_FILE` | `/var/lib/vrata/routes.json` | Where the route table is persisted |
-| `VRATA_BROD_URL` | (unset) | Brod's API URL. Set it to enable auto-discovery of Brod containers; unset disables it. |
-| `VRATA_DISCOVERY_INTERVAL_SECONDS` | `30` | How often Brod is polled for containers (min 5) |
+| `VRATA_PRISTANISTE_URL` | (unset) | Pristaniste's API URL. Set it to enable auto-discovery of Pristaniste containers; unset disables it. |
+| `VRATA_DISCOVERY_INTERVAL_SECONDS` | `30` | How often Pristaniste is polled for containers (min 5) |
 | `VRATA_WORKLOAD_HOST` | `host.docker.internal` | Host Vrata uses to reach a container's published port |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `oblak-otel-collector:4317` | Telemetry collector |
 
 ## Networking
 
 Vrata joins the `oblak-telemetry` network to reach the collector, and is given a
-`host.docker.internal` host-gateway mapping so a route can target a Brod
+`host.docker.internal` host-gateway mapping so a route can target a Pristaniste
 container by its published host port. Izvor VMs are reached by their LAN address
 directly.
 

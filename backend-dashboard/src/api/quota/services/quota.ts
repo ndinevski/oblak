@@ -6,6 +6,10 @@
 import type { Core } from "@strapi/strapi";
 import { getClickHouseClient } from "../../../telemetry/clickhouse";
 import { countAuditAction } from "../../../telemetry/queries";
+import { getPristanisteClient } from "../../pristaniste/services/pristaniste-client";
+import { getTefterClient } from "../../tefter/services/tefter-client";
+import { getIndeksClient } from "../../indeks/services/indeks-client";
+import { getRedClient } from "../../red/services/red-client";
 
 // =============================================================================
 // Types
@@ -26,6 +30,16 @@ interface QuotaLimits {
     maxBuckets: number;
     maxTotalBytes: number;
   };
+  // Platform-service limits are counted platform-wide rather than per-user:
+  // Pristaniste, Tefter, Indeks and Red keep their resources in the Go services with
+  // no per-owner attribution, so on a self-hosted single-tenant install these
+  // caps bound the whole deployment. See getPlatformUsage below.
+  platform: {
+    maxContainers: number;
+    maxDatabases: number;
+    maxKeyValueTables: number;
+    maxQueues: number;
+  };
 }
 
 interface QuotaUsage {
@@ -43,6 +57,12 @@ interface QuotaUsage {
     bucketCount: number;
     totalBytes: number;
   };
+  platform: {
+    containerCount: number;
+    databaseCount: number;
+    keyValueTableCount: number;
+    queueCount: number;
+  };
 }
 
 interface QuotaInfo {
@@ -57,6 +77,12 @@ interface QuotaInfo {
       diskGB: number;
     };
     storage: { buckets: number; bytes: number };
+    platform: {
+      containers: number;
+      databases: number;
+      keyValueTables: number;
+      queues: number;
+    };
   };
   percentages: {
     functions: { count: number; invocations: number };
@@ -67,6 +93,12 @@ interface QuotaInfo {
       disk: number;
     };
     storage: { buckets: number; bytes: number };
+    platform: {
+      containers: number;
+      databases: number;
+      keyValueTables: number;
+      queues: number;
+    };
   };
 }
 
@@ -89,6 +121,12 @@ const DEFAULT_LIMITS: QuotaLimits = {
     maxBuckets: 10,
     maxTotalBytes: 10 * 1024 * 1024 * 1024, // 10GB
   },
+  platform: {
+    maxContainers: 20,
+    maxDatabases: 10,
+    maxKeyValueTables: 50,
+    maxQueues: 50,
+  },
 };
 
 // =============================================================================
@@ -98,6 +136,48 @@ const DEFAULT_LIMITS: QuotaLimits = {
 function calculatePercentage(used: number, max: number): number {
   if (max === 0) return 0;
   return Math.min(Math.round((used / max) * 100), 100);
+}
+
+/**
+ * Counts resources held by the platform Go services (Pristaniste, Tefter, Indeks,
+ * Red). These have no per-user ownership, so counts are platform-wide.
+ *
+ * Quota must never fail closed: a service that is down or not configured is
+ * reported as zero rather than throwing, so the quota view still renders and a
+ * create is not blocked by an unrelated outage (the create call itself would
+ * fail against the down service anyway). Each count is independent and runs in
+ * parallel so one slow service does not serialise the others.
+ */
+async function getPlatformUsage(strapi: any): Promise<{
+  containerCount: number;
+  databaseCount: number;
+  keyValueTableCount: number;
+  queueCount: number;
+}> {
+  const safeCount = async (
+    label: string,
+    fn: () => Promise<{ length: number }>,
+  ): Promise<number> => {
+    try {
+      const list = await fn();
+      return Array.isArray(list) ? list.length : 0;
+    } catch (error) {
+      strapi.log.warn(
+        `Quota: could not count ${label}: ${(error as Error).message}`,
+      );
+      return 0;
+    }
+  };
+
+  const [containerCount, databaseCount, keyValueTableCount, queueCount] =
+    await Promise.all([
+      safeCount("Pristaniste containers", () => getPristanisteClient().listContainers(true)),
+      safeCount("Tefter databases", () => getTefterClient().listInstances()),
+      safeCount("Indeks tables", () => getIndeksClient().listTables()),
+      safeCount("Red queues", () => getRedClient().listQueues()),
+    ]);
+
+  return { containerCount, databaseCount, keyValueTableCount, queueCount };
 }
 
 // =============================================================================
@@ -183,6 +263,8 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       }
     }
 
+    const platform = await getPlatformUsage(strapi);
+
     return {
       functions: {
         count: functionCount,
@@ -198,6 +280,7 @@ export default ({ strapi }: { strapi: Strapi }) => ({
         bucketCount,
         totalBytes,
       },
+      platform,
     };
   },
 
@@ -247,6 +330,24 @@ export default ({ strapi }: { strapi: Strapi }) => ({
           limits.storage.maxTotalBytes - usage.storage.totalBytes,
         ),
       },
+      platform: {
+        containers: Math.max(
+          0,
+          limits.platform.maxContainers - usage.platform.containerCount,
+        ),
+        databases: Math.max(
+          0,
+          limits.platform.maxDatabases - usage.platform.databaseCount,
+        ),
+        keyValueTables: Math.max(
+          0,
+          limits.platform.maxKeyValueTables - usage.platform.keyValueTableCount,
+        ),
+        queues: Math.max(
+          0,
+          limits.platform.maxQueues - usage.platform.queueCount,
+        ),
+      },
     };
 
     const percentages = {
@@ -286,6 +387,24 @@ export default ({ strapi }: { strapi: Strapi }) => ({
         bytes: calculatePercentage(
           usage.storage.totalBytes,
           limits.storage.maxTotalBytes,
+        ),
+      },
+      platform: {
+        containers: calculatePercentage(
+          usage.platform.containerCount,
+          limits.platform.maxContainers,
+        ),
+        databases: calculatePercentage(
+          usage.platform.databaseCount,
+          limits.platform.maxDatabases,
+        ),
+        keyValueTables: calculatePercentage(
+          usage.platform.keyValueTableCount,
+          limits.platform.maxKeyValueTables,
+        ),
+        queues: calculatePercentage(
+          usage.platform.queueCount,
+          limits.platform.maxQueues,
         ),
       },
     };
@@ -382,6 +501,88 @@ export default ({ strapi }: { strapi: Strapi }) => ({
       };
     }
 
+    return { allowed: true };
+  },
+
+  // ===========================================================================
+  // Platform Service Quotas (Pristaniste, Tefter, Indeks, Red)
+  //
+  // Counted platform-wide, not per-user. Each check counts only its own
+  // resource so it stays cheap, and fails open on a service outage (see
+  // getPlatformUsage) so a create is never blocked by an unrelated one.
+  // ===========================================================================
+
+  async checkContainerQuota(): Promise<{
+    allowed: boolean;
+    message?: string;
+  }> {
+    const max = DEFAULT_LIMITS.platform.maxContainers;
+    let count = 0;
+    try {
+      count = (await getPristanisteClient().listContainers(true)).length;
+    } catch {
+      return { allowed: true };
+    }
+    if (count >= max) {
+      return {
+        allowed: false,
+        message: `Maximum container limit (${max}) reached`,
+      };
+    }
+    return { allowed: true };
+  },
+
+  async checkDatabaseQuota(): Promise<{ allowed: boolean; message?: string }> {
+    const max = DEFAULT_LIMITS.platform.maxDatabases;
+    let count = 0;
+    try {
+      count = (await getTefterClient().listInstances()).length;
+    } catch {
+      return { allowed: true };
+    }
+    if (count >= max) {
+      return {
+        allowed: false,
+        message: `Maximum database limit (${max}) reached`,
+      };
+    }
+    return { allowed: true };
+  },
+
+  async checkKeyValueTableQuota(): Promise<{
+    allowed: boolean;
+    message?: string;
+  }> {
+    const max = DEFAULT_LIMITS.platform.maxKeyValueTables;
+    let count = 0;
+    try {
+      count = (await getIndeksClient().listTables()).length;
+    } catch {
+      return { allowed: true };
+    }
+    if (count >= max) {
+      return {
+        allowed: false,
+        message: `Maximum key/value table limit (${max}) reached`,
+      };
+    }
+    return { allowed: true };
+  },
+
+  async checkQueueQuota(): Promise<{ allowed: boolean; message?: string }> {
+    const max = DEFAULT_LIMITS.platform.maxQueues;
+    let count = 0;
+    try {
+      count = (await getRedClient().listQueues()).length;
+    } catch {
+      return { allowed: true };
+    }
+    if (count >= max) {
+      return {
+        allowed: false,
+        message: `Maximum queue limit (${max}) reached`,
+      };
+    }
     return { allowed: true };
   },
 });

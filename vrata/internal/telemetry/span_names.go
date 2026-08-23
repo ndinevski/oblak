@@ -8,7 +8,7 @@ import (
 )
 
 // The Docker Engine SDK instruments its own HTTP calls through the global
-// tracer this package installs, which is what lets a Tefter or Brod request be
+// tracer this package installs, which is what lets a Tefter or Pristaniste request be
 // followed all the way down to the individual container operations it triggers.
 // The catch is that the SDK names those spans after the raw request path, so a
 // single logical operation like "inspect a container" shows up under hundreds

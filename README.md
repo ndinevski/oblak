@@ -1,6 +1,6 @@
 # Oblak - Private Cloud Platform
 
-Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes seven core services: **Impuls** (FaaS service), **Spomen** (Object Storage service), **Izvor** (VM service), **Brod** (Container service), **Tefter** (Database service), **Vrata** (Gateway), and **Polaroid** (Photo & Video Management).
+Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes nine core services: **Impuls** (FaaS service), **Spomen** (Object Storage service), **Izvor** (VM service), **Pristaniste** (Container service), **Tefter** (Database service), **Vrata** (Gateway), **Indeks** (Key/Value store), **Red** (Message Queue), and **Polaroid** (Photo & Video Management).
 
 ## Services
 
@@ -43,7 +43,7 @@ EC2-like VM provisioning and management service powered by Proxmox VE, enabling 
 
 📖 [Full Documentation](izvor/README.md)
 
-### 🚢 Brod - Containers
+### 🚢 Pristaniste - Containers
 
 Self-hosted container platform providing an image registry and a container
 runtime, in the shape of ECR and ECS. Backed by a stock Docker Distribution
@@ -56,7 +56,7 @@ registry and the host's container engine.
 - Start, stop, restart, logs and live resource stats
 - Only ever touches containers it created, never other workloads on the host
 
-📖 [Full Documentation](brod/README.md)
+📖 [Full Documentation](pristaniste/README.md)
 
 ### 🗄️ Tefter - Databases
 
@@ -77,7 +77,7 @@ ordinary clients.
 ### 🚪 Vrata - Gateway
 
 Instrumented reverse proxy in front of the workloads Oblak runs, so every
-request to a Brod container or an Izvor VM is traced and logged. Workloads run
+request to a Pristaniste container or an Izvor VM is traced and logged. Workloads run
 the operator's own images and carry no telemetry of their own; routing their
 traffic through Vrata makes it visible in the observability stack like any other
 service.
@@ -90,6 +90,38 @@ service.
 - Requests to a stopped container or a down VM are recorded as 502s, not silence
 
 📖 [Full Documentation](vrata/README.md)
+
+### 🗂️ Indeks - Key/Value Store
+
+A key/value and document store in the shape of Amazon DynamoDB. Tables hold
+schemaless JSON items addressed by a partition key and an optional sort key,
+with cheap range queries within a partition. Backed by an embedded bbolt
+database, so it needs no external engine.
+
+**Features:**
+- Tables with a partition key and optional sort key (string or number)
+- Put, get and delete items; query a partition with sort-key conditions; scan
+- Numeric keys that order numerically, not lexically
+- On-demand backups that outlive their table, and restore
+- Fully self-hostable: data lives in a single embedded file
+
+📖 [Full Documentation](indeks/README.md)
+
+### 📮 Red - Message Queue
+
+A message queue in the shape of Amazon SQS. Named queues deliver messages at
+least once with visibility timeouts, dead-letter queues and retention, and can
+trigger Impuls functions per message. Backed by an embedded bbolt database, so
+it needs no external engine.
+
+**Features:**
+- Queues with visibility timeout, retention and a dead-letter policy
+- Send, receive (with long polling) and delete; at-least-once delivery
+- Dead-lettering after a configurable number of failed receives
+- Triggers: invoke an Impuls function for every message, with retry and DLQ
+- On-demand backups that outlive their queue
+
+📖 [Full Documentation](red/README.md)
 
 ### 📊 Observability - Platform Telemetry
 
@@ -123,6 +155,17 @@ Self-hosted photo and video management service powered by Immich, providing Goog
 
 📖 [Full Documentation](polaroid/README.md)
 
+## Documentation
+
+- [Configuration Reference](docs/CONFIGURATION.md) — every setting, its default,
+  whether you need it, and when to change it (deploy-time env vars vs
+  dashboard-editable runtime settings). **Start here to set up a deployment.**
+- [API Reference](docs/API.md) — the dashboard API, including every service proxy.
+- [Access Control (Identitet)](docs/IDENTITET.md) — the root account, members, and per-service access.
+- [User Guide](docs/USER-GUIDE.md) — using each service from the dashboard.
+- [Developer Guide](docs/DEVELOPER-GUIDE.md) — running and extending the platform.
+- Each service also has its own README (linked above).
+
 ## Quick Start
 
 ### Prerequisites
@@ -143,14 +186,20 @@ docker compose -f docker-compose.dev.yml up oblak-postgres-dev -d
 # 2. Start the observability stack (ClickHouse + OpenTelemetry collector)
 make up-observability
 
-# 3. Start Brod (container service: API + image registry)
-make up-brod
+# 3. Start Pristaniste (container service: API + image registry)
+make up-pristaniste
 
 # 4. Start Tefter (database service API)
 make up-tefter
 
 # 5. Start Vrata (gateway: traces + logs for traffic to workloads)
 make up-vrata
+
+# 6. Start Indeks (key/value store)
+make up-indeks
+
+# 7. Start Red (message queue)
+make up-red
 
 # 4. Start Polaroid/Immich containers (see polaroid/README.md for first-time setup)
 make up-polaroid
@@ -177,9 +226,11 @@ Login with demo@oblak.local / DemoPass123!.
 
 ```bash
 make down-polaroid                    # Stop Immich stack
-make down-brod                        # Stop Brod
+make down-pristaniste                        # Stop Pristaniste
 make down-tefter                      # Stop Tefter
 make down-vrata                       # Stop Vrata
+make down-indeks                      # Stop Indeks
+make down-red                         # Stop Red
 make down-observability               # Stop ClickHouse + collector
 docker compose -f docker-compose.dev.yml down  # Stop Oblak DB
 # Ctrl+C in backend/frontend terminals
@@ -316,9 +367,11 @@ make test
 make test-impuls
 make test-spomen
 make test-izvor
-make test-brod
+make test-pristaniste
 make test-tefter
 make test-vrata
+make test-indeks
+make test-red
 ```
 
 ## Project Structure
@@ -354,14 +407,16 @@ oblak/
 │
 ├── tefter/                 # Database service
 ├── vrata/                  # Gateway (data-plane observability)
-├── brod/                   # Container service
+├── indeks/                 # Key/Value store (DynamoDB-shaped)
+├── red/                    # Message queue (SQS-shaped)
+├── pristaniste/                   # Container service
 │   ├── cmd/                # Server entrypoint
 │   ├── internal/           # Core implementation
 │   │   ├── api/            # HTTP API handlers
 │   │   ├── engine/         # Docker engine and registry clients
 │   │   ├── models/         # Data models
 │   │   └── telemetry/      # OpenTelemetry wiring
-│   └── docker-compose.yml  # Brod API + image registry
+│   └── docker-compose.yml  # Pristaniste API + image registry
 │
 ├── polaroid/               # Photo & video management service
 │   ├── docker-compose.yml  # Immich stack (server, ML, Redis, Postgres)
@@ -386,9 +441,11 @@ make test-coverage
 make test-impuls
 make test-spomen
 make test-izvor
-make test-brod
+make test-pristaniste
 make test-tefter
 make test-vrata
+make test-indeks
+make test-red
 ```
 
 ### Building
@@ -401,7 +458,7 @@ make build
 make build-impuls
 make build-spomen
 make build-izvor
-make build-brod
+make build-pristaniste
 ```
 
 ## Service Endpoints
@@ -411,8 +468,8 @@ make build-brod
 | Impuls API | 8080 | Serverless functions API |
 | Spomen API | 8081 | Object storage REST API |
 | Izvor API | 8082 | VM provisioning API |
-| Brod API | 8083 | Container and image registry API |
-| Brod Registry | 5000 | Docker image registry (push/pull target) |
+| Pristaniste API | 8083 | Container and image registry API |
+| Pristaniste Registry | 5000 | Docker image registry (push/pull target) |
 | Polaroid (Immich) | 2283 | Photo & video management API |
 | MinIO S3 | 9000 | S3-compatible endpoint |
 | MinIO Console | 9001 | Web admin interface |

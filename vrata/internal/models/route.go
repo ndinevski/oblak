@@ -16,7 +16,7 @@ import (
 type RouteKind string
 
 const (
-	// RouteContainer fronts a Brod-managed container, reached on its published
+	// RouteContainer fronts a Pristaniste-managed container, reached on its published
 	// host port.
 	RouteContainer RouteKind = "container"
 	// RouteVM fronts an Izvor virtual machine, reached on its LAN address.
@@ -57,13 +57,13 @@ type Route struct {
 	// host matches never strip. Defaults to true.
 	StripPrefix bool `json:"strip_prefix"`
 
-	// Target names the Brod container or Izvor VM behind this route, for
+	// Target names the Pristaniste container or Izvor VM behind this route, for
 	// display. Free text; not used for routing.
 	Target string `json:"target,omitempty"`
 
 	// Source records who created the route. A hand-created route is "manual"
 	// (or empty, for routes made before this field existed); an auto-discovered
-	// one names its discoverer, e.g. "brod". Auto-discovery only ever touches
+	// one names its discoverer, e.g. "pristaniste". Auto-discovery only ever touches
 	// routes it owns, so a manual route is never clobbered or reaped.
 	Source RouteSource `json:"source,omitempty"`
 
@@ -76,8 +76,8 @@ type RouteSource string
 const (
 	// SourceManual is a route created through the API by a person.
 	SourceManual RouteSource = "manual"
-	// SourceBrod is a route created automatically from a Brod container.
-	SourceBrod RouteSource = "brod"
+	// SourcePristaniste is a route created automatically from a Pristaniste container.
+	SourcePristaniste RouteSource = "pristaniste"
 )
 
 // CreateRouteRequest is the body of a route-creation call.

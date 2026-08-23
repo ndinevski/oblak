@@ -674,29 +674,29 @@ HEAD /buckets/:documentId/objects/:key
 
 ---
 
-## Containers (Brod) Endpoints
+## Containers (Pristaniste) Endpoints
 
-Brod is the container service (image registry + container runtime, ECR/ECS
+Pristaniste is the container service (image registry + container runtime, ECR/ECS
 shaped). The dashboard proxies it through Strapi, which adds authentication and
-audit; every route below is under `/api/brod`. Failures are returned with the
-same status code Brod used.
+audit; every route below is under `/api/pristaniste`. Failures are returned with the
+same status code Pristaniste used.
 
 ### Service
 
 ```http
-GET  /brod/health          # Brod service health (engine + registry)
-GET  /brod/registry        # Where to push and pull images
+GET  /pristaniste/health          # Pristaniste service health (engine + registry)
+GET  /pristaniste/registry        # Where to push and pull images
 ```
 
 ### Repositories & Images
 
 ```http
-GET    /brod/repositories                       # List image repositories
-POST   /brod/repositories                       # Declare a repository { name, description? }
-GET    /brod/repositories/:name                 # Get one repository
-DELETE /brod/repositories/:name                 # Delete a repository
-GET    /brod/repositories/:name/images          # List image tags
-DELETE /brod/repositories/:name/images/:tag     # Delete an image tag
+GET    /pristaniste/repositories                       # List image repositories
+POST   /pristaniste/repositories                       # Declare a repository { name, description? }
+GET    /pristaniste/repositories/:name                 # Get one repository
+DELETE /pristaniste/repositories/:name                 # Delete a repository
+GET    /pristaniste/repositories/:name/images          # List image tags
+DELETE /pristaniste/repositories/:name/images/:tag     # Delete an image tag
 ```
 
 A repository name may contain slashes ("team/app"); the components are
@@ -705,19 +705,19 @@ individually URL-encoded.
 ### Containers
 
 ```http
-GET    /brod/containers              # List containers (?all=true|false)
-POST   /brod/containers              # Run a container { name, image, ports?, env?, volumes?, ... }
-GET    /brod/containers/:id          # Get one container
-DELETE /brod/containers/:id          # Remove a container (?force=true|false)
-POST   /brod/containers/:id/start    # Start
-POST   /brod/containers/:id/stop     # Stop { timeout_seconds? }
-POST   /brod/containers/:id/restart  # Restart { timeout_seconds? }
-GET    /brod/containers/:id/logs     # Container logs (?tail=N)
-GET    /brod/containers/:id/stats    # Live resource usage
+GET    /pristaniste/containers              # List containers (?all=true|false)
+POST   /pristaniste/containers              # Run a container { name, image, ports?, env?, volumes?, ... }
+GET    /pristaniste/containers/:id          # Get one container
+DELETE /pristaniste/containers/:id          # Remove a container (?force=true|false)
+POST   /pristaniste/containers/:id/start    # Start
+POST   /pristaniste/containers/:id/stop     # Stop { timeout_seconds? }
+POST   /pristaniste/containers/:id/restart  # Restart { timeout_seconds? }
+GET    /pristaniste/containers/:id/logs     # Container logs (?tail=N)
+GET    /pristaniste/containers/:id/stats    # Live resource usage
 ```
 
 Images are pushed with the standard `docker` CLI to the registry reported by
-`GET /brod/registry`; the API only manages what has been pushed.
+`GET /pristaniste/registry`; the API only manages what has been pushed.
 
 ---
 
@@ -777,7 +777,7 @@ additionally requires `allow_different_instance: true`.
 ## Gateway (Vrata) Endpoints
 
 Vrata is the observability gateway: an instrumented reverse proxy in front of
-Brod containers and Izvor VMs, so requests to workloads are traced and logged.
+Pristaniste containers and Izvor VMs, so requests to workloads are traced and logged.
 Its route-management API is proxied under `/api/vrata`. Proxied workload traffic
 itself goes to Vrata's data-plane port (default 8090), not through Strapi.
 
@@ -792,10 +792,106 @@ DELETE /vrata/routes/:name     # Delete a route
 `kind` is `container`, `vm` or `custom`. A route matches by Host header (path
 preserved) or by leading path segment (`/<name>/...`, prefix stripped).
 
-Routes carry a `source`: `manual` for ones created through this API, or `brod`
-for ones Vrata auto-discovered from running Brod containers. Auto-discovery
-(when `VRATA_BROD_URL` is set) keeps a route per running container that
+Routes carry a `source`: `manual` for ones created through this API, or `pristaniste`
+for ones Vrata auto-discovered from running Pristaniste containers. Auto-discovery
+(when `VRATA_PRISTANISTE_URL` is set) keeps a route per running container that
 publishes a port, and never modifies or removes a `manual` route.
+
+---
+
+## Key/Value Store (Indeks) Endpoints
+
+Indeks is the DynamoDB-shaped key/value and document store, proxied under
+`/api/indeks`.
+
+### Tables
+
+```http
+GET    /indeks/tables                 # List tables
+POST   /indeks/tables                 # Create { name, partition_key, partition_type?, sort_key?, sort_type? }
+GET    /indeks/tables/:table          # Get one table
+DELETE /indeks/tables/:table          # Delete a table and its items
+```
+
+`partition_type` and `sort_type` are `S` (string, default) or `N` (number). The
+key schema is fixed once the table exists.
+
+### Items
+
+```http
+PUT  /indeks/tables/:table/items      # Put an item { item: { ... } }
+POST /indeks/tables/:table/get        # Get by key { partition_value, sort_value? }
+POST /indeks/tables/:table/delete     # Delete by key { partition_value, sort_value? }
+POST /indeks/tables/:table/query      # Query a partition
+GET  /indeks/tables/:table/scan       # Scan (?limit=)
+```
+
+A query body is `{ partition_value, sort?: { op, value, value2? }, limit?, descending? }`
+where `op` is one of `eq`, `lt`, `lte`, `gt`, `gte`, `between`, `begins_with`.
+
+### Backups
+
+```http
+GET    /indeks/tables/:table/backups  # Backups of one table
+POST   /indeks/tables/:table/backups  # Back up a table
+GET    /indeks/backups                # List all backups
+DELETE /indeks/backups/:id            # Delete a backup
+POST   /indeks/backups/restore        # Restore { backup_id, target_table?, confirm }
+```
+
+A restore requires `confirm: true` and replaces the target table's contents.
+
+---
+
+## Message Queue (Red) Endpoints
+
+Red is the SQS-shaped message queue, proxied under `/api/red`.
+
+### Queues
+
+```http
+GET    /red/queues                    # List queues (with live depth)
+POST   /red/queues                    # Create { name, visibility_timeout_seconds?, message_retention_seconds?, max_receive_count?, dead_letter_queue? }
+GET    /red/queues/:queue             # Get one queue
+PATCH  /red/queues/:queue             # Update visibility timeout, retention, DLQ policy
+DELETE /red/queues/:queue             # Delete a queue and its messages
+GET    /red/queues/:queue/stats       # Depth: visible, in-flight, oldest age
+POST   /red/queues/:queue/purge       # Delete all messages
+```
+
+### Messages
+
+```http
+POST /red/queues/:queue/messages          # Send { body, attributes?, delay_seconds? }
+POST /red/queues/:queue/messages/receive  # Receive { max_messages?, wait_time_seconds?, visibility_timeout_seconds? }
+POST /red/queues/:queue/messages/delete   # Delete (ack) { receipt_handle }
+```
+
+A received message carries a `receipt_handle` used to delete it. If it is not
+deleted within the visibility timeout it is redelivered, and past
+`max_receive_count` it is moved to the dead-letter queue.
+
+### Triggers (Impuls integration)
+
+```http
+GET    /red/subscriptions             # List triggers
+POST   /red/subscriptions             # Create { name, queue, function, batch_size? }
+PATCH  /red/subscriptions/:name       # Enable/pause or change batch size { enabled?, batch_size? }
+DELETE /red/subscriptions/:name       # Delete a trigger
+```
+
+A trigger invokes an Impuls function for each message on its queue; the message
+is acked on a successful invocation and retried (then dead-lettered) on failure.
+
+### Backups
+
+```http
+GET    /red/queues/:queue/backups     # Backups of one queue
+POST   /red/queues/:queue/backups     # Back up a queue
+GET    /red/backups                   # List all backups
+DELETE /red/backups/:id               # Delete a backup
+POST   /red/backups/restore           # Restore { backup_id, target_queue?, confirm }
+```
 
 ---
 
@@ -972,9 +1068,11 @@ GET /health
     "impuls": "healthy",
     "izvor": "healthy",
     "spomen": "healthy",
-    "brod": "healthy",
+    "pristaniste": "healthy",
     "tefter": "healthy",
-    "vrata": "healthy"
+    "vrata": "healthy",
+    "indeks": "healthy",
+    "red": "healthy"
   }
 }
 ```

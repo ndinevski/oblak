@@ -2,7 +2,7 @@
  * Vrata hooks.
  *
  * The route table changes both when a person edits it and when auto-discovery
- * reconciles it against Brod, so the list polls at a modest rate to pick up
+ * reconciles it against Pristaniste, so the list polls at a modest rate to pick up
  * discovered routes without hammering the gateway.
  */
 
@@ -28,7 +28,7 @@ export function useRoutes() {
   return useQuery({
     queryKey: vrataKeys.routes(),
     queryFn: () => vrataApi.listRoutes(),
-    // Auto-discovery reconciles against Brod on its own schedule, so a slow
+    // Auto-discovery reconciles against Pristaniste on its own schedule, so a slow
     // poll surfaces new or removed routes without constant refetching.
     refetchInterval: 15_000,
     staleTime: 5_000,

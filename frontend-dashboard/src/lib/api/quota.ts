@@ -24,6 +24,12 @@ export interface QuotaLimits {
     maxBuckets: number;
     maxTotalBytes: number;
   };
+  platform: {
+    maxContainers: number;
+    maxDatabases: number;
+    maxKeyValueTables: number;
+    maxQueues: number;
+  };
 }
 
 export interface QuotaUsage {
@@ -41,18 +47,26 @@ export interface QuotaUsage {
     bucketCount: number;
     totalBytes: number;
   };
+  platform: {
+    containerCount: number;
+    databaseCount: number;
+    keyValueTableCount: number;
+    queueCount: number;
+  };
 }
 
 export interface QuotaRemaining {
   functions: { count: number; invocationsToday: number };
   virtualMachines: { count: number; cores: number; memoryMB: number; diskGB: number };
   storage: { buckets: number; bytes: number };
+  platform: { containers: number; databases: number; keyValueTables: number; queues: number };
 }
 
 export interface QuotaPercentages {
   functions: { count: number; invocations: number };
   virtualMachines: { count: number; cores: number; memory: number; disk: number };
   storage: { buckets: number; bytes: number };
+  platform: { containers: number; databases: number; keyValueTables: number; queues: number };
 }
 
 export interface QuotaInfo {
@@ -183,6 +197,10 @@ export function calculateOverallHealth(percentages: QuotaPercentages): 'healthy'
     percentages.virtualMachines.disk,
     percentages.storage.buckets,
     percentages.storage.bytes,
+    percentages.platform.containers,
+    percentages.platform.databases,
+    percentages.platform.keyValueTables,
+    percentages.platform.queues,
   ];
 
   const maxPercentage = Math.max(...allPercentages);

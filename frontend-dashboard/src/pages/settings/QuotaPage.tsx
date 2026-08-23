@@ -23,6 +23,10 @@ import {
   Zap,
   AlertTriangle,
   CheckCircle,
+  Boxes,
+  Table,
+  Inbox,
+  Layers,
 } from 'lucide-react';
 import { useQuota } from '@/hooks/useQuota';
 import {
@@ -269,6 +273,51 @@ export default function QuotaPage() {
             />
           </CardContent>
         </Card>
+
+        {/* Platform Services */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Platform Services
+              </CardTitle>
+            </div>
+            <CardDescription>
+              Containers, databases, tables and queues (counted platform-wide)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <QuotaItem
+              label="Containers (Pristaniste)"
+              used={quota.usage.platform.containerCount}
+              total={quota.limits.platform.maxContainers}
+              percentage={quota.percentages.platform.containers}
+              icon={Boxes}
+            />
+            <QuotaItem
+              label="Databases (Tefter)"
+              used={quota.usage.platform.databaseCount}
+              total={quota.limits.platform.maxDatabases}
+              percentage={quota.percentages.platform.databases}
+              icon={Database}
+            />
+            <QuotaItem
+              label="Key/Value Tables (Indeks)"
+              used={quota.usage.platform.keyValueTableCount}
+              total={quota.limits.platform.maxKeyValueTables}
+              percentage={quota.percentages.platform.keyValueTables}
+              icon={Table}
+            />
+            <QuotaItem
+              label="Queues (Red)"
+              used={quota.usage.platform.queueCount}
+              total={quota.limits.platform.maxQueues}
+              percentage={quota.percentages.platform.queues}
+              icon={Inbox}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Summary Table */}
@@ -339,12 +388,40 @@ export default function QuotaPage() {
                   <td className="text-right py-3 px-4">{quota.remaining.storage.buckets}</td>
                   <td className="text-right py-3 px-4">{quota.percentages.storage.buckets}%</td>
                 </tr>
-                <tr>
+                <tr className="border-b">
                   <td className="py-3 px-4">Object Storage</td>
                   <td className="text-right py-3 px-4">{formatBytes(quota.usage.storage.totalBytes)}</td>
                   <td className="text-right py-3 px-4">{formatBytes(quota.limits.storage.maxTotalBytes)}</td>
                   <td className="text-right py-3 px-4">{formatBytes(quota.remaining.storage.bytes)}</td>
                   <td className="text-right py-3 px-4">{quota.percentages.storage.bytes}%</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-3 px-4">Containers (Pristaniste)</td>
+                  <td className="text-right py-3 px-4">{quota.usage.platform.containerCount}</td>
+                  <td className="text-right py-3 px-4">{quota.limits.platform.maxContainers}</td>
+                  <td className="text-right py-3 px-4">{quota.remaining.platform.containers}</td>
+                  <td className="text-right py-3 px-4">{quota.percentages.platform.containers}%</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-3 px-4">Databases (Tefter)</td>
+                  <td className="text-right py-3 px-4">{quota.usage.platform.databaseCount}</td>
+                  <td className="text-right py-3 px-4">{quota.limits.platform.maxDatabases}</td>
+                  <td className="text-right py-3 px-4">{quota.remaining.platform.databases}</td>
+                  <td className="text-right py-3 px-4">{quota.percentages.platform.databases}%</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-3 px-4">Key/Value Tables (Indeks)</td>
+                  <td className="text-right py-3 px-4">{quota.usage.platform.keyValueTableCount}</td>
+                  <td className="text-right py-3 px-4">{quota.limits.platform.maxKeyValueTables}</td>
+                  <td className="text-right py-3 px-4">{quota.remaining.platform.keyValueTables}</td>
+                  <td className="text-right py-3 px-4">{quota.percentages.platform.keyValueTables}%</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4">Queues (Red)</td>
+                  <td className="text-right py-3 px-4">{quota.usage.platform.queueCount}</td>
+                  <td className="text-right py-3 px-4">{quota.limits.platform.maxQueues}</td>
+                  <td className="text-right py-3 px-4">{quota.remaining.platform.queues}</td>
+                  <td className="text-right py-3 px-4">{quota.percentages.platform.queues}%</td>
                 </tr>
               </tbody>
             </table>

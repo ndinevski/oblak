@@ -1,0 +1,10 @@
+# Compiled binary
+indeks-server
+
+# Local environment
+.env
+
+# Local data + backups when run outside Docker
+indeks.db
+backups/
+*.db

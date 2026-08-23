@@ -1,6 +1,6 @@
 # Tefter - managed database service for Oblak
 #
-# Unlike Spomen or Brod, Tefter has no backing engine of its own to run here:
+# Unlike Spomen or Pristaniste, Tefter has no backing engine of its own to run here:
 # it provisions database containers on demand. This file starts only the API
 # and the network those instances join.
 
@@ -42,7 +42,7 @@ services:
       - "${DOCKER_GID:-989}"
     security_opt:
       # SELinux blocks a confined container from writing to docker.sock and no
-      # boolean covers it. Same trade the telemetry collector and Brod make.
+      # boolean covers it. Same trade the telemetry collector and Pristaniste make.
       - label:disable
     ports:
       - "${TEFTER_API_PORT:-8084}:8084"

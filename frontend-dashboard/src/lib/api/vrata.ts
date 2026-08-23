@@ -2,7 +2,7 @@
  * Vrata API client.
  *
  * The gateway's route table, proxied through Strapi. Routes map an incoming
- * request to a Brod container or Izvor VM so its traffic is traced and logged.
+ * request to a Pristaniste container or Izvor VM so its traffic is traced and logged.
  */
 
 import { apiClient } from './client';
@@ -14,7 +14,7 @@ import { apiClient } from './client';
 export type RouteKind = 'container' | 'vm' | 'custom';
 
 /** Who created a route: a person, or an auto-discoverer. */
-export type RouteSource = 'manual' | 'brod' | '';
+export type RouteSource = 'manual' | 'pristaniste' | '';
 
 export interface Route {
   name: string;
@@ -97,12 +97,12 @@ export function routeKindLabel(kind: RouteKind): string {
  * route created before the field existed, which is treated as manual.
  */
 export function routeSourceLabel(source: RouteSource | undefined): string {
-  if (source === 'brod') return 'Auto (Brod)';
+  if (source === 'pristaniste') return 'Auto (Pristaniste)';
   return 'Manual';
 }
 
 export function routeSourceClass(source: RouteSource | undefined): string {
-  if (source === 'brod') {
+  if (source === 'pristaniste') {
     return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20';
   }
   return 'bg-muted text-muted-foreground border-border';
@@ -110,7 +110,7 @@ export function routeSourceClass(source: RouteSource | undefined): string {
 
 /** True for a route Vrata manages itself; such a route should not be hand-edited. */
 export function isAutoManaged(route: Route): boolean {
-  return route.source === 'brod';
+  return route.source === 'pristaniste';
 }
 
 /**

@@ -589,6 +589,53 @@ export interface ApiBucketBucket extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCredentialCredential extends Struct.CollectionTypeSchema {
+  collectionName: 'credentials';
+  info: {
+    description: "API keys for the CLI and SDKs. A key authenticates as its owner and inherits the owner's access. Internal only, no public API; managed via the identitet API.";
+    displayName: 'Credential';
+    pluralName: 'credentials';
+    singularName: 'credential';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-api': {
+      enabled: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    expiresAt: Schema.Attribute.DateTime;
+    keyHash: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    keyId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    lastUsedAt: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::credential.credential'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    revoked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiFunctionFunction extends Struct.CollectionTypeSchema {
   collectionName: 'functions';
   info: {
@@ -660,6 +707,47 @@ export interface ApiFunctionFunction extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<30>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiPlatformResourcePlatformResource
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'platform_resources';
+  info: {
+    description: 'Ownership registry for platform-service resources (Pristaniste containers, Tefter databases, Indeks tables, Red queues). Internal only, no public API.';
+    displayName: 'Platform Resource';
+    pluralName: 'platform-resources';
+    singularName: 'platform-resource';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-api': {
+      enabled: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::platform-resource.platform-resource'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    resourceType: Schema.Attribute.String;
+    service: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1281,6 +1369,9 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    grants: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<{}>;
+    identitetRole: Schema.Attribute.Enumeration<['root', 'member']> &
+      Schema.Attribute.DefaultTo<'member'>;
     lastLoginAt: Schema.Attribute.DateTime;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -1338,7 +1429,9 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::alert-rule.alert-rule': ApiAlertRuleAlertRule;
       'api::bucket.bucket': ApiBucketBucket;
+      'api::credential.credential': ApiCredentialCredential;
       'api::function.function': ApiFunctionFunction;
+      'api::platform-resource.platform-resource': ApiPlatformResourcePlatformResource;
       'api::polaroid.polaroid': ApiPolaroidPolaroid;
       'api::virtual-machine.virtual-machine': ApiVirtualMachineVirtualMachine;
       'plugin::content-releases.release': PluginContentReleasesRelease;

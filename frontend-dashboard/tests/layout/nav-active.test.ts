@@ -45,8 +45,8 @@ describe('resolveActiveHref', () => {
     expect(resolveActiveHref('/storage', ALL_NAV_HREFS)).toBe('/storage');
   });
 
-  it('gives the two Brod entries their own highlight', () => {
-    // Brod has separate Containers and Images entries; neither must steal the
+  it('gives the two Pristaniste entries their own highlight', () => {
+    // Pristaniste has separate Containers and Images entries; neither must steal the
     // other's highlight.
     expect(resolveActiveHref('/containers', ALL_NAV_HREFS)).toBe('/containers');
     expect(resolveActiveHref('/images', ALL_NAV_HREFS)).toBe('/images');
@@ -66,6 +66,20 @@ describe('resolveActiveHref', () => {
 
   it('highlights Vrata on the gateway page', () => {
     expect(resolveActiveHref('/gateway', ALL_NAV_HREFS)).toBe('/gateway');
+  });
+
+  it('keeps Indeks highlighted on a table detail page', () => {
+    expect(resolveActiveHref('/keyvalue', ALL_NAV_HREFS)).toBe('/keyvalue');
+    expect(resolveActiveHref('/keyvalue/users', ALL_NAV_HREFS)).toBe('/keyvalue');
+  });
+
+  it('keeps Red highlighted on a queue detail page', () => {
+    expect(resolveActiveHref('/queues', ALL_NAV_HREFS)).toBe('/queues');
+    expect(resolveActiveHref('/queues/jobs', ALL_NAV_HREFS)).toBe('/queues');
+  });
+
+  it('gives Red Triggers its own highlight', () => {
+    expect(resolveActiveHref('/triggers', ALL_NAV_HREFS)).toBe('/triggers');
   });
 
   it('keeps Settings highlighted on a sub-page that has no nav item of its own', () => {

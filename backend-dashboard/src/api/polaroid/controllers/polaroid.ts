@@ -1,9 +1,12 @@
 import type { Core } from "@strapi/strapi";
 import { recordAudit } from "../../../telemetry/audit";
+import { requireAccess } from "../../../identitet/authz";
 import {
   ImmichClientError,
   type ImmichUpdateAssetRequest,
 } from "../services/immich-client";
+
+const SERVICE = "photos";
 
 // =============================================================================
 // Types
@@ -90,7 +93,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async serverInfo(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getServerInfo(user.id);
@@ -100,7 +104,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async serverPing(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.serverPing(user.id);
@@ -114,7 +119,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getAssets(user.id, ctx.query);
@@ -124,7 +130,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getAsset(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getAssetInfo(user.id, ctx.params.assetId);
@@ -134,7 +141,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async uploadAsset(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         // Strapi (koa-body) parses multipart uploads into ctx.request.files
         const files = ctx.request.files;
@@ -168,7 +176,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async deleteAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const raw = ctx.request.body as Record<string, unknown>;
         const payload = (raw?.data ?? raw) as {
@@ -189,7 +198,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async updateAsset(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const payload: ImmichUpdateAssetRequest =
@@ -219,7 +229,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getAssetThumbnail(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const size = ctx.query.size as "thumbnail" | "preview" | undefined;
@@ -242,7 +253,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async downloadAsset(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const response = await service.downloadAsset(
@@ -267,7 +279,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getAssetStatistics(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getStatistics(user.id);
@@ -277,7 +290,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async checkExistingAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const body = ctx.request.body as {
           deviceAssetIds: string[];
@@ -299,7 +313,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getTimeBuckets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getTimeline(
@@ -312,7 +327,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getTimeBucket(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getTimeBucket(
@@ -329,7 +345,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getAlbums(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const shared =
@@ -343,7 +360,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getAlbum(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getAlbum(user.id, ctx.params.albumId);
@@ -353,7 +371,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async createAlbum(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.status = 201;
@@ -374,7 +393,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async updateAlbum(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const updatedAlbum = await service.updateAlbum(
@@ -392,7 +412,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async deleteAlbum(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         await service.deleteAlbum(user.id, ctx.params.albumId);
@@ -407,7 +428,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async addAlbumAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { ids: string[] };
         const service = strapi.service("api::polaroid.polaroid");
@@ -422,7 +444,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async removeAlbumAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { ids: string[] };
         const service = strapi.service("api::polaroid.polaroid");
@@ -441,7 +464,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getPeople(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getPeople(
@@ -454,7 +478,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getPerson(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getPerson(user.id, ctx.params.personId);
@@ -464,7 +489,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async updatePerson(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.updatePerson(
@@ -478,7 +504,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getPersonThumbnail(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         const response = await service.getPersonThumbnail(
@@ -499,7 +526,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async mergePeople(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { ids: string[] };
         const service = strapi.service("api::polaroid.polaroid");
@@ -518,7 +546,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async searchMetadata(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.searchAssets(
@@ -531,7 +560,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async searchSmart(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const body = ctx.request.body as {
           query: string;
@@ -550,7 +580,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getMapMarkers(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getMapMarkers(
@@ -563,7 +594,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async reverseGeocode(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const lat = Number(ctx.query.lat);
         const lng = Number(ctx.query.lng);
@@ -579,7 +611,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getSharedLinks(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getSharedLinks(user.id);
@@ -589,7 +622,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async getSharedLink(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getSharedLink(user.id, ctx.params.linkId);
@@ -599,7 +633,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async createSharedLink(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.status = 201;
@@ -615,7 +650,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async updateSharedLink(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.updateSharedLink(
@@ -629,7 +665,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async deleteSharedLink(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         await service.deleteSharedLink(user.id, ctx.params.linkId);
@@ -648,7 +685,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getTags(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getTags(user.id);
@@ -658,7 +696,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async createTag(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.status = 201;
@@ -672,7 +711,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async updateTag(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.updateTag(
@@ -686,7 +726,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async deleteTag(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         await service.deleteTag(user.id, ctx.params.tagId);
@@ -698,7 +739,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async tagAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { ids: string[] };
         const service = strapi.service("api::polaroid.polaroid");
@@ -709,7 +751,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async untagAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { ids: string[] };
         const service = strapi.service("api::polaroid.polaroid");
@@ -728,7 +771,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async getApiKeys(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "read");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         ctx.body = await service.getApiKeys(user.id);
@@ -738,7 +782,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async createApiKey(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const raw = ctx.request.body as Record<string, unknown>;
         const payload = (raw?.data ?? raw) as { name: string };
@@ -751,7 +796,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async deleteApiKey(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const service = strapi.service("api::polaroid.polaroid");
         await service.deleteApiKey(user.id, ctx.params.keyId);
@@ -767,7 +813,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     // ===========================================================================
 
     async runJob(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const body = ctx.request.body as { command?: string };
         const command = (body.command || "start") as
@@ -792,7 +839,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     async restoreAssets(ctx: Context) {
-      const user = getAuthenticatedUser(ctx);
+      const user = requireAccess(ctx, SERVICE, "write");
+      if (!user) return;
       try {
         const raw = ctx.request.body as Record<string, unknown>;
         const payload = (raw?.data ?? raw) as { ids?: string[] };

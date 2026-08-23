@@ -1,0 +1,40 @@
+# Red - message queue for Oblak (SQS-shaped).
+#
+# Needs no external engine: queues and messages live in an embedded bbolt
+# database, so this starts only the API. Data and backups live in a named volume.
+
+services:
+  red:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: red
+    restart: unless-stopped
+    environment:
+      RED_PORT: "8087"
+      RED_DATA_FILE: /var/lib/red/red.db
+      RED_BACKUP_DIR: /var/lib/red/backups
+      RED_SWEEP_INTERVAL_SECONDS: ${RED_SWEEP_INTERVAL_SECONDS:-5}
+      # Impuls trigger dispatcher. Set RED_IMPULS_URL to enable delivering
+      # queued messages to Impuls functions; unset disables it.
+      RED_IMPULS_URL: ${RED_IMPULS_URL:-http://impuls-dev:8080}
+      RED_DISPATCH_INTERVAL_SECONDS: ${RED_DISPATCH_INTERVAL_SECONDS:-2}
+      # Invoke functions in Impuls local mode (no Firecracker). Set true on
+      # hosts without microVM support.
+      RED_IMPULS_LOCAL: ${RED_IMPULS_LOCAL:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
+    ports:
+      - "${RED_API_PORT:-8087}:8087"
+    volumes:
+      - red-data:/var/lib/red
+    networks:
+      - oblak-telemetry
+
+volumes:
+  red-data:
+
+networks:
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

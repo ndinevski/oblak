@@ -1,6 +1,6 @@
 # Vrata - the Oblak gateway.
 #
-# An instrumented reverse proxy in front of the workloads Oblak runs (Brod
+# An instrumented reverse proxy in front of the workloads Oblak runs (Pristaniste
 # containers and Izvor VMs), so that every request to a workload is traced and
 # logged. Without it, that traffic is invisible: a container or VM runs the
 # operator's own image, which carries no Oblak telemetry.
@@ -18,10 +18,10 @@ services:
       VRATA_ROUTE_FILE: /var/lib/vrata/routes.json
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
       OBLAK_ENV: ${OBLAK_ENV:-development}
-      # Auto-discovery of Brod containers. Vrata polls Brod's API and keeps a
+      # Auto-discovery of Pristaniste containers. Vrata polls Pristaniste's API and keeps a
       # route per running container that publishes a port, so workload traffic
       # is observable with no manual route registration.
-      VRATA_BROD_URL: ${VRATA_BROD_URL:-http://brod-api:8083}
+      VRATA_PRISTANISTE_URL: ${VRATA_PRISTANISTE_URL:-http://pristaniste-api:8083}
       VRATA_DISCOVERY_INTERVAL_SECONDS: ${VRATA_DISCOVERY_INTERVAL_SECONDS:-30}
       # How Vrata reaches a container's published port. From inside the Vrata
       # container that is the host gateway, not localhost.
@@ -35,7 +35,7 @@ services:
       # the container being rebuilt.
       - route-data:/var/lib/vrata
     extra_hosts:
-      # Lets a route target a Brod container by its published host port, as
+      # Lets a route target a Pristaniste container by its published host port, as
       # http://host.docker.internal:<port>. Izvor VMs are reached by their LAN
       # address directly, which needs no special mapping.
       - "host.docker.internal:host-gateway"

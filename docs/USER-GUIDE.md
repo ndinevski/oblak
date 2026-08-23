@@ -9,12 +9,14 @@ Welcome to Oblak Cloud Dashboard! This guide will help you manage your private c
 3. [Functions (Impuls)](#functions-impuls)
 4. [Virtual Machines (Izvor)](#virtual-machines-izvor)
 5. [Storage (Spomen)](#storage-spomen)
-6. [Containers (Brod)](#containers-brod)
+6. [Containers (Pristaniste)](#containers-pristaniste)
 7. [Databases (Tefter)](#databases-tefter)
 8. [Gateway (Vrata)](#gateway-vrata)
-9. [Observability](#observability)
-10. [Settings & Profile](#settings--profile)
-11. [FAQ](#faq)
+9. [Key/Value Store (Indeks)](#keyvalue-store-indeks)
+10. [Message Queue (Red)](#message-queue-red)
+11. [Observability](#observability)
+12. [Settings & Profile](#settings--profile)
+13. [FAQ](#faq)
 
 ---
 
@@ -327,14 +329,14 @@ For versioned buckets, you can also delete specific versions.
 
 ---
 
-## Containers (Brod)
+## Containers (Pristaniste)
 
-Brod is our container service: an image registry and a container runtime, in the
+Pristaniste is our container service: an image registry and a container runtime, in the
 shape of ECR and ECS.
 
 ### Image Repositories
 
-1. Click **Brod Images** in the sidebar
+1. Click **Registar** in the sidebar
 2. See every repository with its image count and total size
 3. Push images with the standard Docker CLI to the address shown on the page:
    ```bash
@@ -346,7 +348,7 @@ shape of ECR and ECS.
 
 ### Running Containers
 
-1. Click **Brod** in the sidebar
+1. Click **Pristaniste** in the sidebar
 2. Click **Run Container** and provide:
    - **Name** and **Image** (an image you pushed, or any public image)
    - **Ports**: map a container port to a host port
@@ -355,7 +357,7 @@ shape of ECR and ECS.
    resource usage from the same page
 
 > To see HTTP request logs for a running container, put it behind the Vrata
-> gateway (see below). Brod manages the container's lifecycle; Vrata makes its
+> gateway (see below). Pristaniste manages the container's lifecycle; Vrata makes its
 > traffic observable.
 
 ---
@@ -407,8 +409,8 @@ is traced and logged, and appears in Observability like any other service.
 Click **Vrata** in the sidebar to see every route in one table: its kind
 (container, VM or custom), how to reach it (a hostname, or `/name` on the proxy
 port), its upstream, and its **source**. A route marked *Manual* was created by
-hand; one marked *Auto (Brod)* was discovered automatically from a running Brod
-container, so containers you deploy through Brod show up here on their own.
+hand; one marked *Auto (Pristaniste)* was discovered automatically from a running Pristaniste
+container, so containers you deploy through Pristaniste show up here on their own.
 
 ### Adding a Route
 
@@ -418,7 +420,7 @@ container, so containers you deploy through Brod show up here on their own.
    - **Upstream**: where requests go, e.g. `http://192.168.1.100:8080`
    - **Host** (optional): match by this hostname and forward the path untouched
      (best for web apps); leave blank to match by the `/name` path prefix
-2. A route maps an incoming request to a Brod container's published port or an
+2. A route maps an incoming request to a Pristaniste container's published port or an
    Izvor VM's address.
 
 ### Seeing the Traffic
@@ -430,7 +432,72 @@ recorded as a `502`, so a broken workload is visible instead of silent.
 
 To remove a route, use the delete control in its row. An auto-discovered route
 reappears on the next poll while its container is still running; to stop routing
-it for good, stop or remove the container in Brod.
+it for good, stop or remove the container in Pristaniste.
+
+---
+
+## Key/Value Store (Indeks)
+
+Indeks is a DynamoDB-style key/value and document store: tables of JSON items
+addressed by a partition key and an optional sort key.
+
+### Creating a Table
+
+1. Click **Indeks** in the sidebar
+2. Click **New table** and choose:
+   - **Name**
+   - **Partition key** and its type (String or Number)
+   - Optionally a **sort key** (adds range queries within a partition)
+3. The key schema is fixed once the table exists; every item must carry the key
+   attributes.
+
+### Working with Items
+
+1. Open a table and use the **Items** tab
+2. **Put item**: paste a JSON object (it must include the key attributes);
+   putting over an existing key replaces it
+3. **Query** one partition, optionally narrowed by a sort-key condition
+   (`=`, `<`, `≤`, `>`, `≥`, `between`, `begins with`), or **Scan** the whole table
+4. Delete an item from its row
+
+### Backups
+
+The **Backups** tab takes an on-demand backup of a table and restores one over
+the table. Backups outlive the table they came from.
+
+---
+
+## Message Queue (Red)
+
+Red is an SQS-style message queue: producers send messages, consumers receive
+and delete them, and undeleted messages are redelivered.
+
+### Creating a Queue
+
+1. Click **Red** in the sidebar
+2. Click **New queue** and set the **visibility timeout** (how long a received
+   message stays hidden before redelivery) and, optionally, a **dead-letter
+   queue** with a max-receive count for messages that keep failing.
+
+### Sending and Receiving
+
+1. Open a queue and use the **Messages** tab
+2. **Send** a message (any text, typically JSON)
+3. **Receive batch** pulls messages and makes them invisible; **Delete (ack)**
+   removes one you have processed. Anything not deleted reappears after the
+   visibility timeout.
+4. **Purge** empties the queue.
+
+You can edit a queue's visibility timeout and retention from the **Overview**
+tab's **Edit** button while it is running.
+
+### Triggers (run a function per message)
+
+1. Click **Red Triggers** in the sidebar
+2. Click **New trigger** to connect a queue to an Impuls function: every message
+   invokes the function, is acked on success, and retried (then dead-lettered)
+   on failure
+3. Use the enable toggle to **pause or resume** a trigger without deleting it
 
 ---
 
@@ -489,8 +556,15 @@ Nothing needs to be enabled per service; instrumentation is built in.
 1. Go to Settings > Quota
 2. See your usage:
    - Functions: X of Y
-   - VMs: X of Y
-   - Storage: X GB of Y GB
+   - VMs: X of Y (cores, memory, disk)
+   - Storage: X GB of Y GB (and buckets)
+   - Platform services: containers (Pristaniste), databases (Tefter), key/value tables
+     (Indeks) and queues (Red)
+
+Functions, VMs and storage are counted per user. The platform services are
+counted across the whole deployment. Creating a resource past its limit is
+refused with a message naming the limit; delete something unused, or raise the
+limit in `backend-dashboard/src/api/quota/services/quota.ts`.
 
 ### Theme Settings
 
@@ -499,6 +573,15 @@ Nothing needs to be enabled per service; instrumentation is built in.
    - Light mode
    - Dark mode
    - System (follows OS preference)
+
+### Users and Access (root only)
+
+If you are the root account (the one set by `OBLAK_ROOT_EMAIL`), a **Users**
+entry appears under Settings. There you can create member accounts and grant
+each one access to specific services (none / read / write per service), block or
+unblock them, and delete them. Members see only the services they are granted
+and only the resources they create; you see everything. Full details are in
+[Access Control (Identitet)](IDENTITET.md).
 
 ---
 

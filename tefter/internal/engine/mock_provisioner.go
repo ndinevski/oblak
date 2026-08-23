@@ -14,7 +14,7 @@ import (
 // MockProvisioner is an in-memory Provisioner for tests.
 //
 // Tefter's real backend runs database containers, which CI does not have and
-// which tests should not create. This mirrors Izvor's MockClient and Brod's
+// which tests should not create. This mirrors Izvor's MockClient and Pristaniste's
 // MockEngine so the API layer can be exercised end to end without one.
 type MockProvisioner struct {
 	mu sync.RWMutex

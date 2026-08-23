@@ -42,38 +42,52 @@ import {
   Container,
   Package,
   Waypoints,
+  Table2,
+  Inbox,
+  Workflow,
+  Users,
+  KeyRound,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { useIdentitetMe, canAccess } from '@/hooks/useIdentitet';
 
 const primaryNavigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
 ];
 
+// `service` gates the item against the current user's Identitet grants; items with no
+// service key are always shown (e.g. quota, which is per-user information).
 const servicesNavigation = [
-  { name: 'Impuls', href: '/functions', icon: Zap },
-  { name: 'Izvor', href: '/vms', icon: Server },
-  { name: 'Spomen', href: '/storage', icon: Boxes },
-  { name: 'Brod', href: '/containers', icon: Container },
-  { name: 'Brod Images', href: '/images', icon: Package },
-  { name: 'Tefter', href: '/databases', icon: Database },
-  { name: 'Vrata', href: '/gateway', icon: Waypoints },
-  { name: 'Polaroid', href: '/photos', icon: Camera },
+  { name: 'Impuls', href: '/functions', icon: Zap, service: 'functions' },
+  { name: 'Izvor', href: '/vms', icon: Server, service: 'vms' },
+  { name: 'Spomen', href: '/storage', icon: Boxes, service: 'storage' },
+  { name: 'Pristaniste', href: '/containers', icon: Container, service: 'containers' },
+  { name: 'Registar', href: '/images', icon: Package, service: 'containers' },
+  { name: 'Tefter', href: '/databases', icon: Database, service: 'databases' },
+  { name: 'Vrata', href: '/gateway', icon: Waypoints, service: 'gateway' },
+  { name: 'Indeks', href: '/keyvalue', icon: Table2, service: 'keyvalue' },
+  { name: 'Red', href: '/queues', icon: Inbox, service: 'queues' },
+  { name: 'Red Triggers', href: '/triggers', icon: Workflow, service: 'queues' },
+  { name: 'Polaroid', href: '/photos', icon: Camera, service: 'photos' },
 ];
 
 const monitoringNavigation = [
-  { name: 'Observability', href: '/observability', icon: Gauge },
-  { name: 'Logs', href: '/observability/logs', icon: ScrollText },
-  { name: 'Traces', href: '/observability/traces', icon: GitBranch },
-  { name: 'Metrics', href: '/observability/metrics', icon: LineChart },
-  { name: 'Service Map', href: '/observability/services', icon: Network },
-  { name: 'Alerts', href: '/observability/alerts', icon: BellRing },
-  { name: 'Activity Log', href: '/settings/activity', icon: Activity },
+  { name: 'Observability', href: '/observability', icon: Gauge, service: 'observability' },
+  { name: 'Logs', href: '/observability/logs', icon: ScrollText, service: 'observability' },
+  { name: 'Traces', href: '/observability/traces', icon: GitBranch, service: 'observability' },
+  { name: 'Metrics', href: '/observability/metrics', icon: LineChart, service: 'observability' },
+  { name: 'Service Map', href: '/observability/services', icon: Network, service: 'observability' },
+  { name: 'Alerts', href: '/observability/alerts', icon: BellRing, service: 'observability' },
+  { name: 'Activity Log', href: '/settings/activity', icon: Activity, service: 'observability' },
   { name: 'Quota Usage', href: '/settings/quota', icon: PieChart },
 ];
 
 const bottomNavigation = [
+  // Root-only; gated in the component by the current user's Identitet role.
+  { name: 'Users', href: '/settings/users', icon: Users, rootOnly: true },
+  { name: 'API Keys', href: '/settings/api-keys', icon: KeyRound },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -117,6 +131,15 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
+  const { data: me } = useIdentitetMe();
+
+  // Hide services a member has no access to; root sees all. The backend is the
+  // real gate, this only declutters the sidebar.
+  const visibleServices = servicesNavigation.filter((item) => canAccess(me, item.service));
+  const visibleMonitoring = monitoringNavigation.filter(
+    (item) => !item.service || canAccess(me, item.service),
+  );
+  const visibleBottom = bottomNavigation.filter((item) => !item.rootOnly || me?.isRoot);
 
   // One resolved winner rather than per-link matching, so exactly one sidebar
   // item is ever highlighted.
@@ -232,7 +255,7 @@ export default function DashboardLayout() {
                 >
                   Services
                 </p>
-                {servicesNavigation.map((item) => (
+                {visibleServices.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.href}
@@ -267,7 +290,7 @@ export default function DashboardLayout() {
                 >
                   Monitoring
                 </p>
-                {monitoringNavigation.map((item) => (
+                {visibleMonitoring.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.href}
@@ -298,7 +321,7 @@ export default function DashboardLayout() {
           {/* Bottom navigation */}
           <div className="border-t border-border p-2">
             <nav className="space-y-1">
-              {bottomNavigation.map((item) => (
+              {visibleBottom.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.href}

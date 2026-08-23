@@ -75,7 +75,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 | Source | Traces | Metrics | Logs |
 |---|:---:|:---:|:---:|
-| Impuls, Spomen, Izvor, Brod, Tefter, Vrata (Go) | yes | yes | yes |
+| Impuls, Spomen, Izvor, Pristaniste, Tefter, Vrata, Indeks, Red (Go) | yes | yes | yes |
 | Impuls function logs (per invocation, `faas.*`) | via trace | - | yes |
 | Strapi backend (Node) | yes | yes | yes |
 | Dashboard (browser RUM) | yes | - | - |
@@ -86,7 +86,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 | Redis (Polaroid cache) | - | yes | - |
 | MinIO (Spomen storage) | - | yes | - |
 | ClickHouse (the telemetry store itself) | - | yes | - |
-| Brod containers & other workloads (stdout/stderr) | - | - | yes |
+| Pristaniste containers & other workloads (stdout/stderr) | - | - | yes |
 | Vrata-proxied requests to workloads | yes | yes | yes |
 
 The Go services emit a server span, RED metrics and a trace-correlated access
@@ -113,7 +113,7 @@ Tefter provisions them); instead Tefter's own stats collector polls each
 instance and emits `tefter.db.*` metrics and a per-database log line. See
 `tefter/README.md`.
 
-**Workload logs.** A Brod container or any workload runs the operator's own
+**Workload logs.** A Pristaniste container or any workload runs the operator's own
 image with no Oblak telemetry. The `filelog/containers` receiver tails Docker's
 own json-file logs from `/var/lib/docker/containers`, so every container's
 stdout/stderr reaches the log explorer under the service name `workload-logs`,
@@ -146,7 +146,7 @@ latency, request rate, services and containers that have stopped reporting,
 error-log volume, host CPU/memory/disk, container memory, Postgres connections
 and slow statements, and Tefter database health (a managed database that is down
 or a read replica that has fallen behind). The default rule set also watches
-Brod, Tefter and Vrata for having stopped reporting, and Vrata's upstream error
+Pristaniste, Tefter and Vrata for having stopped reporting, and Vrata's upstream error
 rate.
 
 Each rule carries a comparison, a threshold, a measurement window, and an
@@ -170,6 +170,12 @@ The evaluator is deliberately conservative:
   look healthy,
 - the two "not reporting" rule types are the exception, because there zero
   *is* the signal.
+
+Service liveness (`service.absent`) is measured from the metric datapoints a
+service exports on a timer, not from request spans. A healthy service exports
+metrics every ~15s whether or not it is serving traffic, so a quiet-but-running
+service is not mistaken for a down one; only a service whose exporter has
+actually stopped reports zero.
 
 ### Notifications
 
@@ -204,7 +210,7 @@ ages out with the same retention. Filter on `oblak.alert.event = true`.
 
 ### Defaults
 
-Fourteen rules are seeded on first start, recreating the intent of the
+Twenty-two rules are seeded on first start, recreating the intent of the
 Prometheus/Alertmanager rules the platform used to carry. They are seeded only
 when no rules exist at all, so deleting one makes it stay deleted.
 

@@ -187,7 +187,7 @@ func TestReconcileAddsUpdatesAndRemoves(t *testing.T) {
 	tbl := newTable(t)
 
 	// Round 1: two discovered routes.
-	a, u, r := tbl.Reconcile(models.SourceBrod, []*models.Route{
+	a, u, r := tbl.Reconcile(models.SourcePristaniste, []*models.Route{
 		{Name: "app1", Kind: models.RouteContainer, Upstream: "http://h:8001", StripPrefix: true},
 		{Name: "app2", Kind: models.RouteContainer, Upstream: "http://h:8002", StripPrefix: true},
 	})
@@ -196,7 +196,7 @@ func TestReconcileAddsUpdatesAndRemoves(t *testing.T) {
 	}
 
 	// Round 2: app1's upstream changed, app2 gone, app3 new.
-	a, u, r = tbl.Reconcile(models.SourceBrod, []*models.Route{
+	a, u, r = tbl.Reconcile(models.SourcePristaniste, []*models.Route{
 		{Name: "app1", Kind: models.RouteContainer, Upstream: "http://h:9999", StripPrefix: true},
 		{Name: "app3", Kind: models.RouteContainer, Upstream: "http://h:8003", StripPrefix: true},
 	})
@@ -217,7 +217,7 @@ func TestReconcileNeverTouchesManualRoutes(t *testing.T) {
 	mustAdd(t, tbl, &models.Route{Name: "keepme", Kind: models.RouteCustom, Upstream: "http://manual:80", Source: models.SourceManual})
 
 	// Discovery wants a route with the SAME name (a container also called keepme).
-	tbl.Reconcile(models.SourceBrod, []*models.Route{
+	tbl.Reconcile(models.SourcePristaniste, []*models.Route{
 		{Name: "keepme", Kind: models.RouteContainer, Upstream: "http://discovered:80"},
 	})
 	got, _ := tbl.Get("keepme")
@@ -226,7 +226,7 @@ func TestReconcileNeverTouchesManualRoutes(t *testing.T) {
 	}
 
 	// A later empty reconcile (container gone) must not remove the manual route.
-	tbl.Reconcile(models.SourceBrod, nil)
+	tbl.Reconcile(models.SourcePristaniste, nil)
 	if _, err := tbl.Get("keepme"); err != nil {
 		t.Error("manual route was reaped by reconcile")
 	}
@@ -237,8 +237,8 @@ func TestReconcileIdempotent(t *testing.T) {
 	desired := []*models.Route{
 		{Name: "app", Kind: models.RouteContainer, Upstream: "http://h:80", StripPrefix: true},
 	}
-	tbl.Reconcile(models.SourceBrod, desired)
-	a, u, r := tbl.Reconcile(models.SourceBrod, desired)
+	tbl.Reconcile(models.SourcePristaniste, desired)
+	a, u, r := tbl.Reconcile(models.SourcePristaniste, desired)
 	if a != 0 || u != 0 || r != 0 {
 		t.Errorf("second identical reconcile should be a no-op, got %d/%d/%d", a, u, r)
 	}

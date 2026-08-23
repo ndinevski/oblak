@@ -5,6 +5,9 @@
 
 import { getClickHouseClient } from "../../../telemetry/clickhouse";
 import { functionInvocationLogs } from "../../../telemetry/queries";
+import { isRoot, requireAccess } from "../../../identitet/authz";
+
+const SERVICE = "functions";
 
 export default ({ strapi }: { strapi: any }) => ({
   /**
@@ -41,17 +44,17 @@ export default ({ strapi }: { strapi: any }) => ({
    * Find all functions for the current user
    */
   async find(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
 
     const { page = 1, pageSize = 25, search, runtime, status } = ctx.query;
 
+    // Root lists across all owners (ownerId null); a member sees only its own.
+    const scope = isRoot(user) ? null : user.id;
     try {
       const functions = await strapi
         .service("api::function.function")
-        .findByOwner(user.id, {
+        .findByOwner(scope, {
           page: Number(page),
           pageSize: Number(pageSize),
           search: search ? String(search) : undefined,
@@ -61,7 +64,7 @@ export default ({ strapi }: { strapi: any }) => ({
 
       const total = await strapi
         .service("api::function.function")
-        .countByOwner(user.id, {
+        .countByOwner(scope, {
           search: search ? String(search) : undefined,
           runtime: runtime ? String(runtime) : undefined,
           status: status ? String(status) : undefined,
@@ -88,10 +91,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Find one function by ID
    */
   async findOne(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
 
     const { id } = ctx.params;
 
@@ -105,7 +106,7 @@ export default ({ strapi }: { strapi: any }) => ({
       }
 
       // Check ownership
-      if (fn.owner?.id !== user.id) {
+      if (!isRoot(user) && fn.owner?.id !== user.id) {
         return ctx.forbidden("You do not have access to this function");
       }
 
@@ -120,10 +121,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Find function by name
    */
   async findByName(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
 
     const { name } = ctx.params;
 
@@ -146,7 +145,7 @@ export default ({ strapi }: { strapi: any }) => ({
       );
 
       // Check ownership
-      if (fnWithOwner?.owner?.id !== user.id) {
+      if (!isRoot(user) && fnWithOwner?.owner?.id !== user.id) {
         return ctx.forbidden("You do not have access to this function");
       }
 
@@ -161,10 +160,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Create a new function
    */
   async create(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
 
     const payload = ctx.request.body?.data ?? ctx.request.body ?? {};
     const {
@@ -241,10 +238,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Update a function
    */
   async update(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
 
     const { id } = ctx.params;
     const payload = ctx.request.body?.data ?? ctx.request.body ?? {};
@@ -269,7 +264,7 @@ export default ({ strapi }: { strapi: any }) => ({
       return ctx.notFound("Function not found");
     }
 
-    if (existing.owner?.id !== user.id) {
+    if (!isRoot(user) && existing.owner?.id !== user.id) {
       return ctx.forbidden("You do not have access to this function");
     }
 
@@ -305,10 +300,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Delete a function
    */
   async delete(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
 
     const { id } = ctx.params;
 
@@ -321,7 +314,7 @@ export default ({ strapi }: { strapi: any }) => ({
       return ctx.notFound("Function not found");
     }
 
-    if (existing.owner?.id !== user.id) {
+    if (!isRoot(user) && existing.owner?.id !== user.id) {
       return ctx.forbidden("You do not have access to this function");
     }
 
@@ -342,7 +335,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Invoke a function
    */
   async invoke(ctx: any) {
-    const user = ctx.state.user;
+    const user = requireAccess(ctx, SERVICE, "write");
+    if (!user) return;
 
     const { id } = ctx.params;
     const payload = ctx.request.body || {};
@@ -361,7 +355,7 @@ export default ({ strapi }: { strapi: any }) => ({
       return ctx.notFound("Function not found");
     }
 
-    if (user && existing.owner?.id !== user.id) {
+    if (user && !isRoot(user) && existing.owner?.id !== user.id) {
       return ctx.forbidden("You do not have access to this function");
     }
 
@@ -455,10 +449,8 @@ export default ({ strapi }: { strapi: any }) => ({
    * Get function invocation logs
    */
   async logs(ctx: any) {
-    const user = ctx.state.user;
-    if (!user) {
-      return ctx.unauthorized("You must be logged in");
-    }
+    const user = requireAccess(ctx, SERVICE, "read");
+    if (!user) return;
 
     const { id } = ctx.params;
     const requestedLimit = Number(ctx.query.limit) || 25;
@@ -471,7 +463,7 @@ export default ({ strapi }: { strapi: any }) => ({
       return ctx.notFound("Function not found");
     }
 
-    if (existing.owner?.id !== user.id) {
+    if (!isRoot(user) && existing.owner?.id !== user.id) {
       return ctx.forbidden("You do not have access to this function");
     }
 

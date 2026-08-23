@@ -349,7 +349,7 @@ export default ({ strapi }: { strapi: any }) => ({
    * Find functions by owner
    */
   async findByOwner(
-    ownerId: number,
+    ownerId: number | null,
     params: {
       page?: number;
       pageSize?: number;
@@ -360,7 +360,8 @@ export default ({ strapi }: { strapi: any }) => ({
   ) {
     const { page = 1, pageSize = 25, search, runtime, status } = params;
 
-    const filters: Record<string, unknown> = { owner: ownerId };
+    // A null ownerId means "all owners" (root); otherwise scope to the owner.
+    const filters: Record<string, unknown> = ownerId === null ? {} : { owner: ownerId };
 
     if (search) {
       filters.$or = [
@@ -390,12 +391,13 @@ export default ({ strapi }: { strapi: any }) => ({
    * Count functions by owner
    */
   async countByOwner(
-    ownerId: number,
+    ownerId: number | null,
     params: { search?: string; runtime?: string; status?: string } = {},
   ) {
     const { search, runtime, status } = params;
 
-    const where: Record<string, unknown> = { owner: ownerId };
+    // A null ownerId means "all owners" (root); otherwise scope to the owner.
+    const where: Record<string, unknown> = ownerId === null ? {} : { owner: ownerId };
 
     if (search) {
       where.$or = [

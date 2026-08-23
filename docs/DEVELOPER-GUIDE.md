@@ -69,7 +69,7 @@ IZVOR_API_KEY=your-izvor-key
 SPOMEN_URL=http://localhost:9000
 SPOMEN_ACCESS_KEY=minioadmin
 SPOMEN_SECRET_KEY=minioadmin
-BROD_URL=http://localhost:8083
+PRISTANISTE_URL=http://localhost:8083
 TEFTER_URL=http://localhost:8084
 VRATA_URL=http://localhost:8085
 
@@ -143,7 +143,7 @@ oblak/
 │   │   │   ├── function/
 │   │   │   ├── virtual-machine/
 │   │   │   ├── bucket/
-│   │   │   ├── brod/         # Container service proxy
+│   │   │   ├── pristaniste/         # Container service proxy
 │   │   │   ├── tefter/       # Database service proxy
 │   │   │   ├── vrata/        # Gateway proxy
 │   │   │   ├── telemetry/    # Observability queries
@@ -172,7 +172,7 @@ oblak/
 ├── impuls/               # Serverless functions service (Go)
 ├── izvor/                # VM management service (Go)
 ├── spomen/               # Object storage service (Go)
-├── brod/                 # Container service: registry + runtime (Go)
+├── pristaniste/                 # Container service: registry + runtime (Go)
 ├── tefter/               # Managed database service: Postgres/MySQL (Go)
 ├── vrata/                # Gateway: instrumented reverse proxy (Go)
 ├── polaroid/             # Photo & video management (Immich)

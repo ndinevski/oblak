@@ -9,7 +9,7 @@ import (
 // Provisioner is everything Tefter needs from the layer that actually runs
 // databases.
 //
-// Defined as an interface, like Izvor's ProxmoxClient and Brod's
+// Defined as an interface, like Izvor's ProxmoxClient and Pristaniste's
 // ContainerEngine, so the API can be tested without a container runtime.
 // DockerProvisioner is the real implementation; MockProvisioner is the
 // in-memory one the tests use.

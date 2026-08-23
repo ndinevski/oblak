@@ -179,14 +179,14 @@ receivers:
           static_configs:
             - targets: ["spomen:9000"]
 
-  # Container stdout/stderr from Brod-managed workloads.
+  # Container stdout/stderr from Pristaniste-managed workloads.
   #
-  # A Brod container runs the operator's own image with no Oblak telemetry, so
+  # A Pristaniste container runs the operator's own image with no Oblak telemetry, so
   # its application logs never reach the dashboard. Docker's json-file driver
   # writes them to disk, and the whole host filesystem is already mounted at
   # /hostfs, so the collector tails those files directly. The container id in
   # the path is turned into a friendly name by the docker_stats-style attribute
-  # enrichment below; Brod stamps io.oblak.brod.managed on its containers, but
+  # enrichment below; Pristaniste stamps io.oblak.pristaniste.managed on its containers, but
   # labels are not in the log file, so the id is carried and the container name
   # is resolved from the log's own attributes where present.
   filelog/containers:
@@ -285,7 +285,7 @@ processors:
         - 'attributes["url.path"] == "/health"'
         - 'attributes["url.path"] == "/_health"'
         - 'attributes["url.path"] == "/api/server/ping"'
-        # Brod's Docker SDK auto-instruments its transport, so every health
+        # Pristaniste's Docker SDK auto-instruments its transport, so every health
         # check produces a client span for the engine ping and version call.
         # The engine calls that do real work are kept; only this pair is noise.
         - 'name == "HEAD /_ping"'

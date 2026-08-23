@@ -7,6 +7,9 @@ import type { Core } from '@strapi/strapi';
 import { createVMService } from '../services/virtual-machine';
 import type { VMService } from '../services/virtual-machine';
 import { IzvorClientError } from '../services/izvor-client';
+import { isRoot, requireAccess } from '../../../identitet/authz';
+
+const SERVICE = 'vms';
 
 let vmService: VMService;
 
@@ -70,18 +73,14 @@ export default {
   // List VMs for current user
   async find(ctx: any) {
     const strapi = getStrapi(ctx);
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const { page = 1, pageSize = 25, status, search, sort = 'createdAt:desc' } = ctx.query;
 
-      const filters: Record<string, unknown> = { owner: userId };
+      const filters: Record<string, unknown> = isRoot(user) ? {} : { owner: userId };
       if (status) filters.status = status;
       if (search) {
         filters.$or = [
@@ -123,13 +122,9 @@ export default {
   async findOne(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const vm = await strapi.documents('api::virtual-machine.virtual-machine').findOne({
@@ -145,7 +140,7 @@ export default {
 
       // Check ownership
       const vmOwner = vm.owner as { id: number } | undefined;
-      if (vmOwner?.id !== userId) {
+      if (!isRoot(user) && vmOwner?.id !== userId) {
         ctx.status = 403;
         ctx.body = { error: { message: 'Not authorized to view this VM' } };
         return;
@@ -160,13 +155,9 @@ export default {
   // Create VM
   async create(ctx: any) {
     const { strapi } = ctx;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -183,13 +174,9 @@ export default {
   async update(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const vm = await strapi.documents('api::virtual-machine.virtual-machine').findOne({
@@ -205,7 +192,7 @@ export default {
 
       // Check ownership
       const vmOwner = vm.owner as { id: number } | undefined;
-      if (vmOwner?.id !== userId) {
+      if (!isRoot(user) && vmOwner?.id !== userId) {
         ctx.status = 403;
         ctx.body = { error: { message: 'Not authorized to update this VM' } };
         return;
@@ -235,13 +222,9 @@ export default {
   async delete(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -258,13 +241,9 @@ export default {
   async start(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -280,14 +259,10 @@ export default {
   async stop(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
     const { force } = ctx.request.body || {};
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -303,13 +278,9 @@ export default {
   async reboot(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -325,13 +296,9 @@ export default {
   async pause(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -347,13 +314,9 @@ export default {
   async resume(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -369,14 +332,11 @@ export default {
   async console(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
     const { type = 'vnc' } = ctx.query;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    // Interactive console is effectively control of the VM, so it needs write.
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -392,13 +352,9 @@ export default {
   async stats(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -414,13 +370,9 @@ export default {
   async listSnapshots(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'read');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -436,13 +388,9 @@ export default {
   async createSnapshot(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -459,13 +407,9 @@ export default {
   async restoreSnapshot(ctx: any) {
     const { strapi } = ctx;
     const { id, snapshotName } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -481,13 +425,9 @@ export default {
   async deleteSnapshot(ctx: any) {
     const { strapi } = ctx;
     const { id, snapshotName } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const service = getVMService(strapi);
@@ -503,6 +443,7 @@ export default {
   // Get templates
   async templates(ctx: any) {
     const { strapi } = ctx;
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
 
     try {
       const service = getVMService(strapi);
@@ -517,6 +458,7 @@ export default {
   // Get sizes
   async sizes(ctx: any) {
     const { strapi } = ctx;
+    if (!requireAccess(ctx, SERVICE, 'read')) return;
 
     try {
       const service = getVMService(strapi);
@@ -532,13 +474,9 @@ export default {
   async sync(ctx: any) {
     const { strapi } = ctx;
     const { id } = ctx.params;
-    const userId = ctx.state.user?.id;
-
-    if (!userId) {
-      ctx.status = 401;
-      ctx.body = { error: { message: 'Authentication required' } };
-      return;
-    }
+    const user = requireAccess(ctx, SERVICE, 'write');
+    if (!user) return;
+    const userId = user.id;
 
     try {
       const vm = await strapi.documents('api::virtual-machine.virtual-machine').findOne({
@@ -554,7 +492,7 @@ export default {
 
       // Check ownership
       const vmOwner = vm.owner as { id: number } | undefined;
-      if (vmOwner?.id !== userId) {
+      if (!isRoot(user) && vmOwner?.id !== userId) {
         ctx.status = 403;
         ctx.body = { error: { message: 'Not authorized to sync this VM' } };
         return;
