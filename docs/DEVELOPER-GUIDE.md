@@ -64,12 +64,22 @@ DATABASE_PASSWORD=oblak_password
 # External Services
 IMPULS_URL=http://localhost:8080
 IMPULS_API_KEY=your-impuls-key
-IZVOR_URL=http://localhost:8081
+IZVOR_URL=http://localhost:8082
 IZVOR_API_KEY=your-izvor-key
 SPOMEN_URL=http://localhost:9000
 SPOMEN_ACCESS_KEY=minioadmin
 SPOMEN_SECRET_KEY=minioadmin
+BROD_URL=http://localhost:8083
+TEFTER_URL=http://localhost:8084
+VRATA_URL=http://localhost:8085
+
+# Telemetry (services export OTLP to the collector)
+OTEL_EXPORTER_OTLP_ENDPOINT=oblak-otel-collector:4317
 ```
+
+> Each Go service has its own `.env` and `.env.example`; see that service's
+> README for the full set. The backend only needs the URL (and optional API
+> key) of each service it proxies.
 
 #### Frontend (.env)
 
@@ -129,12 +139,18 @@ oblak/
 ├── backend-dashboard/     # Strapi backend
 │   ├── config/           # Strapi configuration
 │   ├── src/
-│   │   ├── api/          # API endpoints
+│   │   ├── api/          # API endpoints & service proxies
 │   │   │   ├── function/
 │   │   │   ├── virtual-machine/
 │   │   │   ├── bucket/
+│   │   │   ├── brod/         # Container service proxy
+│   │   │   ├── tefter/       # Database service proxy
+│   │   │   ├── vrata/        # Gateway proxy
+│   │   │   ├── telemetry/    # Observability queries
+│   │   │   ├── alert-rule/   # Alerting
 │   │   │   ├── activity-log/
 │   │   │   └── quota/
+│   │   ├── telemetry/    # OTel instrumentation, audit, ClickHouse client
 │   │   ├── extensions/   # Strapi extensions
 │   │   └── types/        # TypeScript types
 │   └── tests/            # Backend tests
@@ -153,13 +169,23 @@ oblak/
 │   ├── tests/            # Frontend tests
 │   └── e2e/              # E2E tests
 │
-├── impuls/               # Serverless functions service
-├── izvor/                # VM management service
-├── spomen/               # Object storage service
+├── impuls/               # Serverless functions service (Go)
+├── izvor/                # VM management service (Go)
+├── spomen/               # Object storage service (Go)
+├── brod/                 # Container service: registry + runtime (Go)
+├── tefter/               # Managed database service: Postgres/MySQL (Go)
+├── vrata/                # Gateway: instrumented reverse proxy (Go)
+├── polaroid/             # Photo & video management (Immich)
+├── observability/        # OTel Collector + ClickHouse telemetry stack
 │
 ├── docs/                 # Documentation
 └── docker-compose.yml    # Production compose
 ```
+
+Each Go service follows the same layout: `cmd/<svc>-server/` (entrypoint),
+`internal/{models,api,telemetry}` plus a service-specific engine package
+(`engine`, `proxy`, `routes`), an interface with a mock for testing, a
+`Dockerfile`, a `docker-compose.yml`, and its own `README.md`.
 
 ## Development Workflow
 

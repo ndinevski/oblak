@@ -674,6 +674,162 @@ HEAD /buckets/:documentId/objects/:key
 
 ---
 
+## Containers (Brod) Endpoints
+
+Brod is the container service (image registry + container runtime, ECR/ECS
+shaped). The dashboard proxies it through Strapi, which adds authentication and
+audit; every route below is under `/api/brod`. Failures are returned with the
+same status code Brod used.
+
+### Service
+
+```http
+GET  /brod/health          # Brod service health (engine + registry)
+GET  /brod/registry        # Where to push and pull images
+```
+
+### Repositories & Images
+
+```http
+GET    /brod/repositories                       # List image repositories
+POST   /brod/repositories                       # Declare a repository { name, description? }
+GET    /brod/repositories/:name                 # Get one repository
+DELETE /brod/repositories/:name                 # Delete a repository
+GET    /brod/repositories/:name/images          # List image tags
+DELETE /brod/repositories/:name/images/:tag     # Delete an image tag
+```
+
+A repository name may contain slashes ("team/app"); the components are
+individually URL-encoded.
+
+### Containers
+
+```http
+GET    /brod/containers              # List containers (?all=true|false)
+POST   /brod/containers              # Run a container { name, image, ports?, env?, volumes?, ... }
+GET    /brod/containers/:id          # Get one container
+DELETE /brod/containers/:id          # Remove a container (?force=true|false)
+POST   /brod/containers/:id/start    # Start
+POST   /brod/containers/:id/stop     # Stop { timeout_seconds? }
+POST   /brod/containers/:id/restart  # Restart { timeout_seconds? }
+GET    /brod/containers/:id/logs     # Container logs (?tail=N)
+GET    /brod/containers/:id/stats    # Live resource usage
+```
+
+Images are pushed with the standard `docker` CLI to the registry reported by
+`GET /brod/registry`; the API only manages what has been pushed.
+
+---
+
+## Databases (Tefter) Endpoints
+
+Tefter is the managed-database service (PostgreSQL and MySQL, RDS shaped),
+proxied under `/api/tefter`.
+
+### Catalogue
+
+```http
+GET /tefter/health     # Service health and instance count
+GET /tefter/engines    # Supported engines and versions
+GET /tefter/sizes      # Available instance sizes
+```
+
+### Instances
+
+```http
+GET    /tefter/instances                  # List instances
+POST   /tefter/instances                  # Provision { name, engine, version?, size? }
+GET    /tefter/instances/:name            # Get one instance
+DELETE /tefter/instances/:name            # Delete an instance and its data volume
+POST   /tefter/instances/:name/start      # Start
+POST   /tefter/instances/:name/stop       # Stop
+```
+
+The create response includes the generated password **once**; it cannot be
+recovered afterwards.
+
+### Read Replicas
+
+```http
+GET  /tefter/instances/:name/replicas     # List replicas of an instance
+POST /tefter/instances/:name/replicas     # Create a read replica { name, size? }
+GET  /tefter/instances/:name/replication  # Replication state and lag
+POST /tefter/instances/:name/promote      # Promote a replica to a standalone primary (one-way)
+```
+
+### Backups
+
+```http
+GET    /tefter/instances/:name/backups    # Backups of one instance
+POST   /tefter/instances/:name/backups    # Back up an instance { description? }
+GET    /tefter/backups                    # List all backups
+GET    /tefter/backups/:id                # Get one backup
+DELETE /tefter/backups/:id                # Delete a backup
+POST   /tefter/backups/restore            # Restore { backup_id, target_instance?, confirm, allow_different_instance? }
+```
+
+A restore requires `confirm: true`. Restoring a backup into an instance it did
+not come from (including a new instance that reuses a deleted one's name)
+additionally requires `allow_different_instance: true`.
+
+---
+
+## Gateway (Vrata) Endpoints
+
+Vrata is the observability gateway: an instrumented reverse proxy in front of
+Brod containers and Izvor VMs, so requests to workloads are traced and logged.
+Its route-management API is proxied under `/api/vrata`. Proxied workload traffic
+itself goes to Vrata's data-plane port (default 8090), not through Strapi.
+
+```http
+GET    /vrata/health           # Service health and route count
+GET    /vrata/routes           # List routes
+POST   /vrata/routes           # Create a route { name, kind, upstream, host?, strip_prefix?, target? }
+GET    /vrata/routes/:name     # Get one route
+DELETE /vrata/routes/:name     # Delete a route
+```
+
+`kind` is `container`, `vm` or `custom`. A route matches by Host header (path
+preserved) or by leading path segment (`/<name>/...`, prefix stripped).
+
+Routes carry a `source`: `manual` for ones created through this API, or `brod`
+for ones Vrata auto-discovered from running Brod containers. Auto-discovery
+(when `VRATA_BROD_URL` is set) keeps a route per running container that
+publishes a port, and never modifies or removes a `manual` route.
+
+---
+
+## Observability Endpoints
+
+Telemetry (traces, logs, metrics) and alert rules are served under
+`/api/telemetry` and `/api/alert-rules`. These read from the ClickHouse
+telemetry store rather than Strapi's own database.
+
+```http
+GET  /telemetry/summary                    # Platform-wide RED summary
+GET  /telemetry/service-overview           # Per-service rate/errors/latency
+GET  /telemetry/services                   # Services seen in the telemetry store
+GET  /telemetry/timeseries/requests        # Request volume over time
+GET  /telemetry/endpoints                  # Top endpoints
+GET  /telemetry/containers                 # Per-container resource usage
+GET  /telemetry/logs                       # Structured log search
+GET  /telemetry/traces                     # Trace search
+GET  /telemetry/traces/:id                 # One trace's spans
+GET  /telemetry/service-map                # Cross-service call graph
+GET  /telemetry/metrics                    # Metric catalogue and series
+
+GET    /alert-rules                        # List alert rules
+POST   /alert-rules                        # Create a rule
+GET    /alert-rules/types                  # Catalogue of rule types (for the form)
+PUT    /alert-rules/:id                    # Update a rule
+DELETE /alert-rules/:id                    # Delete a rule
+POST   /alert-rules/:id/mute               # Mute a rule
+GET    /alert-rules/:id/history            # A rule's state history
+POST   /alert-rules/test                   # Evaluate a rule definition without saving it
+```
+
+---
+
 ## Activity Log Endpoints
 
 ### List Activity Logs
@@ -815,7 +971,10 @@ GET /health
     "database": "healthy",
     "impuls": "healthy",
     "izvor": "healthy",
-    "spomen": "healthy"
+    "spomen": "healthy",
+    "brod": "healthy",
+    "tefter": "healthy",
+    "vrata": "healthy"
   }
 }
 ```

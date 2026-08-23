@@ -16,7 +16,7 @@ import {
   SelectValue,
   Switch,
 } from '@/components/ui';
-import { AlertCircle, ArrowLeft, Database, Globe, GlobeLock, Lock, Save } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Boxes, Globe, GlobeLock, Lock, Save } from 'lucide-react';
 import { useBucket, useUpdateBucket } from '@/hooks/useStorage';
 import type { BucketPolicy } from '@/lib/api/storage';
 import { Spinner } from '@/components/ui/spinner';
@@ -134,7 +134,7 @@ export default function EditBucketPage() {
 
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Database className="h-8 w-8" />
+          <Boxes className="h-8 w-8" />
           Edit Bucket
         </h1>
         <p className="text-muted-foreground">Editing: {bucket.name}</p>

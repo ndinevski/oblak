@@ -1,5 +1,5 @@
 import { Breadcrumb } from '@/components/ui';
-import { Zap, Server, Database } from 'lucide-react';
+import { Zap, Server, Boxes } from 'lucide-react';
 import {
   ResourceCard,
   QuotaWidget,
@@ -92,7 +92,7 @@ export default function OverviewPage() {
               ? `${summary.storage.usedGB} GB used`
               : 'N/A'
           }
-          icon={Database}
+          icon={Boxes}
           href="/storage"
           trend={summary?.storage.trend ? { value: summary.storage.trend } : undefined}
         />

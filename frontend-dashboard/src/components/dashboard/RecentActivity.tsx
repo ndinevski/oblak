@@ -5,7 +5,7 @@ import {
   LucideIcon,
   Zap,
   Server,
-  Database,
+  Boxes,
   Plus,
   Trash2,
   Play,
@@ -81,7 +81,7 @@ function getActivityColor(type: ActivityType): string {
 function getResourceIcon(type: ActivityType): LucideIcon | null {
   if (type.startsWith('function')) return Zap;
   if (type.startsWith('vm')) return Server;
-  if (type.startsWith('bucket')) return Database;
+  if (type.startsWith('bucket')) return Boxes;
   return null;
 }
 

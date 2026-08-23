@@ -29,7 +29,7 @@ import {
   ChevronRight,
   Code,
   Server,
-  Database,
+  Boxes,
   File,
   User,
   Calendar,
@@ -68,7 +68,7 @@ function ResourceIcon({ type }: { type: string }) {
     function: Code,
     'virtual-machine': Server,
     vm: Server,
-    bucket: Database,
+    bucket: Boxes,
     object: File,
     user: User,
   };

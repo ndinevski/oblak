@@ -40,14 +40,14 @@ type VMConfig struct {
 
 // VM represents a running Firecracker VM
 type VM struct {
-	ID           string
-	Config       VMConfig
-	SocketPath   string
-	Process      *exec.Cmd
-	IPAddress    string
-	State        VMState
-	CreatedAt    time.Time
-	mu           sync.Mutex
+	ID         string
+	Config     VMConfig
+	SocketPath string
+	Process    *exec.Cmd
+	IPAddress  string
+	State      VMState
+	CreatedAt  time.Time
+	mu         sync.Mutex
 }
 
 // VMState represents the state of a VM
@@ -222,7 +222,7 @@ func (m *Manager) configureVM(vm *VM) error {
 
 	// Set machine config
 	machineConfig := map[string]interface{}{
-		"vcpu_count":  vm.Config.VCPUs,
+		"vcpu_count":   vm.Config.VCPUs,
 		"mem_size_mib": vm.Config.MemoryMB,
 	}
 	if err := m.apiCall(vm.SocketPath, "PUT", "/machine-config", machineConfig); err != nil {
@@ -263,7 +263,7 @@ func (m *Manager) createOverlayRootFS(vm *VM) (string, error) {
 func (m *Manager) configureNetwork(vm *VM) error {
 	// Create TAP device for this VM
 	tapName := fmt.Sprintf("tap-%s", vm.ID[:8])
-	
+
 	// Create TAP device
 	if err := exec.Command("ip", "tuntap", "add", tapName, "mode", "tap").Run(); err != nil {
 		// TAP might already exist, try to continue
@@ -287,8 +287,8 @@ func (m *Manager) configureNetwork(vm *VM) error {
 
 	// Configure network interface in Firecracker
 	networkIface := map[string]interface{}{
-		"iface_id":     "eth0",
-		"guest_mac":    m.generateMAC(vm.ID),
+		"iface_id":      "eth0",
+		"guest_mac":     m.generateMAC(vm.ID),
 		"host_dev_name": tapName,
 	}
 	if err := m.apiCall(vm.SocketPath, "PUT", "/network-interfaces/eth0", networkIface); err != nil {
@@ -360,7 +360,7 @@ func (m *Manager) stopVM(vm *VM) error {
 
 	// Cleanup
 	os.Remove(vm.SocketPath)
-	
+
 	// Remove TAP device
 	tapName := fmt.Sprintf("tap-%s", vm.ID[:8])
 	exec.Command("ip", "link", "del", tapName).Run()
@@ -417,7 +417,7 @@ func (m *Manager) Cleanup() error {
 func (m *Manager) ExecuteFunction(ctx context.Context, vm *VM, payload []byte) ([]byte, error) {
 	// The VM runs a small HTTP server that receives function invocations
 	// We send the payload to this server and wait for the response
-	
+
 	client := &http.Client{
 		Timeout: time.Duration(30) * time.Second,
 	}

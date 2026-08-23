@@ -30,12 +30,21 @@ function shouldSeedDemoData(): boolean {
  * should surface alerts in the dashboard, not start emailing someone.
  */
 async function seedDefaultAlertRules(strapi: Core.Strapi): Promise<void> {
-  const existing = await strapi.db.query('api::alert-rule.alert-rule').count({});
-  if (existing > 0) {
-    return;
-  }
+  // Idempotent by name: create any default rule that is not already present.
+  // On a fresh install this seeds the whole set; on an upgrade it tops up rules
+  // added since the last version (for example the Brod/Tefter/Vrata rules)
+  // without disturbing rules the operator has edited. A default the operator
+  // deletes can reappear after an upgrade that ships new defaults; deleting it
+  // again is a one-time cost, which is the price of getting new coverage
+  // automatically.
+  const existing = await strapi.db.query('api::alert-rule.alert-rule').findMany({});
+  const existingNames = new Set(existing.map((r: { name: string }) => r.name));
 
+  let created = 0;
   for (const rule of DEFAULT_ALERT_RULES) {
+    if (existingNames.has(rule.name)) {
+      continue;
+    }
     await strapi.db.query('api::alert-rule.alert-rule').create({
       data: {
         ...rule,
@@ -44,9 +53,12 @@ async function seedDefaultAlertRules(strapi: Core.Strapi): Promise<void> {
         state: 'unknown',
       },
     });
+    created++;
   }
 
-  strapi.log.info(`Seeded ${DEFAULT_ALERT_RULES.length} default alert rules`);
+  if (created > 0) {
+    strapi.log.info(`Seeded ${created} default alert rule(s)`);
+  }
 }
 
 async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void> {
@@ -178,6 +190,47 @@ async function ensureAuthenticatedPermissions(strapi: Core.Strapi): Promise<void
     'api::alert-rule.alert-rule.update',
     'api::alert-rule.alert-rule.delete',
     'api::alert-rule.alert-rule.mute',
+    'api::brod.brod.health',
+    'api::brod.brod.registry',
+    'api::brod.brod.listRepositories',
+    'api::brod.brod.getRepository',
+    'api::brod.brod.createRepository',
+    'api::brod.brod.deleteRepository',
+    'api::brod.brod.listImages',
+    'api::brod.brod.deleteImage',
+    'api::brod.brod.listContainers',
+    'api::brod.brod.getContainer',
+    'api::brod.brod.createContainer',
+    'api::brod.brod.deleteContainer',
+    'api::brod.brod.startContainer',
+    'api::brod.brod.stopContainer',
+    'api::brod.brod.restartContainer',
+    'api::brod.brod.containerLogs',
+    'api::brod.brod.containerStats',
+    'api::tefter.tefter.health',
+    'api::tefter.tefter.engines',
+    'api::tefter.tefter.sizes',
+    'api::tefter.tefter.listInstances',
+    'api::tefter.tefter.getInstance',
+    'api::tefter.tefter.createInstance',
+    'api::tefter.tefter.deleteInstance',
+    'api::tefter.tefter.startInstance',
+    'api::tefter.tefter.stopInstance',
+    'api::tefter.tefter.listReplicas',
+    'api::tefter.tefter.createReplica',
+    'api::tefter.tefter.replicationStatus',
+    'api::tefter.tefter.promoteReplica',
+    'api::tefter.tefter.listBackups',
+    'api::tefter.tefter.listInstanceBackups',
+    'api::tefter.tefter.createBackup',
+    'api::tefter.tefter.getBackup',
+    'api::tefter.tefter.deleteBackup',
+    'api::tefter.tefter.restoreBackup',
+    'api::vrata.vrata.health',
+    'api::vrata.vrata.listRoutes',
+    'api::vrata.vrata.getRoute',
+    'api::vrata.vrata.createRoute',
+    'api::vrata.vrata.deleteRoute',
   ];
 
   for (const action of requiredActions) {

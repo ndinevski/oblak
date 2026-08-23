@@ -68,11 +68,11 @@ type InvocationLogs struct {
 
 // InvocationResponse is the response from a function invocation
 type InvocationResponse struct {
-	StatusCode int         `json:"status_code"`
-	Body       interface{} `json:"body"`
-	Duration   int64       `json:"duration_ms"`
+	StatusCode int             `json:"status_code"`
+	Body       interface{}     `json:"body"`
+	Duration   int64           `json:"duration_ms"`
 	Logs       *InvocationLogs `json:"logs,omitempty"`
-	Error      string      `json:"error,omitempty"`
+	Error      string          `json:"error,omitempty"`
 }
 
 // FunctionStatus represents the current status of a function

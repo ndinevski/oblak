@@ -11,6 +11,30 @@ Impuls is a lightweight FaaS (Function as a Service) platform built on top of Fi
 - **Secure Isolation**: Each function runs in its own microVM
 - **Flexible Storage**: File-based or PostgreSQL storage backends
 - **Production Ready**: Database-backed persistence with multi-instance support
+- **Function Observability**: Each invocation's `console.log`/`stderr` output and
+  any thrown error are shipped to the Oblak telemetry store as structured logs,
+  tagged with the function name and correlated to the invocation's trace, so a
+  function's own logs and errors are searchable in the dashboard's Logs view
+
+## Function logs and errors
+
+A function runs the operator's own code, which carries no Oblak telemetry of its
+own. Impuls captures each invocation's runtime output and republishes it to the
+observability stack so it does not vanish when the HTTP response is sent:
+
+- lines written to stdout (`console.log`, `print`, `Console.WriteLine`) become
+  INFO log records with `faas.stream=stdout`
+- lines written to stderr (`console.warn`/`console.error`) become WARN records
+  with `faas.stream=stderr`
+- a thrown error, or a failure to run the function at all, becomes an ERROR
+  record carrying the message
+
+Every record is tagged `faas.name=<function>` and carries the invocation's trace
+id, so from a log line you can open the exact invoke trace. Filter the dashboard
+Logs view by service `impuls` (and by function name) to see one function's
+output. This requires telemetry to be enabled (`OTEL_EXPORTER_OTLP_ENDPOINT`
+set); with it unset the service still runs and returns logs in the invoke
+response as before.
 
 ## Architecture
 

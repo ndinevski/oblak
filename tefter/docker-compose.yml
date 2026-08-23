@@ -1,0 +1,65 @@
+# Tefter - managed database service for Oblak
+#
+# Unlike Spomen or Brod, Tefter has no backing engine of its own to run here:
+# it provisions database containers on demand. This file starts only the API
+# and the network those instances join.
+
+services:
+  tefter-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tefter-api
+    restart: unless-stopped
+    environment:
+      TEFTER_PORT: "8084"
+      TEFTER_NETWORK: ${TEFTER_NETWORK:-tefter-network}
+      TEFTER_PORT_RANGE_START: ${TEFTER_PORT_RANGE_START:-15000}
+      TEFTER_PORT_RANGE_END: ${TEFTER_PORT_RANGE_END:-15099}
+      TEFTER_BACKUP_DIR: /var/lib/tefter/backups
+      TEFTER_STATS_INTERVAL_SECONDS: ${TEFTER_STATS_INTERVAL_SECONDS:-30}
+      # What clients put in a connection string. Instances publish on the host,
+      # so this is the host's address, not a container name.
+      TEFTER_PUBLIC_HOST: ${TEFTER_PUBLIC_HOST:-localhost}
+      DOCKER_HOST: unix:///var/run/docker.sock
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
+    volumes:
+      # SECURITY: Tefter provisions databases as containers, so it needs the
+      # host's container runtime. Access to docker.sock is equivalent to root
+      # on the host. Tefter limits the blast radius by labelling everything it
+      # creates and refusing to touch containers without that label, but the
+      # socket itself is still full control. Do not expose this API to
+      # untrusted callers.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Backups live in a named volume so they survive the API container being
+      # rebuilt. They are the only copy of the data once an instance is gone.
+      - backup-data:/var/lib/tefter/backups
+    # The image runs as a non-root user, so it needs the host's docker group to
+    # read the socket. Override if your host differs:
+    #   getent group docker | cut -d: -f3
+    group_add:
+      - "${DOCKER_GID:-989}"
+    security_opt:
+      # SELinux blocks a confined container from writing to docker.sock and no
+      # boolean covers it. Same trade the telemetry collector and Brod make.
+      - label:disable
+    ports:
+      - "${TEFTER_API_PORT:-8084}:8084"
+    networks:
+      - tefter-network
+      - oblak-telemetry
+
+volumes:
+  backup-data:
+
+networks:
+  # Provisioned instances join this network so a replica can reach its primary
+  # by container name. Named explicitly because Tefter attaches containers to
+  # it by name from outside this compose project.
+  tefter-network:
+    name: ${TEFTER_NETWORK:-tefter-network}
+  # Shared with the observability stack so telemetry reaches the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

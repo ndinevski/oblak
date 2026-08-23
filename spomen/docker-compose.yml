@@ -10,6 +10,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-spomen-admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-spomen-secret-key}
       MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-}
+      # Let the collector scrape MinIO metrics without a bearer token.
+      MINIO_PROMETHEUS_AUTH_TYPE: public
     volumes:
       - ${MINIO_DATA_DIR:-./data}:/data:z
     healthcheck:
@@ -20,6 +22,7 @@ services:
     restart: unless-stopped
     networks:
       - spomen-network
+      - oblak-telemetry
 
   # Spomen API server
   spomen-api:

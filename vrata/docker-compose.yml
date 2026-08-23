@@ -1,0 +1,52 @@
+# Vrata - the Oblak gateway.
+#
+# An instrumented reverse proxy in front of the workloads Oblak runs (Brod
+# containers and Izvor VMs), so that every request to a workload is traced and
+# logged. Without it, that traffic is invisible: a container or VM runs the
+# operator's own image, which carries no Oblak telemetry.
+
+services:
+  vrata:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vrata
+    restart: unless-stopped
+    environment:
+      VRATA_API_PORT: "8085"
+      VRATA_PROXY_PORT: "8090"
+      VRATA_ROUTE_FILE: /var/lib/vrata/routes.json
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-oblak-otel-collector:4317}
+      OBLAK_ENV: ${OBLAK_ENV:-development}
+      # Auto-discovery of Brod containers. Vrata polls Brod's API and keeps a
+      # route per running container that publishes a port, so workload traffic
+      # is observable with no manual route registration.
+      VRATA_BROD_URL: ${VRATA_BROD_URL:-http://brod-api:8083}
+      VRATA_DISCOVERY_INTERVAL_SECONDS: ${VRATA_DISCOVERY_INTERVAL_SECONDS:-30}
+      # How Vrata reaches a container's published port. From inside the Vrata
+      # container that is the host gateway, not localhost.
+      VRATA_WORKLOAD_HOST: ${VRATA_WORKLOAD_HOST:-host.docker.internal}
+    ports:
+      # Management API and the data-plane proxy, published separately.
+      - "${VRATA_API_PORT:-8085}:8085"
+      - "${VRATA_PROXY_PORT:-8090}:8090"
+    volumes:
+      # The route table lives in a named volume so registered routes survive
+      # the container being rebuilt.
+      - route-data:/var/lib/vrata
+    extra_hosts:
+      # Lets a route target a Brod container by its published host port, as
+      # http://host.docker.internal:<port>. Izvor VMs are reached by their LAN
+      # address directly, which needs no special mapping.
+      - "host.docker.internal:host-gateway"
+    networks:
+      - oblak-telemetry
+
+volumes:
+  route-data:
+
+networks:
+  # Shared with the observability stack so telemetry reaches the collector.
+  oblak-telemetry:
+    name: oblak-telemetry
+    external: true

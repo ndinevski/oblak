@@ -26,14 +26,21 @@
 
 ### 1.1 Project Overview
 
-**Oblak Cloud Dashboard** is a unified management interface for a private cloud infrastructure, providing users with an AWS-like experience for managing cloud resources. The dashboard integrates four core services:
+**Oblak Cloud Dashboard** is a unified management interface for a private cloud infrastructure, providing users with an AWS-like experience for managing cloud resources. The dashboard integrates the following services:
 
 | Service | Purpose | Equivalent |
 |---------|---------|------------|
 | **Impuls** | Serverless Functions (FaaS) | AWS Lambda |
 | **Izvor** | Virtual Machine Provisioning | AWS EC2 |
 | **Spomen** | Object Storage | AWS S3 |
+| **Brod** | Containers: image registry + runtime | AWS ECR + ECS |
+| **Tefter** | Managed databases: PostgreSQL & MySQL | AWS RDS |
+| **Vrata** | Observability gateway (reverse proxy) | AWS ALB access logs |
 | **Polaroid** | Photo & Video Management | Google Photos |
+
+A cross-cutting **Observability** stack (OpenTelemetry Collector + ClickHouse)
+collects traces, logs and metrics from every service, the host, all containers,
+and the backing data stores. See `observability/README.md`.
 
 ### 1.2 Goals
 
@@ -80,26 +87,39 @@
 │                           PostgreSQL DB                                       │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
-       ┌──────────────────┬────────┼────────┬──────────────────┐
-       │                  │        │        │                  │
-       ▼                  ▼        ▼        ▼                  ▼
-┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────────┐
-│   Impuls   │  │   Izvor    │  │   Spomen   │  │    Polaroid      │
-│ (Port 8080)│  │ (Port 8082)│  │ (Port 8081)│  │  (Port 2283)     │
-│ ┌────────┐ │  │ ┌────────┐ │  │ ┌────────┐ │  │ ┌──────────────┐ │
-│ │Firecrckr│ │  │ │Proxmox │ │  │ │ MinIO  │ │  │ │Immich Server │ │
-│ │MicroVMs │ │  │ │Cluster │ │  │ │Storage │ │  │ │+ ML + Redis  │ │
-│ └────────┘ │  │ └────────┘ │  │ └────────┘ │  │ │+ Postgres    │ │
-└────────────┘  └────────────┘  └────────────┘  │ └──────────────┘ │
-                                                 └──────────────────┘
+       ┌──────────┬──────────┬──────┼──────┬──────────┬──────────┐
+       │          │          │      │      │          │          │
+       ▼          ▼          ▼      ▼      ▼          ▼          ▼
+┌──────────┐┌──────────┐┌────────┐┌──────┐┌────────┐┌────────┐┌──────────┐
+│  Impuls  ││  Izvor   ││ Spomen ││ Brod ││ Tefter ││ Vrata  ││ Polaroid │
+│  :8080   ││  :8082   ││ :8081  ││:8083 ││ :8084  ││:8085/  ││  :2283   │
+│          ││          ││        ││      ││        ││ 8090   ││          │
+│Firecracker││ Proxmox  ││ MinIO  ││Docker││PG/MySQL││reverse ││ Immich   │
+│ MicroVMs ││ Cluster  ││Storage ││+ reg ││ in     ││ proxy  ││ + ML +   │
+│          ││          ││        ││istry ││ Docker ││        ││ Redis/PG │
+└──────────┘└──────────┘└────────┘└──────┘└────────┘└────────┘└──────────┘
+       │          │          │      │      │          │          │
+       └──────────┴──────────┴──────┴──────┴──────────┴──────────┘
+                                   │  OTLP (traces, logs, metrics)
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│         Observability: OTel Collector ──► ClickHouse ──► Dashboard            │
+│  also scrapes: host metrics, all containers, Postgres, Redis, MinIO,          │
+│  ClickHouse itself, and tails container stdout/stderr                         │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 Communication Flow
 
 1. **User → Frontend**: User interacts with React dashboard
-2. **Frontend → Strapi**: All requests go through Strapi for auth/tracking
-3. **Strapi → Services**: Strapi proxies requests to underlying services
+2. **Frontend → Strapi**: All management requests go through Strapi for auth/tracking
+3. **Strapi → Services**: Strapi proxies requests to the underlying Go services
 4. **Strapi → PostgreSQL**: Persists user data, resource ownership, and audit logs
+5. **All services → Collector**: Every service exports OpenTelemetry traces, logs
+   and metrics to the OTel Collector, which writes them to ClickHouse; the
+   dashboard reads telemetry back from there
+6. **Workload traffic → Vrata**: HTTP traffic to Brod containers and Izvor VMs is
+   routed through the Vrata gateway so it is traced and logged like a service
 
 ### 2.3 Directory Structure
 
@@ -117,6 +137,11 @@ oblak/
 │   │   │   ├── virtual-machine/ # Izvor integration
 │   │   │   ├── bucket/          # Spomen integration
 │   │   │   ├── object/          # Spomen objects
+│   │   │   ├── brod/            # Brod (containers) integration
+│   │   │   ├── tefter/          # Tefter (databases) integration
+│   │   │   ├── vrata/           # Vrata (gateway) integration
+│   │   │   ├── telemetry/       # Observability queries (ClickHouse)
+│   │   │   ├── alert-rule/      # Alerting
 │   │   │   ├── polaroid/        # Polaroid integration (Immich)
 │   │   │   └── activity-log/    # Audit logging
 │   │   ├── components/
@@ -160,9 +185,16 @@ oblak/
 │   ├── vite.config.ts
 │   └── package.json
 │
-├── impuls/                      # Existing service
-├── izvor/                       # Existing service
-├── spomen/                      # Existing service
+├── impuls/                      # Serverless functions (Go)
+├── izvor/                       # VM provisioning (Go)
+├── spomen/                      # Object storage (Go)
+├── brod/                        # Containers: registry + runtime (Go)
+├── tefter/                      # Managed databases: Postgres/MySQL (Go)
+├── vrata/                       # Observability gateway (Go)
+├── observability/               # OTel Collector + ClickHouse
+│   ├── otel-collector/config.yaml
+│   ├── clickhouse/config/
+│   └── docker-compose.yml
 └── polaroid/                    # Photo & video management (Immich)
     ├── docker-compose.yml       # Immich stack
     └── .env.example
@@ -213,13 +245,22 @@ DATABASE_PASSWORD=oblak
 IMPULS_URL=http://localhost:8080
 IZVOR_URL=http://localhost:8082
 SPOMEN_URL=http://localhost:8081
+BROD_URL=http://localhost:8083
+TEFTER_URL=http://localhost:8084
+VRATA_URL=http://localhost:8085
 POLAROID_URL=http://localhost:2283
 
 # Service API Keys (optional)
 IMPULS_API_KEY=
 IZVOR_API_KEY=
 SPOMEN_API_KEY=
+BROD_API_KEY=
+TEFTER_API_KEY=
 POLAROID_API_KEY=
+
+# Observability (telemetry store + collector)
+CLICKHOUSE_URL=http://localhost:8123
+OTEL_EXPORTER_OTLP_ENDPOINT=oblak-otel-collector:4317
 ```
 
 ### 3.2 Content Types (Collections)

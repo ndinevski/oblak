@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Code, Server, Database, FileText, X, Camera } from 'lucide-react';
+import { Search, Code, Server, Boxes, FileText, X, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSearchStore, SearchResultType } from '@/stores/searchStore';
 import { Dialog, DialogContent } from './dialog';
@@ -18,7 +18,7 @@ import { Input } from './input';
 const typeIcons: Record<SearchResultType, React.ComponentType<{ className?: string }>> = {
   function: Code,
   vm: Server,
-  bucket: Database,
+  bucket: Boxes,
   page: FileText,
   polaroid: Camera,
 };

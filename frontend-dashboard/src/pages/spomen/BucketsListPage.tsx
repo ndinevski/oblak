@@ -25,7 +25,7 @@ import {
 } from '@/components/ui';
 import { 
   Plus, 
-  Database, 
+  Boxes, 
   Search, 
   LayoutGrid, 
   List, 
@@ -182,7 +182,7 @@ export default function BucketsListPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
+              <Boxes className="h-5 w-5" />
               {search ? 'No Matching Buckets' : 'Your Buckets'}
             </CardTitle>
             <CardDescription>
@@ -230,7 +230,7 @@ export default function BucketsListPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Database className="h-4 w-4" />
+                      <Boxes className="h-4 w-4" />
                       {bucket.name}
                     </CardTitle>
                   </div>
@@ -336,7 +336,7 @@ export default function BucketsListPage() {
                         to={`/storage/${bucket.id}`}
                         className="font-medium hover:underline flex items-center gap-2"
                       >
-                        <Database className="h-4 w-4" />
+                        <Boxes className="h-4 w-4" />
                         {bucket.name}
                       </Link>
                     </td>

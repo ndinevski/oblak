@@ -24,7 +24,9 @@ export type RuleType =
   | "container.absent"
   | "postgres.connections"
   | "postgres.slow_queries"
-  | "postgres.slowest_query";
+  | "postgres.slowest_query"
+  | "tefter.replication_lag"
+  | "tefter.db_down";
 
 export interface RuleTypeMeta {
   label: string;
@@ -137,6 +139,22 @@ export const RULE_TYPES: Record<RuleType, RuleTypeMeta> = {
     targetOptional: true,
     description:
       "Mean execution time of the slowest tracked statement, from pg_stat_statements.",
+  },
+  "tefter.replication_lag": {
+    label: "Tefter replica lag",
+    unit: "s",
+    targetLabel: "Instance",
+    targetOptional: true,
+    description:
+      "How far a Tefter read replica is behind its primary. Leave the instance blank to alert on the worst replica.",
+  },
+  "tefter.db_down": {
+    label: "Tefter database down",
+    unit: "up",
+    targetLabel: "Instance",
+    targetOptional: true,
+    description:
+      'Whether a Tefter database answered its stats probe. Use with "below" and a threshold of 1 to detect an instance that is running but not responding. Leave the instance blank to cover all of them.',
   },
 };
 
@@ -351,6 +369,41 @@ export async function evaluateRuleType(
         hasTarget ? { ...base, metric, target: target! } : { ...base, metric },
       );
     }
+
+    case "tefter.replication_lag":
+      // Emitted by Tefter's stats collector, one series per replica. Report
+      // the worst replica in the window (or the named one), so a single
+      // lagging follower trips the alert rather than being averaged away.
+      return scalar(
+        ch,
+        `SELECT round(max(Value), 3) AS value
+         FROM otel_metrics_gauge
+         WHERE TimeUnix >= {from:DateTime64(9)} AND TimeUnix <= {to:DateTime64(9)}
+           AND MetricName = 'tefter.db.replication.lag'
+           AND (${hasTarget ? "Attributes['db.instance'] = {target:String}" : "1"})
+         HAVING count() > 0`,
+        hasTarget ? { ...base, target: target! } : base,
+      );
+
+    case "tefter.db_down":
+      // tefter.db.up is 1 when the database answered and 0 when it did not.
+      // Take the latest reading per instance, then the minimum across them, so
+      // the value is 0 if any covered instance is down and 1 only when every
+      // one is healthy. Null when the collector reported nothing at all, which
+      // the "Tefter not reporting" rule covers instead.
+      return scalar(
+        ch,
+        `SELECT min(latest) AS value FROM (
+           SELECT Attributes['db.instance'] AS inst, argMax(Value, TimeUnix) AS latest
+           FROM otel_metrics_gauge
+           WHERE TimeUnix >= {from:DateTime64(9)} AND TimeUnix <= {to:DateTime64(9)}
+             AND MetricName = 'tefter.db.up'
+             AND (${hasTarget ? "Attributes['db.instance'] = {target:String}" : "1"})
+           GROUP BY inst
+         )
+         HAVING count() > 0`,
+        hasTarget ? { ...base, target: target! } : base,
+      );
 
     default: {
       // Exhaustiveness guard: adding a rule type without a query is a compile

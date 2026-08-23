@@ -149,6 +149,76 @@ receivers:
             static_attributes:
               postgresql.database.name: impuls
 
+  # Redis internals for the Polaroid cache (keyspace, memory, hit rate, evicted
+  # keys). Container stats only show CPU/memory; these explain a cache problem.
+  redis:
+    endpoint: polaroid-redis:6379
+    collection_interval: 30s
+    tls:
+      insecure: true
+
+  # ClickHouse's own metrics - the store that holds every other signal. Scraped
+  # over the Prometheus endpoint enabled in clickhouse/config/prometheus.xml.
+  prometheus/clickhouse:
+    config:
+      scrape_configs:
+        - job_name: clickhouse
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["clickhouse:9363"]
+
+  # MinIO cluster metrics for Spomen (capacity, objects, request rate, errors).
+  # Reachable without a token because MINIO_PROMETHEUS_AUTH_TYPE=public is set
+  # on the MinIO container.
+  prometheus/minio:
+    config:
+      scrape_configs:
+        - job_name: minio
+          metrics_path: /minio/v2/metrics/cluster
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["spomen:9000"]
+
+  # Container stdout/stderr from Brod-managed workloads.
+  #
+  # A Brod container runs the operator's own image with no Oblak telemetry, so
+  # its application logs never reach the dashboard. Docker's json-file driver
+  # writes them to disk, and the whole host filesystem is already mounted at
+  # /hostfs, so the collector tails those files directly. The container id in
+  # the path is turned into a friendly name by the docker_stats-style attribute
+  # enrichment below; Brod stamps io.oblak.brod.managed on its containers, but
+  # labels are not in the log file, so the id is carried and the container name
+  # is resolved from the log's own attributes where present.
+  filelog/containers:
+    include:
+      - /hostfs/var/lib/docker/containers/*/*-json.log
+    # Start at the end so a collector restart does not replay the whole history
+    # of every container.
+    start_at: end
+    include_file_path: true
+    include_file_name: false
+    operators:
+      # Parse Docker's json-file envelope: {"log","stream","time"}.
+      - type: json_parser
+        timestamp:
+          parse_from: attributes.time
+          layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+      # Lift the container id out of the file path so each log line can be
+      # attributed to its container.
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '/containers/(?P<container_id>[a-f0-9]{12})[a-f0-9]*/'
+      # The stream (stdout/stderr) becomes the severity signal.
+      - type: severity_parser
+        parse_from: attributes.stream
+        mapping:
+          error: stderr
+          info: stdout
+      # Move the actual message into the log body.
+      - type: move
+        from: attributes.log
+        to: body
+
   # Per-container resource usage, so the dashboard can show CPU/memory for
   # each Oblak service without every service reporting it itself.
   docker_stats:
@@ -188,6 +258,22 @@ processors:
         value: ${env:OBLAK_ENV}
         action: upsert
 
+  # Tailed container logs have no service.name of their own. Group them under a
+  # single synthetic service so they are filterable in the log explorer without
+  # being mistaken for one of the instrumented Oblak services. The container id
+  # (parsed by the filelog receiver) stays on each record for drill-down.
+  resource/containerlogs:
+    attributes:
+      - key: service.name
+        value: workload-logs
+        action: insert
+      - key: oblak.platform
+        value: oblak
+        action: upsert
+      - key: deployment.environment
+        value: ${env:OBLAK_ENV}
+        action: upsert
+
   # Health checks are polled every few seconds by Docker and would otherwise
   # drown out real traffic in the trace explorer.
   filter/drop_health_checks:
@@ -199,6 +285,11 @@ processors:
         - 'attributes["url.path"] == "/health"'
         - 'attributes["url.path"] == "/_health"'
         - 'attributes["url.path"] == "/api/server/ping"'
+        # Brod's Docker SDK auto-instruments its transport, so every health
+        # check produces a client span for the engine ping and version call.
+        # The engine calls that do real work are kept; only this pair is noise.
+        - 'name == "HEAD /_ping"'
+        - 'IsMatch(name, "^GET /v[0-9.]+/version$")'
 
 exporters:
   clickhouse:
@@ -251,6 +342,9 @@ service:
         - otlp
         - hostmetrics
         - docker_stats
+        - redis
+        - prometheus/clickhouse
+        - prometheus/minio
         - postgresql/dashboard
         - postgresql/impuls
         - postgresql/polaroid
@@ -261,4 +355,11 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
+      exporters: [clickhouse]
+    # Container stdout/stderr is kept on its own pipeline so its distinct
+    # resource attributes (service.name = workload-logs) do not touch the
+    # OTLP logs from the instrumented services.
+    logs/containers:
+      receivers: [filelog/containers]
+      processors: [memory_limiter, resource/containerlogs, batch]
       exporters: [clickhouse]

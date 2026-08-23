@@ -1,0 +1,8 @@
+# Compiled binary
+vrata-server
+
+# Local environment
+.env
+
+# Local route table when run outside Docker
+routes.json

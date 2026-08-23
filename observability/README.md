@@ -75,12 +75,19 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 | Source | Traces | Metrics | Logs |
 |---|:---:|:---:|:---:|
-| Impuls, Spomen, Izvor (Go) | yes | yes | yes |
+| Impuls, Spomen, Izvor, Brod, Tefter, Vrata (Go) | yes | yes | yes |
+| Impuls function logs (per invocation, `faas.*`) | via trace | - | yes |
 | Strapi backend (Node) | yes | yes | yes |
 | Dashboard (browser RUM) | yes | - | - |
 | Host (CPU, memory, disk, network) | - | yes | - |
-| Containers (Postgres, MinIO, Immich, Redis) | - | yes | - |
-| Postgres internals (all three databases) | - | yes | - |
+| Containers (every container, CPU/mem/net) | - | yes | - |
+| Postgres internals (platform databases) | - | yes | - |
+| Tefter-managed databases (per instance) | - | yes | yes |
+| Redis (Polaroid cache) | - | yes | - |
+| MinIO (Spomen storage) | - | yes | - |
+| ClickHouse (the telemetry store itself) | - | yes | - |
+| Brod containers & other workloads (stdout/stderr) | - | - | yes |
+| Vrata-proxied requests to workloads | yes | yes | yes |
 
 The Go services emit a server span, RED metrics and a trace-correlated access
 log for every request. Route templates (`/functions/{name}`) rather than
@@ -89,11 +96,34 @@ concrete paths are used as the metric dimension, so cardinality stays bounded.
 Strapi is auto-instrumented down to its SQL, so a slow dashboard endpoint can be
 traced to the query behind it.
 
-Each Oblak Postgres is scraped directly for connection counts, cache hit ratio,
-database size and table/index statistics. Container metrics only show CPU and
-memory; these are the numbers that explain *why* a query was slow. The three
+Each platform Postgres is scraped directly for connection counts, cache hit
+ratio, database size and table/index statistics. Container metrics only show CPU
+and memory; these are the numbers that explain *why* a query was slow. The
 databases are attached to the shared `oblak-telemetry` network so the collector
 can reach them, and each has its own credentials in `.env`.
+
+The backing systems behind the services report their own internals: Redis
+(keyspace, memory, hit rate), MinIO (capacity, objects, request rate) over its
+public Prometheus endpoint, and ClickHouse itself over the Prometheus endpoint
+enabled in `clickhouse/config/prometheus.xml` — so the store that holds every
+other signal is monitored too.
+
+Tefter's managed databases are not scraped by the collector (they come and go as
+Tefter provisions them); instead Tefter's own stats collector polls each
+instance and emits `tefter.db.*` metrics and a per-database log line. See
+`tefter/README.md`.
+
+**Workload logs.** A Brod container or any workload runs the operator's own
+image with no Oblak telemetry. The `filelog/containers` receiver tails Docker's
+own json-file logs from `/var/lib/docker/containers`, so every container's
+stdout/stderr reaches the log explorer under the service name `workload-logs`,
+tagged with the container id. This is how a plain nginx container's access log
+becomes searchable without touching the image. The collector runs as root for
+this, which is no new privilege since it already mounts docker.sock.
+
+**Workload requests.** For HTTP traffic *to* a workload (which bypasses every
+instrumented service), route it through the Vrata gateway, which records a span,
+an access log and RED metrics per request. See `vrata/README.md`.
 
 ## Retention and cost
 
@@ -111,10 +141,13 @@ the dashboard under **Observability -> Alerts**.
 
 A rule names a **rule type** rather than carrying SQL. That keeps arbitrary
 queries out of a user-editable field, bounds evaluation cost, and lets the
-dashboard render a real form. Thirteen types are available, covering service
-error rate and latency, request rate, services and containers that have stopped
-reporting, error-log volume, host CPU/memory/disk, container memory, Postgres
-connections, and Postgres slow statements.
+dashboard render a real form. The available types cover service error rate and
+latency, request rate, services and containers that have stopped reporting,
+error-log volume, host CPU/memory/disk, container memory, Postgres connections
+and slow statements, and Tefter database health (a managed database that is down
+or a read replica that has fallen behind). The default rule set also watches
+Brod, Tefter and Vrata for having stopped reporting, and Vrata's upstream error
+rate.
 
 Each rule carries a comparison, a threshold, a measurement window, and an
 optional sustained duration so a brief spike does not page anyone.

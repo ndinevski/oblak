@@ -66,6 +66,7 @@ services:
     restart: unless-stopped
     networks:
       - polaroid-network
+      - oblak-telemetry
 
   # PostgreSQL with pgvecto.rs for Immich
   # Cannot use Oblak's Postgres - requires pgvecto.rs vector extension

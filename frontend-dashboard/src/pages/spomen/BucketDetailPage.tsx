@@ -34,7 +34,7 @@ import {
   ChevronRight,
   FolderOpen,
   FolderPlus,
-  Database,
+  Boxes,
   Upload,
   Download,
   Trash2,
@@ -539,7 +539,7 @@ export default function BucketDetailPage() {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <Database className="h-8 w-8 text-primary" />
+            <Boxes className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold">{bucket.name}</h1>
           </div>
           <p className="text-muted-foreground">{bucket.description || 'No description'}</p>

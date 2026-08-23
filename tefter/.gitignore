@@ -1,0 +1,8 @@
+# Compiled binary
+tefter-server
+
+# Local environment
+.env
+
+# Local backup output when run outside Docker
+backups/

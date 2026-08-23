@@ -10,7 +10,7 @@ import (
 func (s *Server) registerVMRoutes(api *mux.Router) {
 	// These routes are optional and can be used for debugging
 	// They expose Firecracker VM management directly
-	
+
 	api.HandleFunc("/vms", s.listVMs).Methods("GET")
 	api.HandleFunc("/vms/{id}", s.getVM).Methods("GET")
 	api.HandleFunc("/vms/{id}", s.stopVM).Methods("DELETE")

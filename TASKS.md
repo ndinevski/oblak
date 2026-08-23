@@ -1165,7 +1165,53 @@
 | Phase 8: Polish | 9 | 9 | 100% |
 | Phase 9: Testing | 7 | 7 | 100% |
 | Phase 10: Deploy | 5 | 5 | 100% |
-| **Total** | **102** | **102** | **100%** |
+| Phase 11: Observability | 6 | 6 | 100% |
+| Phase 12: Brod (Containers) | 5 | 5 | 100% |
+| Phase 13: Tefter (Databases) | 6 | 6 | 100% |
+| Phase 14: Vrata (Gateway) | 4 | 4 | 100% |
+| **Total** | **123** | **123** | **100%** |
+
+---
+
+## Post-v1 Phases (Delivered)
+
+These were added after the initial 102-task build. Each follows the same
+pattern as the earlier services: a Go service wrapping stock infrastructure, an
+interface + mock for testability, a Strapi proxy with audit, frontend pages, and
+telemetry wiring.
+
+### Phase 11: Observability
+
+- [x] **11.1** OpenTelemetry Collector + ClickHouse stack (`observability/`) ✅
+- [x] **11.2** Traces, logs, RED metrics from every Go service and Strapi ✅
+- [x] **11.3** Browser RUM; host, container and Postgres metrics ✅
+- [x] **11.4** Dashboard pages: overview, logs, traces, metrics, service map ✅
+- [x] **11.5** Alerting: rule types, evaluator, default rules, notifications ✅
+- [x] **11.6** Backing-system metrics (Redis, MinIO, ClickHouse) + container log tailing ✅
+
+### Phase 12: Brod (Container Service)
+
+- [x] **12.1** Go service wrapping the Docker Engine + a `registry:2` registry ✅
+- [x] **12.2** Repositories, images, container lifecycle, logs, stats ✅
+- [x] **12.3** Managed-label isolation; `ContainerEngine` interface + mock ✅
+- [x] **12.4** Strapi proxy (`api/brod`) with audit; permissions ✅
+- [x] **12.5** Frontend: Containers and Repositories pages, nav, routes ✅
+
+### Phase 13: Tefter (Database Service)
+
+- [x] **13.1** Go service provisioning Postgres/MySQL as containers ✅
+- [x] **13.2** Streaming/GTID read replicas, promotion ✅
+- [x] **13.3** Logical backups, restore with safety backup + identity guard ✅
+- [x] **13.4** Per-database observability collector (`tefter.db.*` metrics + logs, slow queries) ✅
+- [x] **13.5** Strapi proxy (`api/tefter`) with audit; permissions ✅
+- [x] **13.6** Frontend: Databases list + detail (overview/replicas/backups) ✅
+
+### Phase 14: Vrata (Gateway)
+
+- [x] **14.1** Instrumented reverse proxy fronting Brod containers and Izvor VMs ✅
+- [x] **14.2** Route table (host + path matching), persistence ✅
+- [x] **14.3** Per-request trace, access log and RED metrics ✅
+- [x] **14.4** Strapi proxy (`api/vrata`) for route management ✅
 
 ---
 

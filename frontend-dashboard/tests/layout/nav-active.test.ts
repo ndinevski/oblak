@@ -45,10 +45,27 @@ describe('resolveActiveHref', () => {
     expect(resolveActiveHref('/storage', ALL_NAV_HREFS)).toBe('/storage');
   });
 
+  it('gives the two Brod entries their own highlight', () => {
+    // Brod has separate Containers and Images entries; neither must steal the
+    // other's highlight.
+    expect(resolveActiveHref('/containers', ALL_NAV_HREFS)).toBe('/containers');
+    expect(resolveActiveHref('/images', ALL_NAV_HREFS)).toBe('/images');
+  });
+
   it('keeps a service highlighted on its detail and create routes', () => {
     expect(resolveActiveHref('/functions/new', ALL_NAV_HREFS)).toBe('/functions');
     expect(resolveActiveHref('/functions/42', ALL_NAV_HREFS)).toBe('/functions');
     expect(resolveActiveHref('/storage/my-bucket', ALL_NAV_HREFS)).toBe('/storage');
+  });
+
+  it('keeps Tefter highlighted on an instance detail page', () => {
+    expect(resolveActiveHref('/databases', ALL_NAV_HREFS)).toBe('/databases');
+    expect(resolveActiveHref('/databases/orders', ALL_NAV_HREFS)).toBe('/databases');
+    expect(resolveActiveHref('/databases/orders/backups', ALL_NAV_HREFS)).toBe('/databases');
+  });
+
+  it('highlights Vrata on the gateway page', () => {
+    expect(resolveActiveHref('/gateway', ALL_NAV_HREFS)).toBe('/gateway');
   });
 
   it('keeps Settings highlighted on a sub-page that has no nav item of its own', () => {

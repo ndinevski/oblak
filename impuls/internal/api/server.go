@@ -1,10 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,6 +21,10 @@ type Server struct {
 	funcManager *function.Manager
 	router      *mux.Router
 	reporter    *invocationReporter
+	// logger ships function stdout/stderr and errors to the telemetry store so
+	// they are searchable in the dashboard's Logs view. nil until UseTelemetry
+	// runs (the unit tests run without it), so every use is guarded.
+	logger *slog.Logger
 }
 
 // NewServer creates a new API server
@@ -70,6 +77,9 @@ func (s *Server) UseTelemetry(tel *telemetry.Telemetry, serviceName string) erro
 		return err
 	}
 	s.router.Use(tel.Middleware(serviceName, metrics))
+	// Keep the logger so invocations can ship their runtime output to the
+	// telemetry store, not only to Strapi.
+	s.logger = tel.Logger
 	return nil
 }
 
@@ -205,6 +215,9 @@ func (s *Server) invokeFunction(w http.ResponseWriter, r *http.Request) {
 			Local:              useLocal,
 			InvokedAt:          time.Now().UTC(),
 		})
+		// The invocation never produced runtime logs (it failed to run at all),
+		// so record the failure itself.
+		s.emitFunctionLogs(r.Context(), name, useLocal, nil, err.Error(), 0)
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -220,6 +233,7 @@ func (s *Server) invokeFunction(w http.ResponseWriter, r *http.Request) {
 			Local:              useLocal,
 			InvokedAt:          time.Now().UTC(),
 		})
+		s.emitFunctionLogs(r.Context(), name, useLocal, response.Logs, response.Error, response.Duration)
 		respondError(w, response.StatusCode, response.Error)
 		return
 	}
@@ -234,6 +248,7 @@ func (s *Server) invokeFunction(w http.ResponseWriter, r *http.Request) {
 		Local:              useLocal,
 		InvokedAt:          time.Now().UTC(),
 	})
+	s.emitFunctionLogs(r.Context(), name, useLocal, response.Logs, "", response.Duration)
 
 	// Return only function body using function status code.
 	respondJSON(w, response.StatusCode, response.Body)
@@ -249,6 +264,58 @@ func (s *Server) reportInvocation(payload invocationReportPayload) {
 			log.Printf("Failed to report invocation to Strapi: %v", err)
 		}
 	}()
+}
+
+// emitFunctionLogs ships a function invocation's runtime output to the telemetry
+// store, so a function's own console output and thrown errors are searchable in
+// the dashboard's Logs view rather than only being returned to the caller.
+//
+// A function runs the operator's own code, which carries no Oblak telemetry, so
+// without this its logs are invisible the moment the HTTP response is sent. Each
+// captured stdout line becomes an INFO record and each stderr line a WARN; a
+// thrown error becomes an ERROR record carrying the message. Every record is
+// tagged with the function name (faas.name) and, being emitted in the request
+// context, carries the invocation's trace id, so a function's logs sit on the
+// same trace as the invoke request that produced them.
+func (s *Server) emitFunctionLogs(ctx context.Context, name string, local bool, logs *models.InvocationLogs, errMsg string, durationMs int64) {
+	if s.logger == nil {
+		return
+	}
+
+	base := []slog.Attr{
+		slog.String("faas.name", name),
+		slog.String("faas.trigger", "http"),
+		slog.Bool("faas.local", local),
+	}
+	if durationMs > 0 {
+		base = append(base, slog.Int64("faas.duration_ms", durationMs))
+	}
+	// withAttr returns base plus one more attribute, without mutating base's
+	// backing array (append could otherwise clobber a shared slice).
+	withAttr := func(extra slog.Attr) []slog.Attr {
+		out := make([]slog.Attr, len(base), len(base)+1)
+		copy(out, base)
+		return append(out, extra)
+	}
+
+	if logs != nil {
+		for _, line := range logs.Stdout {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			s.logger.LogAttrs(ctx, slog.LevelInfo, line, withAttr(slog.String("faas.stream", "stdout"))...)
+		}
+		for _, line := range logs.Stderr {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			s.logger.LogAttrs(ctx, slog.LevelWarn, line, withAttr(slog.String("faas.stream", "stderr"))...)
+		}
+	}
+
+	if errMsg != "" {
+		s.logger.LogAttrs(ctx, slog.LevelError, "function invocation failed", withAttr(slog.String("error", errMsg))...)
+	}
 }
 
 // respondJSON sends a JSON response

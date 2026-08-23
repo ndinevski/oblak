@@ -25,6 +25,9 @@ export type AuditResourceType =
   | "object"
   | "user"
   | "polaroid"
+  | "container"
+  | "database"
+  | "gateway"
   | "telemetry";
 
 export interface AuditEvent {

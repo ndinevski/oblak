@@ -22,6 +22,7 @@ import {
   Zap,
   Server,
   Database,
+  Boxes,
   Camera,
   Activity,
   PieChart,
@@ -38,6 +39,9 @@ import {
   LineChart,
   Network,
   BellRing,
+  Container,
+  Package,
+  Waypoints,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -50,7 +54,11 @@ const primaryNavigation = [
 const servicesNavigation = [
   { name: 'Impuls', href: '/functions', icon: Zap },
   { name: 'Izvor', href: '/vms', icon: Server },
-  { name: 'Spomen', href: '/storage', icon: Database },
+  { name: 'Spomen', href: '/storage', icon: Boxes },
+  { name: 'Brod', href: '/containers', icon: Container },
+  { name: 'Brod Images', href: '/images', icon: Package },
+  { name: 'Tefter', href: '/databases', icon: Database },
+  { name: 'Vrata', href: '/gateway', icon: Waypoints },
   { name: 'Polaroid', href: '/photos', icon: Camera },
 ];
 

@@ -1,6 +1,6 @@
 # Oblak - Private Cloud Platform
 
-Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes four core services: **Impuls** (FaaS service), **Spomen** (Object Storage service), **Izvor** (VM service), and **Polaroid** (Photo & Video Management).
+Oblak is a private cloud platform consisting of modular services for building self-hosted cloud infrastructure. Currently, it includes seven core services: **Impuls** (FaaS service), **Spomen** (Object Storage service), **Izvor** (VM service), **Brod** (Container service), **Tefter** (Database service), **Vrata** (Gateway), and **Polaroid** (Photo & Video Management).
 
 ## Services
 
@@ -42,6 +42,54 @@ EC2-like VM provisioning and management service powered by Proxmox VE, enabling 
 - Cluster-aware node distribution
 
 📖 [Full Documentation](izvor/README.md)
+
+### 🚢 Brod - Containers
+
+Self-hosted container platform providing an image registry and a container
+runtime, in the shape of ECR and ECS. Backed by a stock Docker Distribution
+registry and the host's container engine.
+
+**Features:**
+- Image repositories with tags, digests, sizes and platform detail
+- Push and pull with the standard `docker` CLI
+- Run containers from pushed images, with ports, env, volumes and resource limits
+- Start, stop, restart, logs and live resource stats
+- Only ever touches containers it created, never other workloads on the host
+
+📖 [Full Documentation](brod/README.md)
+
+### 🗄️ Tefter - Databases
+
+Managed PostgreSQL and MySQL, in the shape of Amazon RDS. Each instance is a
+database container Tefter provisions on demand and publishes on a host port for
+ordinary clients.
+
+**Features:**
+- Provision PostgreSQL (16, 15, 14) or MySQL (8.4, 8.0) at predefined sizes
+- Read replicas seeded from the primary and kept in sync, with live lag
+- Promote a replica to a standalone primary
+- On-demand logical backups that outlive their instance
+- Restore over an instance, with an automatic safety backup taken first
+- The instance password is generated and shown exactly once
+
+📖 [Full Documentation](tefter/README.md)
+
+### 🚪 Vrata - Gateway
+
+Instrumented reverse proxy in front of the workloads Oblak runs, so every
+request to a Brod container or an Izvor VM is traced and logged. Workloads run
+the operator's own images and carry no telemetry of their own; routing their
+traffic through Vrata makes it visible in the observability stack like any other
+service.
+
+**Features:**
+- Route table mapping a name or hostname to a container or VM upstream
+- Host-header routing (path preserved) and path-prefix routing (prefix stripped)
+- A trace, an access-log line and RED metrics for every proxied request
+- Trace context propagated downstream, so an instrumented workload joins the trace
+- Requests to a stopped container or a down VM are recorded as 502s, not silence
+
+📖 [Full Documentation](vrata/README.md)
 
 ### 📊 Observability - Platform Telemetry
 
@@ -95,16 +143,25 @@ docker compose -f docker-compose.dev.yml up oblak-postgres-dev -d
 # 2. Start the observability stack (ClickHouse + OpenTelemetry collector)
 make up-observability
 
-# 3. Start Polaroid/Immich containers (see polaroid/README.md for first-time setup)
+# 3. Start Brod (container service: API + image registry)
+make up-brod
+
+# 4. Start Tefter (database service API)
+make up-tefter
+
+# 5. Start Vrata (gateway: traces + logs for traffic to workloads)
+make up-vrata
+
+# 4. Start Polaroid/Immich containers (see polaroid/README.md for first-time setup)
 make up-polaroid
 
-# 4. Start the Strapi backend
+# 5. Start the Strapi backend
 cd backend-dashboard
 npm install  # first time only
 npm run develop
 # Backend runs at http://localhost:1337
 
-# 5. Start the frontend
+# 6. Start the frontend
 cd frontend-dashboard
 npm install  # first time only
 npm run dev
@@ -120,6 +177,9 @@ Login with demo@oblak.local / DemoPass123!.
 
 ```bash
 make down-polaroid                    # Stop Immich stack
+make down-brod                        # Stop Brod
+make down-tefter                      # Stop Tefter
+make down-vrata                       # Stop Vrata
 make down-observability               # Stop ClickHouse + collector
 docker compose -f docker-compose.dev.yml down  # Stop Oblak DB
 # Ctrl+C in backend/frontend terminals
@@ -256,6 +316,9 @@ make test
 make test-impuls
 make test-spomen
 make test-izvor
+make test-brod
+make test-tefter
+make test-vrata
 ```
 
 ## Project Structure
@@ -289,6 +352,17 @@ oblak/
 │   │   └── proxmox/        # Proxmox VE client
 │   └── scripts/            # Utility scripts
 │
+├── tefter/                 # Database service
+├── vrata/                  # Gateway (data-plane observability)
+├── brod/                   # Container service
+│   ├── cmd/                # Server entrypoint
+│   ├── internal/           # Core implementation
+│   │   ├── api/            # HTTP API handlers
+│   │   ├── engine/         # Docker engine and registry clients
+│   │   ├── models/         # Data models
+│   │   └── telemetry/      # OpenTelemetry wiring
+│   └── docker-compose.yml  # Brod API + image registry
+│
 ├── polaroid/               # Photo & video management service
 │   ├── docker-compose.yml  # Immich stack (server, ML, Redis, Postgres)
 │   ├── README.md           # Full setup & API documentation
@@ -312,6 +386,9 @@ make test-coverage
 make test-impuls
 make test-spomen
 make test-izvor
+make test-brod
+make test-tefter
+make test-vrata
 ```
 
 ### Building
@@ -324,6 +401,7 @@ make build
 make build-impuls
 make build-spomen
 make build-izvor
+make build-brod
 ```
 
 ## Service Endpoints
@@ -333,6 +411,8 @@ make build-izvor
 | Impuls API | 8080 | Serverless functions API |
 | Spomen API | 8081 | Object storage REST API |
 | Izvor API | 8082 | VM provisioning API |
+| Brod API | 8083 | Container and image registry API |
+| Brod Registry | 5000 | Docker image registry (push/pull target) |
 | Polaroid (Immich) | 2283 | Photo & video management API |
 | MinIO S3 | 9000 | S3-compatible endpoint |
 | MinIO Console | 9001 | Web admin interface |

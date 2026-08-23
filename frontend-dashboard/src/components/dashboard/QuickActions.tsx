@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button } from '@/components/ui';
-import { LucideIcon, Zap, Server, Database, Camera } from 'lucide-react';
+import { LucideIcon, Zap, Server, Boxes, Camera } from 'lucide-react';
 
 export interface QuickAction {
   label: string;
@@ -33,7 +33,7 @@ const defaultActions: QuickAction[] = [
   {
     label: 'New Bucket',
     href: '/storage/new',
-    icon: Database,
+    icon: Boxes,
     variant: 'outline',
   },
   {

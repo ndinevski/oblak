@@ -34,6 +34,17 @@ const BucketDetailPage = lazy(() => import('@/pages/spomen/BucketDetailPage'));
 const CreateBucketPage = lazy(() => import('@/pages/spomen/CreateBucketPage'));
 const EditBucketPage = lazy(() => import('@/pages/spomen/EditBucketPage'));
 
+// Brod (Containers) pages
+const ContainersPage = lazy(() => import('@/pages/brod/ContainersPage'));
+const RepositoriesPage = lazy(() => import('@/pages/brod/RepositoriesPage'));
+
+// Tefter (Databases) pages
+const DatabasesPage = lazy(() => import('@/pages/tefter/DatabasesPage'));
+const DatabaseDetailPage = lazy(() => import('@/pages/tefter/DatabaseDetailPage'));
+
+// Vrata (Gateway) pages
+const RoutesPage = lazy(() => import('@/pages/vrata/RoutesPage'));
+
 // Polaroid (Photos) pages
 const PhotosTimelinePage = lazy(() => import('@/pages/polaroid/PhotosTimelinePage'));
 const AlbumsListPage = lazy(() => import('@/pages/polaroid/AlbumsListPage'));
@@ -206,6 +217,52 @@ export const router = createBrowserRouter([
             ),
           },
         ],
+      },
+
+      // Brod (Containers) routes
+      {
+        path: 'containers',
+        element: (
+          <SuspenseWrapper>
+            <ContainersPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'images',
+        element: (
+          <SuspenseWrapper>
+            <RepositoriesPage />
+          </SuspenseWrapper>
+        ),
+      },
+
+      // Tefter (Databases) routes
+      {
+        path: 'databases',
+        element: (
+          <SuspenseWrapper>
+            <DatabasesPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'databases/:name',
+        element: (
+          <SuspenseWrapper>
+            <DatabaseDetailPage />
+          </SuspenseWrapper>
+        ),
+      },
+
+      // Vrata (Gateway) routes
+      {
+        path: 'gateway',
+        element: (
+          <SuspenseWrapper>
+            <RoutesPage />
+          </SuspenseWrapper>
+        ),
       },
 
       // Observability routes

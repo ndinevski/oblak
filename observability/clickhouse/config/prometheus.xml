@@ -1,0 +1,14 @@
+<clickhouse>
+    <!-- Expose ClickHouse's own metrics so the collector can scrape the store
+         that holds all the other telemetry. Without this, ClickHouse is only
+         visible as a container (CPU/memory), not by what actually matters:
+         query load, merges, parts, insert health and memory pressure. -->
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <status_info>true</status_info>
+    </prometheus>
+</clickhouse>

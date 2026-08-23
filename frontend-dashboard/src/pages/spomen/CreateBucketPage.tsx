@@ -14,7 +14,7 @@ import {
   AlertDescription,
 } from '@/components/ui';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Globe, GlobeLock, AlertCircle, Check, Database } from 'lucide-react';
+import { ArrowLeft, Lock, Globe, GlobeLock, AlertCircle, Check, Boxes } from 'lucide-react';
 import { useBuckets, useCreateBucket } from '@/hooks/useStorage';
 import { validateBucketName, type BucketPolicy } from '@/lib/api/storage';
 import { Spinner } from '@/components/ui/spinner';
@@ -181,7 +181,7 @@ export default function CreateBucketPage() {
 
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Database className="h-8 w-8" />
+          <Boxes className="h-8 w-8" />
           Create Bucket
         </h1>
         <p className="text-muted-foreground">Create a new storage bucket</p>

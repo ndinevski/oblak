@@ -9,8 +9,12 @@ Welcome to Oblak Cloud Dashboard! This guide will help you manage your private c
 3. [Functions (Impuls)](#functions-impuls)
 4. [Virtual Machines (Izvor)](#virtual-machines-izvor)
 5. [Storage (Spomen)](#storage-spomen)
-6. [Settings & Profile](#settings--profile)
-7. [FAQ](#faq)
+6. [Containers (Brod)](#containers-brod)
+7. [Databases (Tefter)](#databases-tefter)
+8. [Gateway (Vrata)](#gateway-vrata)
+9. [Observability](#observability)
+10. [Settings & Profile](#settings--profile)
+11. [FAQ](#faq)
 
 ---
 
@@ -129,6 +133,14 @@ Note: Changes will trigger a redeployment.
    - Time range
    - Log level (info, warn, error)
 4. Click **Refresh** to get latest logs
+
+Your function's own output is also searchable platform-wide. Everything a
+function prints (`console.log`, `console.warn`/`console.error`, `print`, and so
+on) and any error it throws is sent to observability, tagged with the function
+name. Open **Observability → Logs**, filter by service **impuls**, and search or
+filter by level to see one function's output across all its invocations - a
+thrown error shows up as an ERROR record with the message. Each log line links
+to the trace of the exact invocation that produced it.
 
 ### Viewing Metrics
 
@@ -312,6 +324,135 @@ For versioned buckets, you can also delete specific versions.
 2. Go to bucket details
 3. Click **Delete Bucket**
 4. Confirm deletion
+
+---
+
+## Containers (Brod)
+
+Brod is our container service: an image registry and a container runtime, in the
+shape of ECR and ECS.
+
+### Image Repositories
+
+1. Click **Brod Images** in the sidebar
+2. See every repository with its image count and total size
+3. Push images with the standard Docker CLI to the address shown on the page:
+   ```bash
+   docker tag my-app:v1 <registry>/my-app:v1
+   docker push <registry>/my-app:v1
+   ```
+4. Expand a repository to see its tags, digests, sizes and push times, or delete
+   a tag or a whole repository
+
+### Running Containers
+
+1. Click **Brod** in the sidebar
+2. Click **Run Container** and provide:
+   - **Name** and **Image** (an image you pushed, or any public image)
+   - **Ports**: map a container port to a host port
+   - **Environment variables**, **volumes**, and CPU/memory limits
+3. Start, stop, restart or remove a container, and view its logs and live
+   resource usage from the same page
+
+> To see HTTP request logs for a running container, put it behind the Vrata
+> gateway (see below). Brod manages the container's lifecycle; Vrata makes its
+> traffic observable.
+
+---
+
+## Databases (Tefter)
+
+Tefter is our managed-database service: PostgreSQL and MySQL, in the shape of
+Amazon RDS.
+
+### Provisioning a Database
+
+1. Click **Tefter** in the sidebar
+2. Click **New Database** and choose:
+   - **Name**
+   - **Engine**: PostgreSQL or MySQL
+   - **Version** and **Size** (micro, small, medium, large)
+3. On creation you are shown the password **once**. Copy it now; it cannot be
+   recovered later. The dialog also shows the host, port and a ready-made
+   connection string.
+
+### Read Replicas
+
+1. Open a database and go to the **Replicas** tab
+2. Click **Add Replica** to create a read-only copy that streams changes from
+   the primary; its live lag is shown per replica
+3. **Promote** a replica from its **Replication** tab to turn it into a
+   standalone primary (this is one-way)
+
+### Backups & Restore
+
+1. Open a database and go to the **Backups** tab
+2. Click **Back up now** (an optional note helps you find it later)
+3. To restore, click the restore icon next to a backup and confirm. A safety
+   backup of the current data is taken automatically first
+4. Backups outlive the database they came from, so a backup of a deleted
+   instance is kept but is clearly marked
+
+---
+
+## Gateway (Vrata)
+
+Vrata is the observability gateway. HTTP traffic sent straight to a container or
+VM is invisible to the platform, because those run your own images with no
+built-in telemetry. Route that traffic through Vrata instead and every request
+is traced and logged, and appears in Observability like any other service.
+
+### Viewing Routes
+
+Click **Vrata** in the sidebar to see every route in one table: its kind
+(container, VM or custom), how to reach it (a hostname, or `/name` on the proxy
+port), its upstream, and its **source**. A route marked *Manual* was created by
+hand; one marked *Auto (Brod)* was discovered automatically from a running Brod
+container, so containers you deploy through Brod show up here on their own.
+
+### Adding a Route
+
+1. Click **New route** and fill in:
+   - **Name**: used for path routing (`/my-app/...`) and as the route's key
+   - **Kind**: container, VM or custom (descriptive; it tags the telemetry)
+   - **Upstream**: where requests go, e.g. `http://192.168.1.100:8080`
+   - **Host** (optional): match by this hostname and forward the path untouched
+     (best for web apps); leave blank to match by the `/name` path prefix
+2. A route maps an incoming request to a Brod container's published port or an
+   Izvor VM's address.
+
+### Seeing the Traffic
+
+Once a route exists, send traffic to the gateway rather than to the workload
+directly, and open **Observability → Logs** or **Traces** to see each request,
+its status and its latency. A request to a stopped container or a down VM is
+recorded as a `502`, so a broken workload is visible instead of silent.
+
+To remove a route, use the delete control in its row. An auto-discovered route
+reappears on the next poll while its container is still running; to stop routing
+it for good, stop or remove the container in Brod.
+
+---
+
+## Observability
+
+Every Oblak service reports traces, logs and metrics to a shared telemetry
+stack. The monitoring pages in the sidebar read from it:
+
+- **Observability** — the platform-wide overview: request rate, error rate and
+  latency across all services
+- **Logs** — structured log search across every service, filterable by service
+  and level; database and workload logs appear here too
+- **Traces** — end-to-end request traces; open one to see every span, including
+  calls that crossed from one service to another
+- **Metrics** — a searchable catalogue of every metric, including host, per
+  container, per database (`tefter.db.*`), Redis, MinIO and ClickHouse internals
+- **Service Map** — how services call each other, with call counts and latency
+- **Alerts** — rules that watch the telemetry and fire when something is wrong
+  (a service stops reporting, error rate climbs, a disk fills, a database goes
+  down, a replica lags). New installs come with a sensible default set.
+
+Nothing needs to be enabled per service; instrumentation is built in.
 
 ---
 

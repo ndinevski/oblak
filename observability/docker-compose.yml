@@ -27,6 +27,7 @@ services:
       - clickhouse-data:/var/lib/clickhouse
       - clickhouse-logs:/var/log/clickhouse-server
       - ./clickhouse/config/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro,z
+      - ./clickhouse/config/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro,z
       - ./clickhouse/init:/docker-entrypoint-initdb.d:ro,z
     ports:
       # HTTP interface - used by the Strapi query API and for ad-hoc curl/SQL.
@@ -57,6 +58,12 @@ services:
     container_name: oblak-otel-collector
     restart: unless-stopped
     command: ["--config=/etc/otel/config.yaml"]
+    # Runs as root so the filelog receiver can read Docker's container log
+    # files, which live under /var/lib/docker/containers with 0700 root-only
+    # permissions. This grants no new privilege in practice: the collector
+    # already mounts docker.sock, which is root-equivalent on the host. SELinux
+    # is handled by the existing label:disable in security_opt below.
+    user: "0:0"
     volumes:
       - ./otel-collector/config.yaml:/etc/otel/config.yaml:ro,z
       # Container-level CPU/memory/network metrics for every Oblak service,

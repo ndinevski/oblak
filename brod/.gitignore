@@ -1,0 +1,8 @@
+# Compiled binary
+brod-server
+
+# Local environment
+.env
+
+# Registry data when run outside Docker
+data/
