@@ -97,12 +97,15 @@ func main() {
 		logger.Warn("could not install telemetry middleware", "error", err)
 	}
 
-	// Create HTTP server
+	// Create HTTP server. WriteTimeout must exceed the longest possible
+	// invocation (a Firecracker cold start plus the function's own timeout),
+	// or the server would cut the response mid-invoke. The per-invocation
+	// deadline is enforced by the function timeout, not here.
 	server := &http.Server{
 		Addr:         ":" + *port,
 		Handler:      apiServer.Router(),
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 300 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 

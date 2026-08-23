@@ -158,6 +158,22 @@ function generateRequestId() {
 }
 
 /**
+ * Convert captured console output into the {stdout, stderr} shape the Impuls
+ * server expects (models.InvocationLogs). info/warn go to stdout, error to
+ * stderr; an optional stack trace is appended to stderr.
+ */
+function toStructuredLogs(logs, stack) {
+    const stdout = [];
+    const stderr = [];
+    for (const l of logs) {
+        if (l.level === 'error') stderr.push(l.message);
+        else stdout.push(l.message);
+    }
+    if (stack) stderr.push(stack);
+    return { stdout, stderr };
+}
+
+/**
  * Handle function invocation request
  */
 async function handleInvoke(req, res) {
@@ -218,12 +234,14 @@ async function handleInvoke(req, res) {
             console.error = originalError;
             console.warn = originalWarn;
 
-            // Send response
+            // Send response in the shape the Impuls server expects
+            // (models.InvocationResponse): status_code, body, duration_ms and
+            // structured logs (stdout/stderr).
             const response = {
-                statusCode: 200,
+                status_code: 200,
                 body: result,
                 duration_ms: Date.now() - startTime,
-                logs: logs.map(l => `[${l.level.toUpperCase()}] ${l.message}`).join('\n'),
+                logs: toStructuredLogs(logs),
             };
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -236,11 +254,10 @@ async function handleInvoke(req, res) {
             console.warn = originalWarn;
 
             const response = {
-                statusCode: 500,
+                status_code: 500,
                 error: err.message,
-                stack: err.stack,
                 duration_ms: Date.now() - startTime,
-                logs: logs.map(l => `[${l.level.toUpperCase()}] ${l.message}`).join('\n'),
+                logs: toStructuredLogs(logs, err.stack),
             };
 
             res.writeHead(500, { 'Content-Type': 'application/json' });

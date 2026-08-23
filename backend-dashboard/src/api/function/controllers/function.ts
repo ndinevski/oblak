@@ -489,7 +489,7 @@ export default ({ strapi }: { strapi: any }) => ({
       const to = new Date();
       const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      return await functionInvocationLogs(
+      const entries = await functionInvocationLogs(
         ch,
         { from, to },
         {
@@ -498,6 +498,31 @@ export default ({ strapi }: { strapi: any }) => ({
           limit: requestedLimit,
         },
       );
+
+      // Shape the audit entries into the response the dashboard expects
+      // ({ data, meta } with per-entry id/createdAt/executionTimeMs/etc.).
+      const data = entries.map((e, idx) => {
+        const statusCodeRaw = e.details["functionResponse.statusCode"];
+        return {
+          id: idx,
+          createdAt: new Date(e.timestampMs).toISOString(),
+          status: e.status === "failure" ? "failure" : "success",
+          errorMessage: e.errorMessage ?? undefined,
+          executionTimeMs:
+            e.durationMs ??
+            (e.details["executionTimeMs"]
+              ? Number(e.details["executionTimeMs"])
+              : undefined),
+          providerStatusCode: statusCodeRaw ? Number(statusCodeRaw) : undefined,
+          runtimeLogs: e.runtimeLogs ?? undefined,
+          traceId: e.traceId || undefined,
+        };
+      });
+
+      return {
+        data,
+        meta: { count: data.length, limit: requestedLimit },
+      };
     } catch (error) {
       strapi.log.error("Error fetching function logs:", error);
       return ctx.badRequest(

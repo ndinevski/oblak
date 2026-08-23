@@ -314,27 +314,76 @@ func (m *MockClient) CreateVM(ctx context.Context, req *models.CreateVMRequest) 
 		node = m.nodes[0].Name
 	}
 
+	network := req.Network
+	if network == "" {
+		network = "vmbr0"
+	}
+
+	// Derive the OS type. A template-based create carries no explicit os_type;
+	// look it up from the template, defaulting to Linux (every seeded template
+	// is Linux).
+	osType := req.OSType
+	if osType == "" {
+		osType = models.OSTypeLinux
+		for _, t := range m.templates {
+			if t.Name == req.Template {
+				osType = t.OSType
+				break
+			}
+		}
+	}
+
+	now := time.Now()
+	octet := m.nextVMID - 1 // stable per-VM host octet
 	vm := &models.VirtualMachine{
-		ID:        vmid,
-		Name:      req.Name,
-		Status:    models.VMStatusStopped,
-		Node:      node,
-		Cores:     req.Cores,
-		Memory:    req.Memory,
-		DiskSize:  req.DiskSize,
-		OSType:    req.OSType,
-		Tags:      req.Tags,
-		CloudInit: req.CloudInit,
-		CreatedAt: time.Now(),
+		ID:          vmid,
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      models.VMStatusStopped,
+		Node:        node,
+		Template:    req.Template,
+		Cores:       req.Cores,
+		Memory:      req.Memory,
+		DiskSize:    req.DiskSize,
+		OSType:      osType,
+		OSTemplate:  req.OSTemplate,
+		Network:     network,
+		// A simulated NIC and lease, so the dashboard shows a realistic VM.
+		MACAddress:  fmt.Sprintf("52:54:00:%02x:%02x:%02x", (octet>>8)&0xff, octet&0xff, (m.nextVMID*7)&0xff),
+		IPAddress:   fmt.Sprintf("10.10.0.%d", 10+(octet%240)),
+		Tags:        req.Tags,
+		CloudInit:   req.CloudInit,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	if req.StartOnCreate {
-		vm.Status = models.VMStatusRunning
+		m.powerOn(vm)
 	}
 
 	m.vms[vmid] = vm
 
 	return vm, vmid, nil
+}
+
+// powerOn transitions a VM to running with plausible runtime stats, so the
+// simulator's VMs look alive in the dashboard. Caller holds the lock.
+func (m *MockClient) powerOn(vm *models.VirtualMachine) {
+	vm.Status = models.VMStatusRunning
+	vm.Uptime = 1
+	vm.CPUUsage = 3.5
+	vm.MemoryUsed = int64(vm.Memory) * 1024 * 1024 / 4 // ~25% of RAM, in bytes
+	vm.UpdatedAt = time.Now()
+}
+
+// powerOff transitions a VM to stopped and clears its runtime stats. Caller
+// holds the lock.
+func (m *MockClient) powerOff(vm *models.VirtualMachine) {
+	vm.Status = models.VMStatusStopped
+	vm.Uptime = 0
+	vm.CPUUsage = 0
+	vm.MemoryUsed = 0
+	vm.UpdatedAt = time.Now()
 }
 
 // DeleteVM deletes a mock VM
@@ -370,7 +419,7 @@ func (m *MockClient) StartVM(ctx context.Context, node, vmid string) (string, er
 		return "", fmt.Errorf("VM %s not found", vmid)
 	}
 
-	vm.Status = models.VMStatusRunning
+	m.powerOn(vm)
 	return fmt.Sprintf("UPID:%s:00001234:12345678:00000000:qmstart:%s:root@pam:", node, vmid), nil
 }
 
@@ -388,7 +437,7 @@ func (m *MockClient) StopVM(ctx context.Context, node, vmid string, force bool) 
 		return "", fmt.Errorf("VM %s not found", vmid)
 	}
 
-	vm.Status = models.VMStatusStopped
+	m.powerOff(vm)
 	action := "qmshutdown"
 	if force {
 		action = "qmstop"
@@ -460,7 +509,7 @@ func (m *MockClient) ResumeVM(ctx context.Context, node, vmid string) (string, e
 		return "", fmt.Errorf("VM %s not found", vmid)
 	}
 
-	vm.Status = models.VMStatusRunning
+	m.powerOn(vm)
 	return fmt.Sprintf("UPID:%s:00001234:12345678:00000000:qmresume:%s:root@pam:", node, vmid), nil
 }
 

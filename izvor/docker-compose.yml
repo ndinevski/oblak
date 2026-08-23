@@ -9,6 +9,15 @@ services:
       - "${IZVOR_API_PORT:-8082}:8082"
     environment:
       IZVOR_PORT: "8082"
+      # Set IZVOR_SIMULATE=true to run the built-in in-memory simulator instead
+      # of a real Proxmox cluster (development, demos, CI). PROXMOX_URL is then
+      # not required.
+      IZVOR_SIMULATE: ${IZVOR_SIMULATE:-false}
+      # VM capacity planning: refuse a create that a node cannot physically
+      # back. CPU/memory allow overcommit; disk is a hard limit.
+      IZVOR_CAPACITY_CHECK: ${IZVOR_CAPACITY_CHECK:-true}
+      IZVOR_CPU_OVERCOMMIT: ${IZVOR_CPU_OVERCOMMIT:-4.0}
+      IZVOR_MEM_OVERCOMMIT: ${IZVOR_MEM_OVERCOMMIT:-1.5}
       PROXMOX_URL: ${PROXMOX_URL:-https://proxmox.local:8006}
       PROXMOX_USER: ${PROXMOX_USER:-root@pam}
       PROXMOX_PASSWORD: ${PROXMOX_PASSWORD:-}

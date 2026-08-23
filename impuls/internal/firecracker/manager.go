@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -172,10 +173,45 @@ func (m *Manager) CreateVM(ctx context.Context, config VMConfig) (*VM, error) {
 		return nil, fmt.Errorf("failed to start VM: %w", err)
 	}
 
+	// Wait for the guest agent to finish booting and start accepting requests.
+	// Without this the first invoke races the boot and fails with a connection
+	// refused. Boot is typically well under a second.
+	if err := m.waitForAgent(ctx, vm, 10*time.Second); err != nil {
+		m.stopVM(vm)
+		logFile.Close()
+		return nil, fmt.Errorf("VM agent did not become ready: %w", err)
+	}
+
 	vm.State = VMStateRunning
 	m.vms[vm.ID] = vm
 
 	return vm, nil
+}
+
+// waitForAgent polls the guest agent's health endpoint until it responds or the
+// timeout elapses, so an invoke never races the VM's boot.
+func (m *Manager) waitForAgent(ctx context.Context, vm *VM, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	url := fmt.Sprintf("http://%s:8080/health", vm.IPAddress)
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err == nil {
+			if resp, err := client.Do(req); err == nil {
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return nil
+				}
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("agent at %s not ready within %s", url, timeout)
 }
 
 // waitForSocket waits for the Unix socket to become available
@@ -194,10 +230,20 @@ func (m *Manager) waitForSocket(socketPath string, timeout time.Duration) error 
 
 // configureVM configures the VM via Firecracker API
 func (m *Manager) configureVM(vm *VM) error {
-	// Set boot source
+	// Kernel-configured networking: the guest kernel brings up eth0 from the
+	// ip= boot arg before init runs (needs CONFIG_IP_PNP in the kernel), so the
+	// agent can bind immediately with no in-guest network setup. Format is
+	// ip=<client>::<gateway>:<netmask>::<iface>:<autoconf>. init= points at the
+	// agent launcher baked into the rootfs.
+	hostIP := m.getHostIP(vm.ID)
+	guestIP := m.getGuestIP(vm.ID)
+	bootArgs := fmt.Sprintf(
+		"console=ttyS0 reboot=k panic=1 pci=off ip=%s::%s:255.255.255.252::eth0:off init=/sbin/impuls-init",
+		guestIP, hostIP,
+	)
 	bootSource := map[string]interface{}{
 		"kernel_image_path": m.config.KernelPath,
-		"boot_args":         "console=ttyS0 reboot=k panic=1 pci=off",
+		"boot_args":         bootArgs,
 	}
 	if err := m.apiCall(vm.SocketPath, "PUT", "/boot-source", bootSource); err != nil {
 		return fmt.Errorf("failed to set boot source: %w", err)
@@ -246,17 +292,45 @@ func (m *Manager) createOverlayRootFS(vm *VM) (string, error) {
 		return "", err
 	}
 
+	// Resolve the base rootfs for this VM's runtime, so different runtimes can
+	// ship different images.
+	baseRootFS := m.rootfsFor(vm.Config.Runtime)
+
 	// Create a sparse copy of the base rootfs (copy-on-write using cp --reflink if available)
-	cmd := exec.Command("cp", "--reflink=auto", "--sparse=always", m.config.RootFSPath, overlayPath)
+	cmd := exec.Command("cp", "--reflink=auto", "--sparse=always", baseRootFS, overlayPath)
 	if err := cmd.Run(); err != nil {
 		// Fallback: create a qcow2 overlay or just copy
-		cmd = exec.Command("cp", m.config.RootFSPath, overlayPath)
+		cmd = exec.Command("cp", baseRootFS, overlayPath)
 		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to create rootfs overlay: %w", err)
 		}
 	}
 
 	return overlayPath, nil
+}
+
+// rootfsFor returns the base rootfs image for a runtime. A per-runtime image at
+// <images>/<runtime>-rootfs.ext4 (e.g. nodejs20-rootfs.ext4) is used when
+// present; otherwise the configured default rootfs is used. The runtime family
+// (nodejs, python, dotnet) is also tried, so "nodejs20" falls back to
+// "nodejs-rootfs.ext4".
+func (m *Manager) rootfsFor(runtime string) string {
+	if runtime != "" {
+		imagesDir := filepath.Dir(m.config.RootFSPath)
+		candidates := []string{runtime}
+		for _, fam := range []string{"nodejs", "python", "dotnet"} {
+			if strings.HasPrefix(runtime, fam) {
+				candidates = append(candidates, fam)
+			}
+		}
+		for _, c := range candidates {
+			p := filepath.Join(imagesDir, c+"-rootfs.ext4")
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+	return m.config.RootFSPath
 }
 
 // configureNetwork sets up networking for the VM
@@ -415,12 +489,12 @@ func (m *Manager) Cleanup() error {
 
 // ExecuteFunction executes a function in a VM and returns the result
 func (m *Manager) ExecuteFunction(ctx context.Context, vm *VM, payload []byte) ([]byte, error) {
-	// The VM runs a small HTTP server that receives function invocations
-	// We send the payload to this server and wait for the response
-
-	client := &http.Client{
-		Timeout: time.Duration(30) * time.Second,
-	}
+	// The VM runs a small HTTP server that receives function invocations.
+	// The invocation's overall deadline comes from ctx (the function timeout),
+	// so the HTTP client is not given a separate, shorter cap - a heavy runtime
+	// (e.g. .NET cold start + JIT) can legitimately take longer than a fixed
+	// 30s. ctx cancellation still bounds the request.
+	client := &http.Client{}
 
 	url := fmt.Sprintf("http://%s:8080/invoke", vm.IPAddress)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))

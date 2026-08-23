@@ -921,6 +921,7 @@ export interface InvocationLogEntry {
   durationMs: number | null;
   traceId: string;
   errorMessage: string | null;
+  runtimeLogs: { stdout: string[]; stderr: string[] } | null;
   details: Record<string, string>;
 }
 
@@ -986,16 +987,29 @@ export async function functionInvocationLogs(
     attributes: Record<string, string>;
   }>(sql, b.params);
 
-  return result.data.map((r) => ({
-    timestampMs: Number(r.timestampMs),
-    status: r.status || "success",
-    durationMs: r.durationRaw ? Number(r.durationRaw) : null,
-    traceId: r.traceId,
-    errorMessage: r.errorMessage || null,
-    details: Object.fromEntries(
-      Object.entries(r.attributes || {})
-        .filter(([k]) => k.startsWith("oblak.audit.detail."))
-        .map(([k, v]) => [k.slice("oblak.audit.detail.".length), v]),
-    ),
-  }));
+  // The audit stores the function's captured stdout/stderr as newline-joined
+  // strings under oblak.audit.detail.runtimeLogs.{stdout,stderr}. Split them
+  // back into the arrays the dashboard's log view expects.
+  const splitLines = (s: string | undefined): string[] =>
+    s ? s.split("\n").filter((l) => l.length > 0) : [];
+
+  return result.data.map((r) => {
+    const attrs = r.attributes || {};
+    const stdout = splitLines(attrs["oblak.audit.detail.runtimeLogs.stdout"]);
+    const stderr = splitLines(attrs["oblak.audit.detail.runtimeLogs.stderr"]);
+    return {
+      timestampMs: Number(r.timestampMs),
+      status: r.status || "success",
+      durationMs: r.durationRaw ? Number(r.durationRaw) : null,
+      traceId: r.traceId,
+      errorMessage: r.errorMessage || null,
+      runtimeLogs:
+        stdout.length || stderr.length ? { stdout, stderr } : null,
+      details: Object.fromEntries(
+        Object.entries(attrs)
+          .filter(([k]) => k.startsWith("oblak.audit.detail."))
+          .map(([k, v]) => [k.slice("oblak.audit.detail.".length), v]),
+      ),
+    };
+  });
 }

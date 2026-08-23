@@ -243,82 +243,92 @@ export function createIzvorClient(strapi: Strapi) {
       if (params?.offset) searchParams.set('offset', params.offset.toString());
       
       const query = searchParams.toString();
-      return request<IzvorListResponse<IzvorVM>>('GET', `/api/vms${query ? `?${query}` : ''}`);
+      const res = await request<{ vms: IzvorVM[]; count: number }>(
+        'GET',
+        `/api/v1/vms${query ? `?${query}` : ''}`
+      );
+      return { data: res.vms || [], total: res.count || 0 };
     },
 
     async getVM(id: string): Promise<IzvorVM> {
-      return request<IzvorVM>('GET', `/api/vms/${id}`);
+      return request<IzvorVM>('GET', `/api/v1/vms/${id}`);
     },
 
     async createVM(data: IzvorCreateVMRequest): Promise<IzvorVM> {
-      return request<IzvorVM>('POST', '/api/vms', data);
+      const res = await request<{ vm: IzvorVM; vmid: string | number }>(
+        'POST',
+        '/api/v1/vms',
+        data
+      );
+      // Izvor wraps the VM and returns the numeric id alongside it.
+      return { ...res.vm, vmid: Number(res.vmid) };
     },
 
     async updateVM(id: string, data: Partial<IzvorCreateVMRequest>): Promise<IzvorVM> {
-      return request<IzvorVM>('PUT', `/api/vms/${id}`, data);
+      return request<IzvorVM>('PUT', `/api/v1/vms/${id}`, data);
     },
 
     async deleteVM(id: string): Promise<void> {
-      await request<void>('DELETE', `/api/vms/${id}`);
+      await request<void>('DELETE', `/api/v1/vms/${id}`);
     },
 
     // VM actions
     async startVM(id: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'start' });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'start' });
     },
 
     async stopVM(id: string, force = false): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'stop', force });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'stop', force });
     },
 
     async rebootVM(id: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'reboot' });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'reboot' });
     },
 
     async pauseVM(id: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'pause' });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'suspend' });
     },
 
     async resumeVM(id: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'resume' });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'resume' });
     },
 
     async shutdownVM(id: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${id}/action`, { action: 'shutdown' });
+      await request<void>('POST', `/api/v1/vms/${id}/actions`, { action: 'shutdown' });
     },
 
     // Console
     async getConsole(id: string, type: 'vnc' | 'spice' = 'vnc'): Promise<IzvorConsoleInfo> {
-      return request<IzvorConsoleInfo>('GET', `/api/vms/${id}/console?type=${type}`);
+      return request<IzvorConsoleInfo>('GET', `/api/v1/vms/${id}/console?type=${type}`);
     },
 
     // Stats
     async getVMStats(id: string): Promise<IzvorVMStats> {
-      return request<IzvorVMStats>('GET', `/api/vms/${id}/stats`);
+      return request<IzvorVMStats>('GET', `/api/v1/vms/${id}/stats`);
     },
 
     // Snapshots
     async listSnapshots(vmId: string): Promise<IzvorSnapshot[]> {
-      const response = await request<{ data: IzvorSnapshot[] }>('GET', `/api/vms/${vmId}/snapshots`);
-      return response.data || [];
+      const response = await request<{ snapshots: IzvorSnapshot[] }>('GET', `/api/v1/vms/${vmId}/snapshots`);
+      return response.snapshots || [];
     },
 
     async createSnapshot(vmId: string, data: IzvorCreateSnapshotRequest): Promise<IzvorSnapshot> {
-      return request<IzvorSnapshot>('POST', `/api/vms/${vmId}/snapshots`, data);
+      return request<IzvorSnapshot>('POST', `/api/v1/vms/${vmId}/snapshots`, data);
     },
 
     async restoreSnapshot(vmId: string, snapshotName: string): Promise<void> {
-      await request<void>('POST', `/api/vms/${vmId}/snapshots/${snapshotName}/restore`);
+      await request<void>('POST', `/api/v1/vms/${vmId}/snapshots/${snapshotName}/rollback`);
     },
 
     async deleteSnapshot(vmId: string, snapshotName: string): Promise<void> {
-      await request<void>('DELETE', `/api/vms/${vmId}/snapshots/${snapshotName}`);
+      await request<void>('DELETE', `/api/v1/vms/${vmId}/snapshots/${snapshotName}`);
     },
 
     // Templates and sizes
     async listTemplates(): Promise<IzvorVMTemplate[]> {
-      const response = await request<{ data: IzvorVMTemplate[] }>('GET', '/api/templates');
-      return response.data || [];
+      const response = await request<{ templates: IzvorVMTemplate[] }>('GET', '/api/v1/templates');
+      return response.templates || [];
     },
 
     async listSizes(): Promise<IzvorVMSize[]> {

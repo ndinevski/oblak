@@ -113,14 +113,16 @@ function StatCard({
 /**
  * Test invoke panel component
  */
-function TestInvokePanel({ 
-  functionId, 
+function TestInvokePanel({
+  functionId,
   functionName,
   canInvoke,
-}: { 
-  functionId: number; 
+  onInvoked,
+}: {
+  functionId: number;
   functionName: string;
   canInvoke: boolean;
+  onInvoked?: () => void;
 }) {
   const invokeFunction = useInvokeFunction();
   const [payload, setPayload] = useState('{\n  "message": "Hello, World!"\n}');
@@ -145,6 +147,10 @@ function TestInvokePanel({
         success: true,
         data: response,
       });
+      // Refresh the invocation log list. The audit record is written
+      // asynchronously (Impuls -> dashboard -> telemetry store), so refresh
+      // shortly after as well to catch it once it lands.
+      onInvoked?.();
     } catch (error) {
       if (error instanceof SyntaxError) {
         setResult({ success: false, error: 'Invalid JSON payload' });
@@ -569,7 +575,16 @@ export default function FunctionDetailPage() {
         </TabsContent>
 
         <TabsContent value="test">
-          <TestInvokePanel functionId={fn.id} functionName={fn.name} canInvoke={fn.status === 'active'} />
+          <TestInvokePanel
+            functionId={fn.id}
+            functionName={fn.name}
+            canInvoke={fn.status === 'active'}
+            onInvoked={() => {
+              // Refresh now and again after the async audit record lands.
+              refetchLogs();
+              window.setTimeout(() => refetchLogs(), 2500);
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-4">

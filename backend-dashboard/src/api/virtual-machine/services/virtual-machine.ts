@@ -128,10 +128,12 @@ export function createVMService(strapi: Strapi) {
         | "error"
         | "unknown",
       template: izvorVM.template,
-      osType: izvorVM.os_type as "linux" | "windows" | "other",
+      // Default to linux when the hypervisor reports no OS type (e.g. a
+      // template-based create), so the Strapi enum validation always passes.
+      osType: (izvorVM.os_type || "linux") as "linux" | "windows" | "other",
       cores: izvorVM.cores,
       memoryMB: izvorVM.memory,
-      diskGB: Math.ceil(izvorVM.disk_size / (1024 * 1024 * 1024)), // bytes to GB
+      diskGB: izvorVM.disk_size, // Izvor already reports disk size in GB
       ipAddress: izvorVM.ip_address,
       ipv6Address: izvorVM.ipv6_address,
       network: izvorVM.network,
@@ -310,17 +312,18 @@ export function createVMService(strapi: Strapi) {
 
         return updatedVM;
       } catch (error) {
-        // Rollback Strapi VM on Izvor failure
+        // Roll back the placeholder record on Izvor failure. A create that
+        // never provisioned should leave nothing behind, rather than a dangling
+        // "error" VM the user then has to clean up. The failure still surfaces
+        // to the caller (and the audit log) via the thrown error.
         logger.error(`Failed to create VM in Izvor: ${error}`);
-        await strapi.documents("api::virtual-machine.virtual-machine").update({
-          documentId: strapiVM.documentId,
-          data: {
-            status: "error",
-            metadata: {
-              error: error instanceof Error ? error.message : "Unknown error",
-            },
-          } as any,
-        });
+        try {
+          await strapi.documents("api::virtual-machine.virtual-machine").delete({
+            documentId: strapiVM.documentId,
+          });
+        } catch (cleanupError) {
+          logger.error(`Failed to roll back VM placeholder: ${cleanupError}`);
+        }
         throw error;
       }
     },
@@ -351,9 +354,22 @@ export function createVMService(strapi: Strapi) {
       });
 
       try {
-        // Delete from Izvor
+        // Delete from Izvor. A VM that Izvor no longer knows about (already
+        // gone, or never fully provisioned) is treated as already deleted, so
+        // the dashboard record can always be cleaned up rather than getting
+        // stuck. Other Izvor errors still abort and revert.
         if (vm.externalId) {
-          await izvorClient.deleteVM(vm.externalId);
+          try {
+            await izvorClient.deleteVM(vm.externalId);
+          } catch (izvorError) {
+            const notFound =
+              izvorError instanceof IzvorClientError &&
+              izvorError.statusCode === 404;
+            if (!notFound) throw izvorError;
+            logger.warn(
+              `Izvor did not know VM ${vm.externalId}; removing dashboard record anyway`,
+            );
+          }
         }
 
         // Delete from Strapi

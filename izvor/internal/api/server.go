@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -30,6 +31,19 @@ type Config struct {
 	ProxmoxTokenSecret string
 	ProxmoxNode        string
 	InsecureSkipVerify bool
+	// Simulate runs Izvor against an in-memory simulator instead of a real
+	// Proxmox cluster. It lets the whole VM lifecycle (create, power, snapshot,
+	// delete) work end to end for demos, development and CI on a host with no
+	// Proxmox. It is never a substitute for a real cluster in production.
+	Simulate bool
+
+	// Capacity planning. Before provisioning, Izvor checks the target node's
+	// real resources so a create cannot exceed what the hardware can back.
+	// CPU and memory allow overcommit (they are time-shared / balloonable);
+	// disk is a hard limit against real free storage (thin pools still run out).
+	CapacityCheck bool    // enforce the capacity gate (default true)
+	CPUOvercommit float64 // allowed allocated vCPU per physical core (default 4.0)
+	MemOvercommit float64 // allowed allocated RAM vs physical RAM (default 1.5)
 }
 
 // GetConfigFromEnv returns configuration from environment variables
@@ -43,7 +57,22 @@ func GetConfigFromEnv() Config {
 		ProxmoxTokenSecret: getEnv("PROXMOX_TOKEN_SECRET", ""),
 		ProxmoxNode:        getEnv("PROXMOX_NODE", ""),
 		InsecureSkipVerify: getEnv("PROXMOX_INSECURE", "false") == "true",
+		Simulate:           getEnv("IZVOR_SIMULATE", "false") == "true",
+		CapacityCheck:      getEnv("IZVOR_CAPACITY_CHECK", "true") != "false",
+		CPUOvercommit:      getEnvFloat("IZVOR_CPU_OVERCOMMIT", 4.0),
+		MemOvercommit:      getEnvFloat("IZVOR_MEM_OVERCOMMIT", 1.5),
 	}
+}
+
+// getEnvFloat reads a float env var, falling back to a default on unset or
+// unparseable values (a bad ratio must never silently disable the guard).
+func getEnvFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			return f
+		}
+	}
+	return fallback
 }
 
 func getEnv(key, fallback string) string {
@@ -107,6 +136,7 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/vms/{id}", s.deleteVM).Methods("DELETE")
 	api.HandleFunc("/vms/{id}/actions", s.vmAction).Methods("POST")
 	api.HandleFunc("/vms/{id}/console", s.getVMConsole).Methods("GET")
+	api.HandleFunc("/vms/{id}/stats", s.getVMStats).Methods("GET")
 
 	// Snapshot routes
 	api.HandleFunc("/vms/{id}/snapshots", s.listSnapshots).Methods("GET")

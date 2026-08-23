@@ -16,6 +16,27 @@ export default {
         middlewares: [],
       },
     },
+    // Templates and sizes
+    {
+      method: 'GET',
+      path: '/virtual-machines/templates',
+      handler: 'virtual-machine.templates',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
+      path: '/virtual-machines/sizes',
+      handler: 'virtual-machine.sizes',
+      info: { type: 'content-api' },
+      config: {
+        policies: [],
+        middlewares: [],
+      },
+    },
     {
       method: 'GET',
       path: '/virtual-machines/:id',
@@ -164,27 +185,6 @@ export default {
       method: 'DELETE',
       path: '/virtual-machines/:id/snapshots/:snapshotName',
       handler: 'virtual-machine.deleteSnapshot',
-      info: { type: 'content-api' },
-      config: {
-        policies: [],
-        middlewares: [],
-      },
-    },
-    // Templates and sizes
-    {
-      method: 'GET',
-      path: '/virtual-machines/templates',
-      handler: 'virtual-machine.templates',
-      info: { type: 'content-api' },
-      config: {
-        policies: [],
-        middlewares: [],
-      },
-    },
-    {
-      method: 'GET',
-      path: '/virtual-machines/sizes',
-      handler: 'virtual-machine.sizes',
       info: { type: 'content-api' },
       config: {
         policies: [],

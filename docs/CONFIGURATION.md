@@ -91,6 +91,12 @@ The default port map (host side):
 | `IMPULS_DATA_DIR` | `/var/lib/impuls` | No | Where function code and (file mode) data live. |
 | `STRAPI_INVOCATION_REPORT_URL` | backend URL | No | Only if the dashboard backend is elsewhere; this is how invocations are reported for the dashboard. |
 | `IMPULS_REPORT_SECRET` | (empty) | Recommended | Set a shared secret so only Impuls can post invocation reports. |
+| `IMPULS_LOCAL_INVOKE_DEFAULT` (dashboard `.env`) | `true` | Set `false` for Firecracker | When `true`, the dashboard invokes functions in local host-process mode. Set `false` to invoke via Firecracker microVMs, which requires an Impuls server running on a KVM host (see `impuls/docs/firecracker.md`). |
+
+Impuls runs functions either in **Firecracker microVMs** (isolated, needs KVM
+and root) or in a **local host process** (`?local=true`, for development). The
+container image runs in local mode; for Firecracker run `impuls-server` on the
+host. See `impuls/docs/firecracker.md` for the validated setup.
 
 Function logs and errors are shipped to observability automatically when
 telemetry is enabled — nothing to configure. See `impuls/README.md`.
@@ -109,7 +115,11 @@ telemetry is enabled — nothing to configure. See `impuls/README.md`.
 | Variable | Default | Required? | When to change |
 |---|---|---|---|
 | `IZVOR_API_PORT` | `8082` | No | Port clash. |
-| `PROXMOX_URL` | `https://proxmox.local:8006` | **Yes** | Your Proxmox endpoint. Izvor cannot provision VMs without it. |
+| `IZVOR_SIMULATE` | `false` | No | Set `true` to run the built-in in-memory simulator instead of a real Proxmox cluster: the whole VM lifecycle works end to end with no Proxmox (development, demos, CI). `PROXMOX_URL` is then not required. Never use it as a stand-in for a real cluster in production. |
+| `IZVOR_CAPACITY_CHECK` | `true` | No | Refuse a VM create that the target node cannot physically back. This is a per-node backstop across all users, complementing the dashboard's per-user quotas. Set `false` to disable. |
+| `IZVOR_CPU_OVERCOMMIT` | `4.0` | No | Allowed allocated vCPU per physical core (CPU is time-shared). |
+| `IZVOR_MEM_OVERCOMMIT` | `1.5` | No | Allowed allocated RAM vs physical RAM (relies on ballooning/KSM). Set `1.0` for no memory overcommit. Disk is always a hard limit, never overcommitted. |
+| `PROXMOX_URL` | `https://proxmox.local:8006` | **Yes** (unless simulating) | Your Proxmox endpoint. Izvor cannot provision real VMs without it. |
 | `PROXMOX_USER` / `PROXMOX_PASSWORD` | `root@pam` / (empty) | **Yes** | Proxmox credentials. |
 | `PROXMOX_NODE` | `pve` | Maybe | The Proxmox node name to provision on. |
 | `PROXMOX_INSECURE` | `true` | Production: set `false` | `true` skips TLS verification of the Proxmox cert; set `false` with a real cert in production. |

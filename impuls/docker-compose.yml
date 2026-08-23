@@ -14,6 +14,11 @@ services:
       - POSTGRES_DB=${IMPULS_DB_NAME:-impuls}
       - POSTGRES_USER=${IMPULS_DB_USER:-impuls}
       - POSTGRES_PASSWORD=${IMPULS_DB_PASSWORD:-impuls123}
+    ports:
+      # Published so an Impuls server running natively on the host (Firecracker
+      # mode) can reach it. 5433 avoids clashing with the dashboard Postgres on
+      # 5432. Change the left side if 5433 is taken.
+      - "${IMPULS_DB_HOST_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./internal/storage/migrations.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro,z

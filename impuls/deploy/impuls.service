@@ -1,0 +1,34 @@
+# systemd unit for running Impuls in Firecracker mode on a KVM host.
+#
+# Install:
+#   sudo cp deploy/impuls.service /etc/systemd/system/impuls.service
+#   # edit the DB connection below to match your impuls-postgres
+#   sudo systemctl daemon-reload && sudo systemctl enable --now impuls
+#
+# Runs as root because Firecracker needs /dev/kvm, TAP networking, and to
+# loop-copy the per-VM rootfs overlay. Storage points at the impuls-postgres
+# container (publish its 5432 to the host, or use its container IP).
+[Unit]
+Description=Impuls serverless functions (Firecracker)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/bin/impuls-resolve-otel.sh
+EnvironmentFile=-/run/impuls/otel.env
+ExecStart=/usr/local/bin/impuls-server \
+  --port 8080 \
+  --data-dir /var/lib/impuls \
+  --storage postgres \
+  --db-conn postgres://impuls:impuls123@127.0.0.1:5433/impuls?sslmode=disable \
+  --firecracker /usr/local/bin/firecracker \
+  --kernel /var/lib/impuls/images/vmlinux \
+  --rootfs /var/lib/impuls/images/rootfs.ext4
+Environment=STRAPI_INVOCATION_REPORT_URL=http://localhost:1337/api/functions/invocation-report
+Restart=on-failure
+RestartSec=3
+# Root is required for KVM + TAP; do not sandbox away those capabilities.
+
+[Install]
+WantedBy=multi-user.target

@@ -135,53 +135,61 @@ class RuntimeHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
         
+        # Capture the function's stdout/stderr so they can be shipped as logs,
+        # matching the Node runtime and models.InvocationLogs.
+        import io
+        import contextlib
+        start = time.time()
+        out_buf, err_buf = io.StringIO(), io.StringIO()
+
+        def _lines(buf):
+            return [ln for ln in buf.getvalue().splitlines() if ln.strip()]
+
         try:
-            # Read request body
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
             request = json.loads(body.decode('utf-8'))
-            
-            # Extract invocation data
+
             code = request.get('code', '')
             handler_name = request.get('handler', 'handler.handler')
-            event = request.get('event', {})
-            env = request.get('env', {})
+            event = request.get('event') or {}
+            # `env` can arrive as JSON null (no env vars set); coerce to a dict.
+            env = request.get('env') or {}
             function_name = request.get('function_name', 'unknown')
             memory_mb = request.get('memory_mb', 128)
             timeout_sec = request.get('timeout_sec', 30)
-            
-            # Set environment variables
+
             for key, value in env.items():
                 os.environ[key] = value
-            
-            # Load the function
+
             handler = load_function(code, handler_name)
-            
-            # Create context
             context = LambdaContext(function_name, memory_mb, timeout_sec)
-            
-            # Execute the handler
-            result = execute_handler(handler, event, context)
-            
-            # Send response
+
+            with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                result = execute_handler(handler, event, context)
+
+            # Response shape matches models.InvocationResponse.
             response = {
-                'statusCode': 200,
-                'body': result
+                'status_code': 200,
+                'body': result,
+                'duration_ms': int((time.time() - start) * 1000),
+                'logs': {'stdout': _lines(out_buf), 'stderr': _lines(err_buf)},
             }
-            
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
-            
+
         except Exception as e:
+            stderr_lines = _lines(err_buf)
+            stderr_lines.append(traceback.format_exc())
             error_response = {
-                'statusCode': 500,
+                'status_code': 500,
                 'error': str(e),
-                'stack': traceback.format_exc()
+                'duration_ms': int((time.time() - start) * 1000),
+                'logs': {'stdout': _lines(out_buf), 'stderr': stderr_lines},
             }
-            
-            self.send_response(200)  # Still 200, error in body
+            self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(error_response).encode())

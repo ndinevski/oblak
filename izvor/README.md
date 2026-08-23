@@ -12,6 +12,31 @@ Izvor is the VM provisioning and management component of the private cloud, powe
 - **Predefined Sizes**: EC2-like instance sizes (micro, small, medium, large, etc.)
 - **Cluster Support**: Works with Proxmox clusters and standalone nodes
 - **Resource Monitoring**: CPU, memory, disk, and network usage stats
+- **Capacity Planning**: Refuses a create the target node cannot physically back
+
+## Capacity planning
+
+Provisioning is gated at two independent layers:
+
+1. **Per-user quota** (in the dashboard backend): how much one user may create -
+   VM count, total cores, total RAM, total disk. Policy, not hardware.
+2. **Per-node physical capacity** (here in Izvor): whether the *node* can back
+   the request at all, counting every VM on it across all users. This is the
+   backstop a per-user quota cannot provide - ten users each within their quota
+   can still exhaust one node.
+
+At create time Izvor sums the node's already-allocated cores and memory and
+checks the request against the node's real resources:
+
+- **CPU** and **memory** allow overcommit (`IZVOR_CPU_OVERCOMMIT`,
+  `IZVOR_MEM_OVERCOMMIT`), since vCPUs are time-shared and RAM can be shared via
+  ballooning/KSM.
+- **Disk** is a hard limit against genuinely free image storage - a thin pool
+  that fills up takes down every VM on it, so it is never overcommitted.
+
+A request that will not fit is refused with `409 Conflict` and a message naming
+what is short (e.g. "insufficient CPU on node pve: requested 40 vCPU, 120 of 128
+allocatable vCPU already in use"). Set `IZVOR_CAPACITY_CHECK=false` to disable.
 
 ## Architecture
 
@@ -38,6 +63,21 @@ Izvor is the VM provisioning and management component of the private cloud, powe
 - Network access to Proxmox API (port 8006)
 
 ## Quick Start
+
+### Option 0: Simulator (no Proxmox needed)
+
+Izvor ships with a built-in in-memory simulator so the whole VM lifecycle
+(create, start, stop, snapshot, delete) works end to end without a Proxmox
+cluster. It is ideal for development, demos and CI.
+
+```bash
+IZVOR_SIMULATE=true docker compose up -d
+curl http://localhost:8082/health   # healthy, no Proxmox required
+```
+
+Simulated VMs live in memory: a restart forgets them, though the dashboard keeps
+its own record of every VM, so the list survives. Never use the simulator as a
+stand-in for a real cluster in production.
 
 ### Option 1: Docker (Recommended)
 
@@ -74,7 +114,11 @@ make dev
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `IZVOR_PORT` | API server port | `8082` |
-| `PROXMOX_URL` | Proxmox API URL | (required) |
+| `IZVOR_SIMULATE` | Run the in-memory simulator instead of real Proxmox | `false` |
+| `IZVOR_CAPACITY_CHECK` | Refuse a create the node cannot physically back | `true` |
+| `IZVOR_CPU_OVERCOMMIT` | Allowed allocated vCPU per physical core | `4.0` |
+| `IZVOR_MEM_OVERCOMMIT` | Allowed allocated RAM vs physical RAM | `1.5` |
+| `PROXMOX_URL` | Proxmox API URL | (required unless simulating) |
 | `PROXMOX_USER` | Proxmox username | `root@pam` |
 | `PROXMOX_PASSWORD` | Proxmox password | |
 | `PROXMOX_TOKEN_ID` | API token ID (alternative) | |

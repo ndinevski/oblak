@@ -120,7 +120,7 @@ export default {
 
   // Get single VM
   async findOne(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'read');
     if (!user) return;
@@ -154,7 +154,7 @@ export default {
 
   // Create VM
   async create(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
     const userId = user.id;
@@ -172,7 +172,7 @@ export default {
 
   // Update VM (metadata only, not hardware)
   async update(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -220,7 +220,7 @@ export default {
 
   // Delete VM
   async delete(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -239,7 +239,7 @@ export default {
 
   // Start VM
   async start(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -257,7 +257,7 @@ export default {
 
   // Stop VM
   async stop(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const { force } = ctx.request.body || {};
     const user = requireAccess(ctx, SERVICE, 'write');
@@ -276,7 +276,7 @@ export default {
 
   // Reboot VM
   async reboot(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -294,7 +294,7 @@ export default {
 
   // Pause VM
   async pause(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -312,7 +312,7 @@ export default {
 
   // Resume VM
   async resume(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -330,7 +330,7 @@ export default {
 
   // Get console access
   async console(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const { type = 'vnc' } = ctx.query;
     // Interactive console is effectively control of the VM, so it needs write.
@@ -350,7 +350,7 @@ export default {
 
   // Get VM stats
   async stats(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'read');
     if (!user) return;
@@ -368,7 +368,7 @@ export default {
 
   // List snapshots
   async listSnapshots(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'read');
     if (!user) return;
@@ -386,7 +386,7 @@ export default {
 
   // Create snapshot
   async createSnapshot(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -405,7 +405,7 @@ export default {
 
   // Restore snapshot
   async restoreSnapshot(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id, snapshotName } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -423,7 +423,7 @@ export default {
 
   // Delete snapshot
   async deleteSnapshot(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id, snapshotName } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;
@@ -442,7 +442,7 @@ export default {
 
   // Get templates
   async templates(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     if (!requireAccess(ctx, SERVICE, 'read')) return;
 
     try {
@@ -457,7 +457,7 @@ export default {
 
   // Get sizes
   async sizes(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     if (!requireAccess(ctx, SERVICE, 'read')) return;
 
     try {
@@ -472,7 +472,7 @@ export default {
 
   // Sync VM with Izvor
   async sync(ctx: any) {
-    const { strapi } = ctx;
+    const strapi = getStrapi(ctx);
     const { id } = ctx.params;
     const user = requireAccess(ctx, SERVICE, 'write');
     if (!user) return;

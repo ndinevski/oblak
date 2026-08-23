@@ -44,6 +44,18 @@ func (s *Server) createVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Physical capacity gate: refuse before provisioning if the node cannot
+	// back the request. A "would not fit" is a 409; an inability to read
+	// cluster state is a 500 (refuse rather than provision blind).
+	if err := s.checkCapacity(ctx, &req); err != nil {
+		if _, ok := err.(*capacityError); ok {
+			respondError(w, http.StatusConflict, err.Error())
+		} else {
+			respondError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
 	vm, vmid, err := s.proxmox.CreateVM(ctx, &req)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
@@ -745,4 +757,51 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, task)
+}
+
+// getVMStats handles GET /api/v1/vms/{id}/stats
+//
+// Returns the VM's live resource usage in the shape the dashboard expects. The
+// VM is located across nodes when no node is given, mirroring getVM.
+func (s *Server) getVMStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	vmid := vars["id"]
+	node := r.URL.Query().Get("node")
+
+	if node == "" {
+		vms, err := s.proxmox.ListVMs(ctx, "")
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		for _, vm := range vms {
+			if vm.ID == vmid {
+				node = vm.Node
+				break
+			}
+		}
+		if node == "" {
+			respondError(w, http.StatusNotFound, "VM not found")
+			return
+		}
+	}
+
+	vm, err := s.proxmox.GetVM(ctx, node, vmid)
+	if err != nil {
+		respondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	stats := map[string]interface{}{
+		"cpu_usage":    vm.CPUUsage,
+		"memory_used":  vm.MemoryUsed,
+		"memory_total": int64(vm.Memory) * 1024 * 1024,       // MB -> bytes
+		"disk_used":    vm.DiskWrite,                          // best-effort
+		"disk_total":   int64(vm.DiskSize) * 1024 * 1024 * 1024, // GB -> bytes
+		"network_in":   vm.NetIn,
+		"network_out":  vm.NetOut,
+		"uptime":       vm.Uptime,
+	}
+	respondJSON(w, http.StatusOK, stats)
 }

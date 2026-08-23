@@ -35,7 +35,7 @@ app.MapPost("/invoke", async (HttpContext context) =>
         var request = await JsonSerializer.DeserializeAsync<InvocationRequest>(context.Request.Body);
         if (request == null)
         {
-            return Results.Json(new { statusCode = 500, error = "Invalid request" });
+            return Results.Json(new { status_code = 500, error = "Invalid request" });
         }
 
         // Set environment variables
@@ -53,7 +53,7 @@ app.MapPost("/invoke", async (HttpContext context) =>
             var (assembly, error) = CompileCode(request.Code ?? "");
             if (assembly == null)
             {
-                return Results.Json(new { statusCode = 500, error = $"Compilation failed: {error}" });
+                return Results.Json(new { status_code = 500, error = $"Compilation failed: {error}" });
             }
             cachedAssembly = assembly;
             cachedCode = request.Code;
@@ -67,7 +67,7 @@ app.MapPost("/invoke", async (HttpContext context) =>
             var handlerParts = (request.Handler ?? "Function.Handler").Split('.');
             if (handlerParts.Length < 2)
             {
-                return Results.Json(new { statusCode = 500, error = "Invalid handler format" });
+                return Results.Json(new { status_code = 500, error = "Invalid handler format" });
             }
 
             var className = string.Join(".", handlerParts[..^1]);
@@ -76,14 +76,14 @@ app.MapPost("/invoke", async (HttpContext context) =>
             var type = cachedAssembly.GetType(className);
             if (type == null)
             {
-                return Results.Json(new { statusCode = 500, error = $"Class '{className}' not found" });
+                return Results.Json(new { status_code = 500, error = $"Class '{className}' not found" });
             }
 
             cachedHandler = Activator.CreateInstance(type);
             cachedMethod = type.GetMethod(methodName);
             if (cachedMethod == null)
             {
-                return Results.Json(new { statusCode = 500, error = $"Method '{methodName}' not found" });
+                return Results.Json(new { status_code = 500, error = $"Method '{methodName}' not found" });
             }
         }
 
@@ -120,13 +120,13 @@ app.MapPost("/invoke", async (HttpContext context) =>
             result = resultProperty?.GetValue(task);
         }
 
-        return Results.Json(new { statusCode = 200, body = result });
+        return Results.Json(new { status_code = 200, body = result });
     }
     catch (Exception ex)
     {
         return Results.Json(new 
         { 
-            statusCode = 500, 
+            status_code = 500, 
             error = ex.Message,
             stack = ex.StackTrace
         });

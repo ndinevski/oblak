@@ -60,9 +60,15 @@ func main() {
 		cfg.InsecureSkipVerify = true
 	}
 
-	// Validate required configuration
-	if cfg.ProxmoxURL == "" {
-		log.Fatal("Proxmox URL is required. Use --proxmox-url flag or PROXMOX_URL environment variable")
+	// Allow enabling the simulator from the command line too.
+	if os.Getenv("IZVOR_SIMULATE") == "true" {
+		cfg.Simulate = true
+	}
+
+	// Validate required configuration. In simulator mode there is no Proxmox to
+	// point at, so the URL is not required.
+	if cfg.ProxmoxURL == "" && !cfg.Simulate {
+		log.Fatal("Proxmox URL is required. Use --proxmox-url flag or PROXMOX_URL environment variable (or set IZVOR_SIMULATE=true for the built-in simulator)")
 	}
 
 	// Telemetry first, so that startup problems (including an unreachable
@@ -83,18 +89,26 @@ func main() {
 		"telemetry_enabled", tel.Enabled,
 	)
 
-	// Create Proxmox client
-	proxmoxClient, err := proxmox.NewClient(proxmox.Config{
-		URL:                cfg.ProxmoxURL,
-		User:               cfg.ProxmoxUser,
-		Password:           cfg.ProxmoxPassword,
-		TokenID:            cfg.ProxmoxTokenID,
-		TokenSecret:        cfg.ProxmoxTokenSecret,
-		DefaultNode:        cfg.ProxmoxNode,
-		InsecureSkipVerify: cfg.InsecureSkipVerify,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create Proxmox client: %v", err)
+	// Create the Proxmox client: either a real cluster client or the built-in
+	// in-memory simulator.
+	var proxmoxClient proxmox.ProxmoxClient
+	if cfg.Simulate {
+		logger.Warn("IZVOR SIMULATOR MODE: VMs are simulated in memory, not provisioned on a real Proxmox cluster")
+		proxmoxClient = proxmox.NewSimulator()
+	} else {
+		client, err := proxmox.NewClient(proxmox.Config{
+			URL:                cfg.ProxmoxURL,
+			User:               cfg.ProxmoxUser,
+			Password:           cfg.ProxmoxPassword,
+			TokenID:            cfg.ProxmoxTokenID,
+			TokenSecret:        cfg.ProxmoxTokenSecret,
+			DefaultNode:        cfg.ProxmoxNode,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create Proxmox client: %v", err)
+		}
+		proxmoxClient = client
 	}
 
 	// Create and run server

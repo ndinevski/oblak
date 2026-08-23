@@ -61,6 +61,11 @@ setup-images:
 	@echo "Setting up Firecracker images..."
 	sudo ./scripts/setup-images.sh
 
+# Build a per-runtime Firecracker rootfs (RUNTIME=nodejs|python)
+build-rootfs:
+	@echo "Building Firecracker rootfs ($(or $(RUNTIME),nodejs))..."
+	sudo ./scripts/build-rootfs.sh $(or $(RUNTIME),nodejs)
+
 # Install Firecracker (requires root)
 install-firecracker:
 	@echo "Installing Firecracker..."
