@@ -74,7 +74,7 @@ export default function OverviewPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <PageHeading />
         <TelemetryUnavailable
           configured={health.data.configured}
@@ -88,7 +88,7 @@ export default function OverviewPage() {
   const errorRate = s?.requests.errorRate ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeading />
 
       {/* Filters scope everything below them. */}
@@ -315,8 +315,8 @@ export default function OverviewPage() {
 function PageHeading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Observability</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability</h1>
+      <p className="text-muted-foreground">
         Logs, metrics and traces from every Oblak service
       </p>
     </div>

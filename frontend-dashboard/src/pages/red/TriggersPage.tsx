@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -99,11 +100,11 @@ export default function TriggersPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Triggers</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold">Red Triggers</h1>
+          <p className="text-muted-foreground">
             Invoke an Impuls function for every message on a queue, with automatic retry and
             dead-lettering.
           </p>
@@ -114,9 +115,9 @@ export default function TriggersPage() {
       </div>
 
       {subs.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">Loading...</CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">

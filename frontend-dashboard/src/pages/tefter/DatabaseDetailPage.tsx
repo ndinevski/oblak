@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowUpCircle,
@@ -98,17 +99,15 @@ export default function DatabaseDetailPage() {
 
   if (instance.isLoading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading {name}...
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
     );
   }
 
   if (instance.isError || !instance.data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <BackLink onBack={() => navigate('/databases')} />
         <TefterUnavailable />
       </div>
@@ -133,7 +132,7 @@ export default function DatabaseDetailPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <BackLink onBack={() => navigate('/databases')} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -145,7 +144,7 @@ export default function DatabaseDetailPage() {
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{db.name}</h1>
+              <h1 className="text-2xl font-bold">{db.name}</h1>
               <Badge variant="outline" className={cn('text-xs', instanceStatusClass(db.status))}>
                 {instanceStatusLabel(db.status)}
               </Badge>

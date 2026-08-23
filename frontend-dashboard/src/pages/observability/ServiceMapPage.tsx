@@ -91,7 +91,7 @@ export default function ServiceMapPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <TelemetryUnavailable configured={health.data.configured} error={health.data.error} />
       </div>
@@ -103,7 +103,7 @@ export default function ServiceMapPage() {
   const maxCalls = Math.max(1, ...edgeList.map((e) => e.calls));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading />
 
       <FilterBar>
@@ -293,8 +293,8 @@ export default function ServiceMapPage() {
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Service map</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability Service Map</h1>
+      <p className="text-muted-foreground">
         How Oblak services call each other
       </p>
     </div>

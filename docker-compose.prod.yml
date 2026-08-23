@@ -69,8 +69,20 @@ services:
       SPOMEN_URL: ${SPOMEN_URL:-http://spomen:8081}
       SPOMEN_ACCESS_KEY: ${SPOMEN_ACCESS_KEY:-}
       SPOMEN_SECRET_KEY: ${SPOMEN_SECRET_KEY:-}
+      PRISTANISTE_URL: ${PRISTANISTE_URL:-http://pristaniste-api:8083}
+      PRISTANISTE_API_KEY: ${PRISTANISTE_API_KEY:-}
+      TEFTER_URL: ${TEFTER_URL:-http://tefter-api:8084}
+      TEFTER_API_KEY: ${TEFTER_API_KEY:-}
+      VRATA_URL: ${VRATA_URL:-http://vrata:8085}
+      VRATA_API_KEY: ${VRATA_API_KEY:-}
+      INDEKS_URL: ${INDEKS_URL:-http://indeks:8086}
+      INDEKS_API_KEY: ${INDEKS_API_KEY:-}
+      RED_URL: ${RED_URL:-http://red:8087}
+      RED_API_KEY: ${RED_API_KEY:-}
       POLAROID_URL: ${POLAROID_URL:-http://polaroid:2283}
       POLAROID_API_KEY: ${POLAROID_API_KEY:-}
+      # Identitet root account (full access, manages users)
+      OBLAK_ROOT_EMAIL: ${OBLAK_ROOT_EMAIL:?OBLAK_ROOT_EMAIL is required}
     depends_on:
       postgres:
         condition: service_healthy

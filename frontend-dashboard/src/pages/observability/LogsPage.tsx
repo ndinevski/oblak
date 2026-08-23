@@ -155,7 +155,7 @@ export default function LogsPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <TelemetryUnavailable configured={health.data.configured} error={health.data.error} />
       </div>
@@ -167,7 +167,7 @@ export default function LogsPage() {
   const serviceNames = (services.data ?? []).map((s) => s.service);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading />
 
       <FilterBar>
@@ -467,8 +467,8 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Logs</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability Logs</h1>
+      <p className="text-muted-foreground">
         Search structured logs across every Oblak service
       </p>
     </div>

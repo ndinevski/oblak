@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { Check, Copy, Plus, Trash2, Waypoints, Container, Server, Boxes } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,7 @@ export default function RoutesPage() {
 
   if (health.data && health.data.status === 'unavailable') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading onCreate={() => setCreating(true)} disabled />
         <VrataUnavailable />
       </div>
@@ -109,15 +110,13 @@ export default function RoutesPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading onCreate={() => setCreating(true)} />
 
       {routes.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Loading routes...
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -183,8 +182,8 @@ function Heading({ onCreate, disabled }: { onCreate: () => void; disabled?: bool
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Gateway Routes</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold">Vrata Routes</h1>
+        <p className="text-muted-foreground">
           Route traffic to containers and VMs through Vrata so it is traced and logged.
         </p>
       </div>

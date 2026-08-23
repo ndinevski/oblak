@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { KeyRound, Plus, Trash2, Copy, Check } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,11 +78,11 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold">API Keys</h1>
+          <p className="text-muted-foreground">
             Keys let the CLI and SDKs act as you. A key has exactly your access, no more.
             Send it as <code className="text-xs">Authorization: Bearer &lt;key&gt;</code> or{' '}
             <code className="text-xs">X-API-Key: &lt;key&gt;</code>.
@@ -93,11 +94,9 @@ export default function ApiKeysPage() {
       </div>
 
       {keys.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Loading...
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -240,7 +239,7 @@ function CreateKeyDialog({
             The key inherits your current access. You will see the secret only once.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="k-name">Name</Label>
             <Input

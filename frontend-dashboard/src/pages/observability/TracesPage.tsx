@@ -65,7 +65,7 @@ export default function TracesPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <TelemetryUnavailable configured={health.data.configured} error={health.data.error} />
       </div>
@@ -76,7 +76,7 @@ export default function TracesPage() {
   const total = traces.data?.total ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading />
 
       <FilterBar>
@@ -228,8 +228,8 @@ export default function TracesPage() {
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Traces</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability Traces</h1>
+      <p className="text-muted-foreground">
         End-to-end requests across the Oblak services
       </p>
     </div>

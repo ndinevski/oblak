@@ -121,7 +121,7 @@ export default function AlertsPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <TelemetryUnavailable configured={health.data.configured} error={health.data.error} />
       </div>
@@ -148,7 +148,7 @@ export default function AlertsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Heading />
         <div className="flex gap-2">
@@ -753,8 +753,8 @@ function RuleDialog({
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Alerts</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability Alerts</h1>
+      <p className="text-muted-foreground">
         Threshold rules evaluated against Oblak telemetry
       </p>
     </div>

@@ -155,6 +155,22 @@ Self-hosted photo and video management service powered by Immich, providing Goog
 
 📖 [Full Documentation](polaroid/README.md)
 
+### 🔑 Identitet - Access Control
+
+Identity and access control across the whole platform, built into the dashboard
+backend. One **root** account (set by `OBLAK_ROOT_EMAIL`) with full access, and
+**members** each granted per-service access.
+
+**Features:**
+- Root and member roles; root manages users and has full access
+- Per-service grants (none / read / write) enforced on every service proxy
+- Owner-isolation: a member sees only the resources it created; root sees all
+- Least-privilege signup: a new account has no access until root grants it
+- API keys for the CLI and SDKs, inheriting the owner's access
+- Self-service key management; root-only user management
+
+📖 [Full Documentation](docs/IDENTITET.md)
+
 ## Documentation
 
 - [Configuration Reference](docs/CONFIGURATION.md) — every setting, its default,
@@ -459,6 +475,10 @@ make build-impuls
 make build-spomen
 make build-izvor
 make build-pristaniste
+make build-tefter
+make build-vrata
+make build-indeks
+make build-red
 ```
 
 ## Service Endpoints
@@ -469,8 +489,15 @@ make build-pristaniste
 | Spomen API | 8081 | Object storage REST API |
 | Izvor API | 8082 | VM provisioning API |
 | Pristaniste API | 8083 | Container and image registry API |
-| Pristaniste Registry | 5000 | Docker image registry (push/pull target) |
+| Pristaniste Registry (Registar) | 5000 | Docker image registry (push/pull target) |
+| Tefter API | 8084 | Managed database service API |
+| Vrata API | 8085 | Gateway route-management API |
+| Vrata Proxy | 8090 | Gateway data plane (proxied workload traffic) |
+| Indeks API | 8086 | Key/value store API |
+| Red API | 8087 | Message queue API |
 | Polaroid (Immich) | 2283 | Photo & video management API |
+| Dashboard backend (Strapi) | 1337 | Dashboard API, including every service proxy |
+| Dashboard frontend | 5174 | Web console (dev server) |
 | MinIO S3 | 9000 | S3-compatible endpoint |
 | MinIO Console | 9001 | Web admin interface |
 | OTLP gRPC | 4317 | Telemetry ingest (services) |

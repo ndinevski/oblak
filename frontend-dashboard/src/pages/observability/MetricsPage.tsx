@@ -105,7 +105,7 @@ export default function MetricsPage() {
 
   if (health.data && (!health.data.configured || !health.data.reachable)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <TelemetryUnavailable configured={health.data.configured} error={health.data.error} />
       </div>
@@ -113,7 +113,7 @@ export default function MetricsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading />
 
       <FilterBar>
@@ -271,8 +271,8 @@ export default function MetricsPage() {
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Metrics</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Observability Metrics</h1>
+      <p className="text-muted-foreground">
         Application, host and container metrics from every Oblak service
       </p>
     </div>

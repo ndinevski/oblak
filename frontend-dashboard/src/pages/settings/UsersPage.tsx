@@ -8,6 +8,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { ShieldCheck, UserPlus, Trash2, Pencil } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,8 +80,8 @@ export default function UsersPage() {
   if (me && !me.isRoot) {
     return (
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold">Users</h1>
+        <p className="text-muted-foreground">
           Only the root account can manage users.
         </p>
       </div>
@@ -90,11 +91,11 @@ export default function UsersPage() {
   const list = users.data ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold">Users</h1>
+          <p className="text-muted-foreground">
             Create accounts and grant each one access to specific services. The root
             account is set by OBLAK_ROOT_EMAIL and has full access.
           </p>
@@ -105,11 +106,9 @@ export default function UsersPage() {
       </div>
 
       {users.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Loading...
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -333,7 +332,7 @@ function CreateUserDialog({
             any time.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="u-name">Username</Label>
@@ -411,7 +410,7 @@ function EditUserDialog({
           <DialogTitle>Edit {user?.username}</DialogTitle>
           <DialogDescription>{user?.email}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <label className="flex items-center justify-between gap-2 text-sm">
             <span>Blocked (cannot sign in)</span>
             <Switch checked={blocked} onCheckedChange={setBlocked} />

@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router-dom';
 import { Check, Copy, Database, GitBranch, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,7 +75,7 @@ export default function DatabasesPage() {
 
   if (health.data && health.data.status === 'unavailable') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading onCreate={() => setCreating(true)} disabled />
         <TefterUnavailable health={health.data} />
       </div>
@@ -114,15 +115,13 @@ export default function DatabasesPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading onCreate={() => setCreating(true)} />
 
       {instances.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Loading instances...
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -200,8 +199,8 @@ function Heading({ onCreate, disabled }: { onCreate: () => void; disabled?: bool
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Databases</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold">Tefter Databases</h1>
+        <p className="text-muted-foreground">
           Managed PostgreSQL and MySQL, with read replicas and backups.
         </p>
       </div>

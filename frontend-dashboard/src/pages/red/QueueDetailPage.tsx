@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Inbox, RotateCcw, Save, Send, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,14 +81,14 @@ export default function QueueDetailPage() {
 
   if (queue.isLoading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">Loading {name}...</CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
     );
   }
   if (queue.isError || !queue.data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <BackLink onBack={() => navigate('/queues')} />
         <RedUnavailable />
       </div>
@@ -97,14 +98,14 @@ export default function QueueDetailPage() {
   const q = queue.data;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <BackLink onBack={() => navigate('/queues')} />
 
       <div className="flex items-center gap-3">
         <Inbox className="h-6 w-6 text-muted-foreground" />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{q.name}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold">{q.name}</h1>
+          <p className="text-muted-foreground">
             {q.visible_messages} visible · {q.in_flight_messages} in flight · visibility{' '}
             {formatDuration(q.visibility_timeout_seconds)}
           </p>

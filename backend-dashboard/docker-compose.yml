@@ -50,6 +50,12 @@ services:
       IMPULS_URL: ${IMPULS_URL:-http://impuls:8080}
       IZVOR_URL: ${IZVOR_URL:-http://izvor:8082}
       SPOMEN_URL: ${SPOMEN_URL:-http://spomen:8081}
+      PRISTANISTE_URL: ${PRISTANISTE_URL:-http://pristaniste-api:8083}
+      TEFTER_URL: ${TEFTER_URL:-http://tefter-api:8084}
+      VRATA_URL: ${VRATA_URL:-http://vrata:8085}
+      INDEKS_URL: ${INDEKS_URL:-http://indeks:8086}
+      RED_URL: ${RED_URL:-http://red:8087}
+      OBLAK_ROOT_EMAIL: ${OBLAK_ROOT_EMAIL:-}
     depends_on:
       dashboard-db:
         condition: service_healthy

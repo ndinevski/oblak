@@ -100,6 +100,10 @@ and the backing data stores. See `observability/README.md`.
 │ MicroVMs ││ Cluster  ││Storage ││+ reg ││ in     ││ proxy  ││ + ML +   │
 │          ││          ││        ││istry ││ Docker ││        ││ Redis/PG │
 └──────────┘└──────────┘└────────┘└──────┘└────────┘└────────┘└──────────┘
+   ┌──────────────┐  ┌──────────────┐
+   │ Indeks :8086 │  │  Red :8087   │   (embedded bbolt; DynamoDB / SQS shaped)
+   │ key/value    │  │ message queue│
+   └──────────────┘  └──────────────┘
        │          │          │      │      │          │          │
        └──────────┴──────────┴──────┴──────┴──────────┴──────────┘
                                    │  OTLP (traces, logs, metrics)
@@ -1959,16 +1963,29 @@ All endpoints are prefixed with `/api`.
 
 ### 8.2 Authorization Rules
 
-#### Role-Based Access Control
+Access control is implemented as **Identitet** (see [docs/IDENTITET.md](docs/IDENTITET.md)).
+
+#### Roles and grants
 
 | Role | Description | Permissions |
 |------|-------------|-------------|
-| **Authenticated** | Standard user | CRUD own resources |
-| **Admin** | Administrator | Full access + user management |
+| **Root** | The account matching `OBLAK_ROOT_EMAIL` | Full access to every service, and the only account that can manage users |
+| **Member** | Every other account | Per-service grant of `none` / `read` / `write`; sees only the resources it created (owner-isolation). A self-signup starts with no access. |
+
+Grants are per service (functions, vms, storage, photos, containers, databases,
+keyvalue, queues, gateway, observability). Enforcement is a service-level gate
+plus owner-isolation in every proxy controller, with root bypassing both.
+
+#### API keys
+
+The CLI and SDKs authenticate with API keys (`oblak_<id>_<secret>`) sent as
+`Authorization: Bearer` or `X-API-Key`. A key authenticates as its owner and
+inherits the owner's access. Managed under `/api/identitet/keys`.
 
 #### Resource Ownership
 
-All resources (functions, VMs, buckets) are scoped to their owner:
+All resources (functions, VMs, buckets, and the platform-service resources of
+Pristaniste, Tefter, Indeks and Red) are scoped to their owner:
 
 ```typescript
 // Strapi policy: is-owner.ts

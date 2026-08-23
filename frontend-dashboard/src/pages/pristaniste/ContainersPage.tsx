@@ -84,7 +84,7 @@ export default function ContainersPage() {
 
   if (health.data && health.data.status === 'unavailable') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading />
         <PristanisteUnavailable health={health.data} />
       </div>
@@ -124,7 +124,7 @@ export default function ContainersPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Heading />
         <div className="flex gap-2">
@@ -524,8 +524,8 @@ function LogsDialog({ container, onClose }: { container: PristanisteContainer; o
 function Heading() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Containers</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-bold">Pristaniste Containers</h1>
+      <p className="text-muted-foreground">
         Workloads running from images in your registry
       </p>
     </div>

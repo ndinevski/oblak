@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router-dom';
 import { Inbox, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,7 +64,7 @@ export default function QueuesPage() {
 
   if (health.data && health.data.status === 'unavailable') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Heading onCreate={() => setCreating(true)} disabled />
         <RedUnavailable />
       </div>
@@ -89,13 +90,13 @@ export default function QueuesPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Heading onCreate={() => setCreating(true)} />
 
       {queues.isLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">Loading queues...</CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -200,8 +201,8 @@ function Heading({ onCreate, disabled }: { onCreate: () => void; disabled?: bool
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Message Queues</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold">Red Queues</h1>
+        <p className="text-muted-foreground">
           SQS-style queues with at-least-once delivery, visibility timeouts and dead-letter queues.
         </p>
       </div>

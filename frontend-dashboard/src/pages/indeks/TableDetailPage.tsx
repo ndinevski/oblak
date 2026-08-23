@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate, useParams } from 'react-router-dom';
 import { KeyRound, Plus, RotateCcw, Save, Search, Table2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,16 +80,14 @@ export default function TableDetailPage() {
 
   if (table.isLoading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading {name}...
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
     );
   }
   if (table.isError || !table.data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <BackLink onBack={() => navigate('/keyvalue')} />
         <IndeksUnavailable />
       </div>
@@ -98,13 +97,13 @@ export default function TableDetailPage() {
   const t = table.data;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <BackLink onBack={() => navigate('/keyvalue')} />
 
       <div className="flex items-center gap-3">
         <Table2 className="h-6 w-6 text-muted-foreground" />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t.name}</h1>
+          <h1 className="text-2xl font-bold">{t.name}</h1>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <KeyRound className="h-3.5 w-3.5" />
             {keySchemaSummary(t.keys)}

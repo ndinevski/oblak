@@ -42,7 +42,7 @@ export default function TraceDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <BackLink />
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
@@ -52,7 +52,7 @@ export default function TraceDetailPage() {
 
   if (error || !spans.length) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <BackLink />
         <Card>
           <CardContent>
@@ -69,11 +69,11 @@ export default function TraceDetailPage() {
   const root = laidOut[0]?.span;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <BackLink />
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{root?.name}</h1>
+        <h1 className="text-2xl font-bold">{root?.name}</h1>
         <p className="font-mono text-xs text-muted-foreground">{traceId}</p>
       </div>
 

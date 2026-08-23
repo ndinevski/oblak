@@ -8,14 +8,29 @@ http://localhost:1337/api
 
 ## Authentication
 
-All API endpoints (except auth) require authentication using JWT tokens.
+All API endpoints (except auth) require authentication, either as a signed-in
+user (JWT) or with an API key.
 
 ### Headers
 
 ```
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <jwt_token>       # dashboard session
 Content-Type: application/json
 ```
+
+### API keys (CLI and SDKs)
+
+An API key authenticates as its owner and inherits exactly the owner's access.
+Send it as either header:
+
+```
+Authorization: Bearer oblak_<keyId>_<secret>
+X-API-Key: oblak_<keyId>_<secret>
+```
+
+Manage keys under `/api/identitet/keys` (see Access Control below). Access is
+governed by the caller's per-service grants and resource ownership; see
+[Access Control (Identitet)](IDENTITET.md).
 
 ---
 
@@ -892,6 +907,45 @@ GET    /red/backups                   # List all backups
 DELETE /red/backups/:id               # Delete a backup
 POST   /red/backups/restore           # Restore { backup_id, target_queue?, confirm }
 ```
+
+---
+
+## Access Control (Identitet) Endpoints
+
+Identitet is the access-control layer. Every account is either `root` (full
+access, set by `OBLAK_ROOT_EMAIL`) or a `member` scoped by per-service grants.
+See [Access Control (Identitet)](IDENTITET.md) for the model.
+
+### Current user and catalogue
+
+```http
+GET /identitet/me                     # Current user's role and effective grants (any user)
+GET /identitet/services               # Service catalogue and access levels (root)
+```
+
+### Users (root only)
+
+```http
+GET    /identitet/users               # List all users
+POST   /identitet/users               # Create a member { username, email, password, grants?, organization? }
+PUT    /identitet/users/:id           # Update grants and/or blocked { grants?, blocked? }
+DELETE /identitet/users/:id           # Delete a member
+```
+
+A grants map is `{ <service>: "none" | "read" | "write" }` over the services in
+`/identitet/services`. The root account is defined by the environment and cannot
+be edited or deleted here.
+
+### API keys (self-service)
+
+```http
+GET    /identitet/keys                # List your keys (root: ?all=true for everyone's)
+POST   /identitet/keys                # Create { name, expiresInDays? } -> returns the secret ONCE
+DELETE /identitet/keys/:id            # Revoke a key (your own; root: any)
+```
+
+The full key is returned only on creation; only a hash is stored. A key
+inherits its owner's access.
 
 ---
 

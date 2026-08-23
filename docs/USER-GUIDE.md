@@ -583,6 +583,13 @@ unblock them, and delete them. Members see only the services they are granted
 and only the resources they create; you see everything. Full details are in
 [Access Control (Identitet)](IDENTITET.md).
 
+### API Keys
+
+Every signed-in user has an **API Keys** entry under Settings. Create a key to
+use the CLI or an SDK without your password: the key acts as you and has exactly
+your access. The secret is shown only once, at creation. Send it as
+`Authorization: Bearer <key>` or `X-API-Key: <key>`, and revoke it any time.
+
 ---
 
 ## FAQ
